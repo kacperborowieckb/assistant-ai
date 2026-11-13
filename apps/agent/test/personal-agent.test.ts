@@ -9,16 +9,20 @@ import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 const ownerA = OwnerIdSchema.make("owner-a");
 const ownerB = OwnerIdSchema.make("owner-b");
 
+const sampleTable = Effect.gen(function* sampleTableEffect() {
+  const { sql } = yield* AgentStorage;
+  sql.exec("CREATE TABLE IF NOT EXISTS sample (text TEXT NOT NULL)");
+  return sql;
+});
+
 const storeNote = (text: string) =>
   Effect.gen(function* storeNoteEffect() {
-    const { sql } = yield* AgentStorage;
-    sql.exec("CREATE TABLE IF NOT EXISTS sample (text TEXT NOT NULL)");
+    const sql = yield* sampleTable;
     sql.exec("INSERT INTO sample (text) VALUES (?)", text);
   });
 
 const readNotes = Effect.gen(function* readNotesEffect() {
-  const { sql } = yield* AgentStorage;
-  sql.exec("CREATE TABLE IF NOT EXISTS sample (text TEXT NOT NULL)");
+  const sql = yield* sampleTable;
   return sql
     .exec<{ text: string }>("SELECT text FROM sample")
     .toArray()

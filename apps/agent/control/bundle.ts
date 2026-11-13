@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import nodePath from "node:path";
 import { gzipSync } from "node:zlib";
 
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import { runWranglerQuietly } from "./wrangler.ts";
 
@@ -27,14 +27,18 @@ export const bundleTargets: readonly BundleTarget[] = [
 export const workerSizeLimitBytes = 64 * 1024 * 1024;
 export const startupLimitMs = 1000;
 
-interface CpuProfile {
-  readonly nodes: readonly {
-    readonly id: number;
-    readonly callFrame: { readonly functionName: string };
-  }[];
-  readonly samples: readonly number[];
-  readonly timeDeltas: readonly number[];
-}
+const CpuProfile = Schema.fromJsonString(
+  Schema.Struct({
+    nodes: Schema.Array(
+      Schema.Struct({
+        id: Schema.Number,
+        callFrame: Schema.Struct({ functionName: Schema.String }),
+      })
+    ),
+    samples: Schema.Array(Schema.Number),
+    timeDeltas: Schema.Array(Schema.Number),
+  })
+);
 
 const readUploadedModules = async (bundlePath: string) => {
   const bytes = readFileSync(bundlePath);
@@ -57,7 +61,9 @@ const measureSize = async (bundlePath: string) => {
 };
 
 const activeStartupMs = (profilePath: string) => {
-  const profile = JSON.parse(readFileSync(profilePath, "utf-8")) as CpuProfile;
+  const profile = Schema.decodeUnknownSync(CpuProfile)(
+    readFileSync(profilePath, "utf-8")
+  );
   const idleNodes = new Set(
     profile.nodes
       .filter((node) => node.callFrame.functionName === "(idle)")
