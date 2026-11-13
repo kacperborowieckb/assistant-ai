@@ -1,15 +1,4 @@
-# Project instructions
-
-- Write in ASD-STE100 Simplified Technical English. Use plain hyphens instead of em dashes.
-- Start explanations and comparisons with a concise answer. Add a small example when useful.
-- Read applicable CONTEXT.md files and use their ubiquitous language.
-- Prefer quality, simplicity, robustness, scalability, and long-term maintainability when you make technical decisions. Give development cost little weight.
-- Use names, types, and small functions to explain code. Write no code comments or docstrings, except directives that tools read. Keep existing comments unless a change makes them wrong. Put change reasons in commit messages or PR descriptions.
-- Verify changes in proportion to their impact and risk. Report checks run, checks omitted, and failures that the change did not cause. Fix unrelated failures only if they block the task or the owner asks.
-- Fetch third-party documentation and component examples directly.
-- Use the harness question tool when the owner must make a decision or take action. Put the recommended option first.
-
-## Task map
+# Agent task map
 
 - Setup, verification, PRs, and issue triage: [CONTRIBUTING.md](CONTRIBUTING.md). Run `pnpm verify` before handoff; CI and local Git hooks use the same command.
 - Toolchain changes: [workspace tooling decision](docs/decisions/0001-workspace-tooling.md) and `.agents/skills/turborepo/SKILL.md`.
