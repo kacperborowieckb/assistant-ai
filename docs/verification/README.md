@@ -24,6 +24,6 @@ The owner decides product behavior, authorizes protected actions, and reviews th
 
 The structural check proves that required records exist and link to current files. It cannot prove that a guide is accurate or that a workspace's verification script covers its behavior. Those remain implementation and review duties.
 
-## GitHub Actions availability
+## Required check
 
-GitHub Actions is currently limited by the owner's account allowance. Run local verification and include its evidence. Keep the workflow file, but do not require or wait for a hosted check while the limit applies. When the owner restores Actions, confirm a real run on `main` before making that check required.
+`main` requires a pull request and a passing `Verify` check. Run local verification and include its evidence in the PR. If GitHub Actions minutes run out, merges block until the owner restores them. Do not bypass or remove the rule to merge.

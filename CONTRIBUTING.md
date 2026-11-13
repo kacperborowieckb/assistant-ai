@@ -22,7 +22,7 @@ Add a short decision record for a choice that affects several PRs. Include the d
 
 Use the PR template. State the problem, resulting behavior, risk, reversibility, verification results, and cleanup work. Report checks you did not run and failures the change did not cause. Test expectation changes must follow the intended behavior and have an explanation.
 
-The owner controls publishing, releases, and merging. This setup has no automatic merge or ship process.
+Changes reach `main` only through a pull request with a passing `Verify` check. The owner controls publishing, releases, and merging. This setup has no automatic merge or ship process.
 
 ## Friction, cleanup, and priorities
 
