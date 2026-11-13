@@ -20,10 +20,10 @@ For applications with routes, generate a Feature Map from the framework's route 
 
 The implementing agent updates affected catalog entries, decision links, verification guides, and generated maps with the code. It runs `pnpm verify` plus the relevant control CLI proof, and reports commands, results, and checks omitted in the PR. A generic successful health check does not prove a changed feature.
 
-The owner decides product behavior, authorizes protected actions, and reviews the evidence. Routine catalog and guide updates belong to the agent. No background agent maintains them automatically in this local-foundation setup.
+The repository owner decides product behavior, authorizes protected actions, and reviews the evidence. Routine catalog and guide updates belong to the agent. No background agent maintains them automatically in this local-foundation setup.
 
 The structural check proves that required records exist and link to current files. It cannot prove that a guide is accurate or that a workspace's verification script covers its behavior. Those remain implementation and review duties.
 
 ## Required check
 
-`main` requires a pull request and a passing `Verify` check. Run local verification and include its evidence in the PR. If GitHub Actions minutes run out, merges block until the owner restores them. Do not bypass or remove the rule to merge.
+`main` requires a pull request and a passing `Verify` check. Run local verification and include its evidence in the PR. If GitHub Actions minutes run out, merges block until the repository owner restores them. Do not bypass or remove the rule to merge.
