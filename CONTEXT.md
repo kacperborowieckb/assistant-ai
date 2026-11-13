@@ -60,4 +60,4 @@ Use these terms with these meanings in code, docs, issues, and prompts. Use the 
 ## Model
 
 - **Model Gateway**: the one interface to all model providers. It picks the model for a task and the credentials for the Owner.
-- **Model Credentials**: the provider key for one Owner. A self-host Instance uses the Operator's own key. The hosted product uses the platform key and bills the Usage.
+- **Model Credentials**: what the Model Gateway uses to call models for one Owner: the AI Gateway token and the billing mode. A self-host Instance uses Unified Billing with the Operator's Cloudflare credits by default, or the Operator's own provider key (BYOK). The hosted product uses the platform's credits and bills the Usage.

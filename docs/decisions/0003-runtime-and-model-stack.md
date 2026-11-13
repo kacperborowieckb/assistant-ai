@@ -2,6 +2,8 @@
 
 Status: accepted
 
+Partly superseded: [0005](0005-model-transport-and-billing.md) replaces the Model Credentials paragraph.
+
 Date: 2026-11-13
 
 ## Decision

@@ -8,6 +8,8 @@ Capture, Recall, and a proactive Brief through Telegram, for one Owner on a self
 
 The MVP proves one thing: an Owner uses the agent every day because it remembers for them and comes to them first.
 
+The MVP limits scope, not quality (vision principle 9). Each part in scope is built in its long-term form. "Out of scope" means "not built yet", not "built in a simpler form".
+
 ## User journeys
 
 1. **Set up.** The Operator clones the repository, runs one setup command, deploys to Cloudflare, and gets a Telegram reply in less than 10 minutes.
@@ -31,7 +33,7 @@ The MVP proves one thing: an Owner uses the agent every day because it remembers
 - Proactivity: Quiet Hours, a daily message Budget, a token Budget for background work, merged messages, Outcome records, and "less of this" preferences.
 - Inbox behavior: Acknowledge within about 1 second, merged bursts, Owner messages first, and dropped duplicate webhook retries.
 - Behavior Config: typed defaults for each Instance, overridden by Owner Preferences.
-- Model Gateway: the provider behind one interface, with the Operator's own key.
+- Model Gateway: the providers behind one interface, through Cloudflare AI Gateway, with Unified Billing by default and BYOK as an option ([0005](../decisions/0005-model-transport-and-billing.md)).
 - Usage metering for each Owner.
 - Reliability base: a Trace for every Turn and a starter Eval set measured as pass^k.
 - Setup: `packages/create-assistant`, one command that creates resources, writes config, and asks for secrets, plus a "Deploy to Cloudflare" button.
@@ -72,4 +74,3 @@ The MVP is done when all of these are true:
 - The default values for Quiet Hours, the message Budget, and the token Budget.
 - The value of k for pass^k, and how many runs a release needs.
 - The format of the Brief.
-- How the Directory is stored: one dedicated Durable Object or D1. To decide during implementation, behind the Directory interface.
