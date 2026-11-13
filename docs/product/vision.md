@@ -31,7 +31,7 @@ For the Owner:
 For the Operator:
 
 - From `git clone` to the first Telegram reply in less than 10 minutes.
-- The Cloudflare free plan covers the infrastructure for one Owner. The only real cost is the model, with the Operator's own key.
+- The Cloudflare free plan covers the infrastructure for one Owner. The only real cost is the model, paid by the Operator.
 - A fork can change behavior, add a Channel, or add a Skill without changes to the core.
 
 For the future hosted business:
@@ -49,6 +49,7 @@ For the future hosted business:
 6. **Few general primitives, not many features.** Channel, Event, Schedule, Document, Skill, and Journal, plus one Behavior Config. Build as little as possible, because each new model makes some of the harness unnecessary.
 7. **Multi-owner by design, single-owner by configuration.** Every operation runs for one Owner. Self-hosting is the hosted product with one Owner and closed Registration.
 8. **Reliability from the first version.** Every Turn has a Trace. Every failure becomes an Eval.
+9. **The MVP limits scope, not quality.** The MVP builds fewer features. It does not take short paths. Each part it builds uses the design that the long-term product needs (many Owners, the hosted product, the mobile app). When the MVP choice and the long-term choice differ, use the long-term choice. A temporary solution is not permitted unless a decision record names it, gives the reason, and states when it is replaced.
 
 ## Direction (after the MVP)
 
