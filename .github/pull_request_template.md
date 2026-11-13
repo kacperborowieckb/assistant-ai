@@ -8,7 +8,7 @@ Explain why this change is needed.
 
 ## Door
 
-State whether this change is reversible or needs an owner decision. Link the approval for an action that requires it.
+State whether this change is reversible or needs a repository owner decision. Link the approval for an action that requires it.
 
 ## Cleanup
 

@@ -10,4 +10,4 @@ The agent that adds or reshapes a primitive updates the catalog in the same chan
 
 `pnpm verify` checks required fields, duplicate IDs, existing paths, current decision links, and workspace coverage. It cannot judge whether a purpose describes the code correctly. Agents must check that during implementation and review.
 
-The product sketch proposes Channel, Event, Schedule, Document, Skill, and Journal. These are candidate concepts, not catalog entries or implemented interfaces. Add entries when their implementations exist.
+The [architecture](../product/architecture.md) defines Channel, Event, Schedule, Document, Skill, and Journal, and [CONTEXT.md](../../CONTEXT.md) defines their terms. These are planned concepts, not catalog entries or implemented interfaces. Add entries when their implementations exist.
