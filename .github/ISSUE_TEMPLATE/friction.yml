@@ -1,0 +1,55 @@
+name: Friction
+description: Report a recurring, reproducible problem in this repository.
+title: "Friction: "
+labels:
+  - friction
+body:
+  - type: markdown
+    attributes:
+      value: Search existing issues first. Keep secrets and personal data out of this form.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened
+      description: Describe one recurring problem and its expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: Give the steps, relevant files or commands, and observed results.
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Explain the lost time, repeated work, or incorrect result.
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - "P0: Current blocker"
+        - "P1: Address this week"
+        - "P2: After higher priorities"
+        - "P3: With related work"
+    validations:
+      required: true
+  - type: dropdown
+    id: decision
+    attributes:
+      label: Owner decision
+      options:
+        - "No owner decision needed"
+        - "needs-decision: State the question below"
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Decision question
+      description: If needed, state the choice the owner must make before work can proceed.
