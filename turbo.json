@@ -1,4 +1,9 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
-  "tasks": {}
+  "tasks": {
+    "verify": {
+      "dependsOn": ["^verify"],
+      "outputs": []
+    }
+  }
 }

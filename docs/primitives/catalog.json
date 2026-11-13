@@ -1,3 +1,51 @@
 {
-  "primitives": []
+  "primitives": [
+    {
+      "id": "agent-worker",
+      "purpose": "The Cloudflare Worker entry of apps/agent. It exports the Edge fetch handler and the Durable Object classes.",
+      "roots": [
+        "apps/agent/src/index.ts",
+        "apps/agent/src/edge",
+        "apps/agent/wrangler.jsonc"
+      ],
+      "adrs": [
+        "docs/decisions/0001-repository-foundation.md",
+        "docs/decisions/0003-runtime-and-model-stack.md",
+        "docs/decisions/0006-directory-store.md"
+      ]
+    },
+    {
+      "id": "personal-agent",
+      "purpose": "One Durable Object for each Owner, built on the pinned Agents SDK. personalAgentFor finds it by Owner Id. Each object builds one Effect runtime that gives its SQLite storage as the AgentStorage service.",
+      "roots": ["apps/agent/src/personal-agent"],
+      "adrs": [
+        "docs/decisions/0003-runtime-and-model-stack.md",
+        "docs/decisions/0004-owners-and-channels.md"
+      ]
+    },
+    {
+      "id": "owner-id",
+      "purpose": "The branded Owner Id schema. Every Owner-scoped resource uses it as its key.",
+      "roots": ["apps/agent/src/owner-id.ts"],
+      "adrs": ["docs/decisions/0004-owners-and-channels.md"]
+    },
+    {
+      "id": "agent-bundle-probe",
+      "purpose": "A Worker entry that adds the AI SDK and Effect Schema to the real Worker, so the bundle command measures the full agreed stack before the Turn uses it.",
+      "roots": ["apps/agent/bundle"],
+      "adrs": [
+        "docs/decisions/0003-runtime-and-model-stack.md",
+        "docs/decisions/0005-model-transport-and-billing.md"
+      ]
+    },
+    {
+      "id": "agent-control-cli",
+      "purpose": "The control CLI of apps/agent: doctor checks configuration and secret names, dev runs the Worker locally, and bundle measures bundle size and local startup CPU.",
+      "roots": ["apps/agent/control"],
+      "adrs": [
+        "docs/decisions/0001-repository-foundation.md",
+        "docs/decisions/0002-agent-authority.md"
+      ]
+    }
+  ]
 }

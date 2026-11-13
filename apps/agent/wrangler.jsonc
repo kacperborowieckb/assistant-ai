@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "assistant-agent",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-13",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [{ "name": "PERSONAL_AGENT", "class_name": "PersonalAgent" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PersonalAgent"] }],
+  "d1_databases": [
+    { "binding": "DIRECTORY", "database_name": "assistant-directory" },
+  ],
+  "secrets": {
+    "required": [
+      "TELEGRAM_BOT_TOKEN",
+      "TELEGRAM_WEBHOOK_SECRET",
+      "AI_GATEWAY_TOKEN",
+    ],
+  },
+}

@@ -6,15 +6,15 @@ Use Node.js 24.15.0 or later and the pnpm version in `package.json`.
 
 Run `pnpm install --frozen-lockfile`. The prepare script installs Lefthook commit and push hooks in a Git checkout.
 
-Run `pnpm verify` before you finish a change. The local hooks and GitHub CI run the same command. It checks lint and formatting across the workspace. Run `pnpm fix` to apply automatic fixes, then verify again.
+Run `pnpm verify` before you finish a change. The local hooks and GitHub CI run the same command. It checks lint and formatting across the repository. Run `pnpm fix` to apply automatic fixes, then verify again.
 
-The workspace has no application code. The gate also checks the [primitives catalog](docs/primitives/README.md) and [verification targets](docs/verification/README.md), then runs workspace verification scripts. Add type checks, behavior tests, and dead-code checks when the first apps and packages give them a target. Keep the local and CI verification commands the same.
+The gate also checks the [primitives catalog](docs/primitives/README.md) and [verification targets](docs/verification/README.md). Then Turborepo runs the `verify` script of each workspace that the branch changed (`turbo run verify --affected`). Each workspace guide in `docs/verification` names its checks. Keep the local and CI verification commands the same.
 
 For tool configuration problems, run `pnpm exec ultracite doctor`.
 
 ## Scope and decisions
 
-Keep `apps/` and `packages/` empty until application work starts. Read [repository foundation](docs/decisions/0001-repository-foundation.md) before changing the toolchain and [agent authority](docs/decisions/0002-agent-authority.md) before taking an external action.
+Create each workspace only at its stage, as [repository foundation](docs/decisions/0001-repository-foundation.md) describes. Read [repository foundation](docs/decisions/0001-repository-foundation.md) before changing the toolchain and [agent authority](docs/decisions/0002-agent-authority.md) before taking an external action.
 
 Add a short decision record for a choice that affects several PRs. Include the decision, reason, and a concrete condition for review. Supersede accepted records instead of changing their history.
 
