@@ -228,4 +228,37 @@ describe("Exactly one reply", () => {
     );
     expect(fakeTelegram.sent).toHaveLength(1);
   });
+
+  it("schedules a Turn for a stranded Event when Telegram sends its update again", async () => {
+    const ownerId = await addOwner(6008);
+    const update = textUpdate({ fromUserId: 6008, text: "stranded" });
+    const agent = await personalAgentFor(
+      env.PERSONAL_AGENT,
+      OwnerIdSchema.make(ownerId)
+    );
+    await runInDurableObject(agent, (instance) =>
+      instance.runtime.runPromise(
+        Inbox.pipe(
+          Effect.flatMap((inbox) =>
+            inbox.store({
+              channel: "telegram",
+              channelUpdateId: String(update.update_id),
+              conversationId: "6008",
+              channelMessageId: String(update.message.message_id),
+              text: "stranded",
+              sentAt: new Date().toISOString(),
+            })
+          )
+        )
+      )
+    );
+    expect(await stateOfOnlyEvent(ownerId)).toBe("pending");
+
+    await telegramWebhook(update);
+
+    await vi.waitFor(async () =>
+      expect(await stateOfOnlyEvent(ownerId)).toBe("done")
+    );
+    expect(fakeTelegram.sent).toHaveLength(1);
+  });
 });
