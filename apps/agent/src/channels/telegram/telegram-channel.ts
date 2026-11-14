@@ -32,15 +32,22 @@ const cutPosition = (text: string) => {
   return splitsSurrogatePair ? cut - 1 : cut;
 };
 
-export const telegramParts = (text: string): readonly string[] => {
+const splitAtLimit = (text: string): readonly string[] => {
   if (text.length <= telegramTextLimit) {
     return [text];
   }
   const cut = cutPosition(text);
   return [
     text.slice(0, cut).trimEnd(),
-    ...telegramParts(text.slice(cut).trimStart()),
+    ...splitAtLimit(text.slice(cut).trimStart()),
   ];
+};
+
+const hasText = (part: string) => part.trim().length > 0;
+
+export const telegramParts = (text: string): readonly [string, ...string[]] => {
+  const [first = text, ...rest] = splitAtLimit(text).filter(hasText);
+  return [first, ...rest];
 };
 
 const sendMessageRequest = (config: TelegramConfig, reply: OutgoingReply) =>
@@ -89,17 +96,18 @@ const sendPart = (config: TelegramConfig, reply: OutgoingReply) =>
 const send = (config: TelegramConfig) => (reply: OutgoingReply) =>
   Effect.gen(function* sendEffect() {
     const parts = telegramParts(reply.text);
-    let delivery: Delivery = failed("The reply has no parts");
-    for (const [index, text] of parts.entries()) {
-      delivery = yield* sendPart(config, { ...reply, text });
-      if (delivery._tag === "Failed" && parts.length > 1) {
-        return failed(
-          `Part ${index + 1} of ${parts.length}: ${delivery.reason}`
-        );
-      }
+    const [first, ...rest] = parts;
+    let delivery = yield* sendPart(config, { ...reply, text: first });
+    let sentParts = 1;
+    for (const text of rest) {
       if (delivery._tag === "Failed") {
-        return delivery;
+        break;
       }
+      delivery = yield* sendPart(config, { ...reply, text });
+      sentParts += 1;
+    }
+    if (delivery._tag === "Failed" && parts.length > 1) {
+      return failed(`Part ${sentParts} of ${parts.length}: ${delivery.reason}`);
     }
     return delivery;
   });

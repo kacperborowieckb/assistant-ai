@@ -58,6 +58,17 @@ describe("Telegram message parts", () => {
     expect(parts.join(" ")).toBe(words.join(" "));
   });
 
+  it("never makes an empty or blank part", () => {
+    const full = "a".repeat(telegramTextLimit);
+
+    expect(telegramParts(`${full} `)).toEqual([full]);
+    expect(telegramParts(`${full}${" ".repeat(20)}\n `)).toEqual([full]);
+    expect(telegramParts(`  ${"b".repeat(telegramTextLimit + 5)}`)).toEqual([
+      "b".repeat(telegramTextLimit),
+      "b".repeat(5),
+    ]);
+  });
+
   it("cuts text without spaces at the limit and keeps emoji whole", () => {
     const text = `${"a".repeat(telegramTextLimit - 1)}😀${"b".repeat(10)}`;
     const parts = telegramParts(text);
