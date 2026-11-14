@@ -14,7 +14,6 @@ export interface AiGatewayConfig {
 
 export interface ModelCredentials {
   readonly token: string;
-  readonly billing: "unified-billing";
 }
 
 export const aiGatewayHeaders = (gatewayId: string, ownerId: OwnerId) => ({

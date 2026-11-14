@@ -11,6 +11,11 @@ import {
 import { runLocalWorker } from "./dev.ts";
 import { diagnose, isHealthy, renderDiagnosis } from "./doctor.ts";
 import {
+  featureMapIsCurrent,
+  featureMapPath,
+  writeFeatureMap,
+} from "./feature-map.ts";
+import {
   addOwner,
   localWorkerUrl,
   operatorToken,
@@ -111,9 +116,38 @@ const bundle = Command.make("bundle", {}, () =>
   )
 );
 
+const map = Command.make(
+  "map",
+  {
+    check: Flag.Boolean("check").pipe(
+      Flag.withDescription("Fail when the Feature Map is out of date"),
+      Flag.withDefault(false)
+    ),
+  },
+  ({ check }) =>
+    Effect.gen(function* mapCommand() {
+      if (!check) {
+        yield* Effect.sync(writeFeatureMap);
+        yield* Console.log(`Wrote ${featureMapPath}`);
+        return;
+      }
+      const current = yield* Effect.sync(featureMapIsCurrent);
+      yield* Console.log(
+        current
+          ? "The Feature Map is current."
+          : "The Feature Map is out of date. Run pnpm control map."
+      );
+      yield* exitWithFailureWhen(!current);
+    })
+).pipe(
+  Command.withDescription(
+    "Generate the Feature Map of the Edge routes in docs/verification/agent-feature-map.md, or check it with --check."
+  )
+);
+
 const control = Command.make("control").pipe(
   Command.withDescription("Control CLI for apps/agent"),
-  Command.withSubcommands([doctor, dev, owner, request, bundle])
+  Command.withSubcommands([doctor, dev, owner, request, map, bundle])
 );
 
 Command.run(control, { version: "0.0.0" }).pipe(

@@ -2,26 +2,27 @@ import { Effect } from "effect";
 
 import { Directory } from "../directory/directory.ts";
 import { handleAddOwner } from "./operator-routes.ts";
+import type { EdgeRouteKey } from "./routes.ts";
 import { handleTelegramUpdate } from "./telegram-webhook.ts";
 
-const telegramWebhookPath = "/telegram/webhook";
-const operatorOwnersPath = "/operator/owners";
-
-const routes: Record<
-  string,
+const handlers: Record<
+  EdgeRouteKey,
   (request: Request, env: Env) => Effect.Effect<Response, unknown, Directory>
 > = {
-  [`POST ${telegramWebhookPath}`]: handleTelegramUpdate,
-  [`POST ${operatorOwnersPath}`]: handleAddOwner,
+  "POST /telegram/webhook": handleTelegramUpdate,
+  "POST /operator/owners": handleAddOwner,
 };
 
+const isRouteKey = (key: string): key is EdgeRouteKey =>
+  Object.hasOwn(handlers, key);
+
 const handleRequest: ExportedHandlerFetchHandler<Env> = (request, env) => {
-  const route = routes[`${request.method} ${new URL(request.url).pathname}`];
-  if (route === undefined) {
+  const key = `${request.method} ${new URL(request.url).pathname}`;
+  if (!isRouteKey(key)) {
     return new Response("Not Found", { status: 404 });
   }
   return Effect.runPromise(
-    route(request, env).pipe(
+    handlers[key](request, env).pipe(
       Effect.provide(Directory.layer(env.DIRECTORY)),
       Effect.catchCause((cause) =>
         Effect.as(

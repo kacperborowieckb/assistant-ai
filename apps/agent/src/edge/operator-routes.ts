@@ -2,17 +2,9 @@ import { Effect, Schema } from "effect";
 
 import { telegramIdentity } from "../directory/channel-identity.ts";
 import { Directory } from "../directory/directory.ts";
+import { AddOwnerRequestSchema } from "./operator-contract.ts";
+import type { AddOwnerResponse } from "./operator-contract.ts";
 import { bearerToken, matchesSecret } from "./secret.ts";
-
-export const AddOwnerRequestSchema = Schema.Struct({
-  telegramUserId: Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))),
-});
-
-export const AddOwnerResponseSchema = Schema.Struct({
-  ownerId: Schema.String,
-  channelIdentity: Schema.String,
-  registration: Schema.Literals(["open", "closed"]),
-});
 
 const json = (status: number, body: unknown) => Response.json(body, { status });
 
@@ -36,7 +28,11 @@ export const handleAddOwner = (request: Request, env: Env) =>
       Effect.flatMap((ownerId) =>
         directory.registrationState.pipe(
           Effect.map((registration) =>
-            json(201, { ownerId, channelIdentity, registration })
+            json(201, {
+              ownerId,
+              channelIdentity,
+              registration,
+            } satisfies AddOwnerResponse)
           )
         )
       ),

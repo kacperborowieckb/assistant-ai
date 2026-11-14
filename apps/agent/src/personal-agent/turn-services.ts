@@ -59,7 +59,7 @@ export const liveTurnServices = (env: Env, ownerId: OwnerId) =>
                 gatewayId: config.AI_GATEWAY_ID,
                 models: { reply: config.REPLY_MODEL },
               },
-              { token: config.AI_GATEWAY_TOKEN, billing: "unified-billing" },
+              { token: config.AI_GATEWAY_TOKEN },
               ownerId
             )
           )

@@ -75,7 +75,7 @@
     },
     {
       "id": "agent-control-cli",
-      "purpose": "The control CLI of apps/agent: doctor checks configuration and secret names, dev runs the Worker locally with local fakes, owner add adds the Owner through the Operator route, request --contains proves a reply locally with no network, and bundle measures bundle size and local startup CPU.",
+      "purpose": "The control CLI of apps/agent: doctor checks configuration and secret names, dev runs the Worker locally with local fakes, owner add adds the Owner through the Operator route, request --contains proves a reply locally with no network, map writes and checks the Feature Map of the Edge routes, and bundle measures bundle size and local startup CPU.",
       "roots": ["apps/agent/control"],
       "adrs": [
         "docs/decisions/0001-repository-foundation.md",

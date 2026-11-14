@@ -7,7 +7,7 @@
     "types": "wrangler types",
     "typecheck": "wrangler types --check && tsc --project tsconfig.json && tsc --project control/tsconfig.json",
     "test": "vitest run",
-    "verify": "pnpm typecheck && pnpm test && pnpm control bundle"
+    "verify": "pnpm typecheck && pnpm control map --check && pnpm test && pnpm control bundle"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.92",

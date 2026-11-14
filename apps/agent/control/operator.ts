@@ -1,18 +1,12 @@
 import { Data, Effect, Option, Schema } from "effect";
 import { unstable_getVarsForDev } from "wrangler";
 
+import { AddOwnerResponseSchema } from "../src/edge/operator-contract.ts";
+import type { AddOwnerResponse } from "../src/edge/operator-contract.ts";
 import { OperatorTokenMissing } from "./operator-token-missing.ts";
 import { wranglerConfigPath } from "./workspace.ts";
 
 export const localWorkerUrl = "http://localhost:8787";
-
-const AddOwnerResponseSchema = Schema.Struct({
-  ownerId: Schema.String,
-  channelIdentity: Schema.String,
-  registration: Schema.Literals(["open", "closed"]),
-});
-
-export type AddedOwner = typeof AddOwnerResponseSchema.Type;
 
 export class OwnerNotAdded extends Data.TaggedError("OwnerNotAdded")<{
   readonly status: number;
@@ -78,7 +72,7 @@ export const addOwner = Effect.fnUntraced(function* addOwner({
   )(body);
 });
 
-export const renderAddedOwner = (owner: AddedOwner) =>
+export const renderAddedOwner = (owner: AddOwnerResponse) =>
   [
     `Added Owner ${owner.ownerId} for ${owner.channelIdentity} through the Directory.`,
     `Registration: ${owner.registration}`,

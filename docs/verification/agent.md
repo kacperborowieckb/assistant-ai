@@ -21,6 +21,7 @@ The workspace `verify` script runs these checks in this order:
 | Command | What it proves |
 | --- | --- |
 | `pnpm typecheck` | `worker-configuration.d.ts` matches `wrangler.jsonc` (`wrangler types --check`). The Worker code, the tests, and the control CLI type-check. |
+| `pnpm control map --check` | The [Feature Map](agent-feature-map.md) matches the Edge route table in `src/edge/routes.ts`. |
 | `pnpm test` | The behavior tests pass (see below). |
 | `pnpm control bundle` | The Worker builds with a dry run and is below the Workers size limit. |
 
@@ -69,6 +70,7 @@ Run the commands from `apps/agent` with `pnpm control <command>`, or from the ro
 | `dev` | Applies the Directory migrations to local D1, starts a fake Telegram API and a fake AI Gateway on `127.0.0.1`, and runs `wrangler dev --local` with local Durable Objects and D1 in `.wrangler/state`. It sets `TELEGRAM_API_URL` and `AI_GATEWAY_URL` to the fakes and prints each fake `sendMessage`. | None |
 | `owner add --telegram-user <id> [--url <Worker URL>]` | Adds the Owner and the Channel Identity through the Operator route, which writes through the Directory. The default URL is the local Worker of `dev`. It reads `OPERATOR_TOKEN` from the environment, or else from `.dev.vars`. | The Worker at `--url` |
 | `request --contains <text> [--message <text>]` | Starts the real Worker with temporary storage, random secrets, a fake Telegram API, and a fake model. Adds an Owner, sends a sample Telegram text message to the webhook, and waits for the fake `sendMessage`. It exits with 1 when the reply does not contain the text. The fake model answers `You said: <message>`. | None |
+| `map [--check]` | Writes the [Feature Map](agent-feature-map.md) from the Edge route table in `src/edge/routes.ts`. With `--check`, it exits with 1 when the map is out of date. Run `map` after a route change. | None |
 | `bundle` | Builds the Worker with `wrangler deploy --dry-run`, then profiles startup with `wrangler check startup`. It exits with 1 when the bundle is over the size limit. | None |
 
 `doctor` checks local secrets the same way as `wrangler dev`: from `.dev.vars`, or else from `.env` files and the shell environment. It does not check the secrets of a deployed Instance.

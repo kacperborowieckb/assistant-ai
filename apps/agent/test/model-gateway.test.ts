@@ -37,7 +37,7 @@ describe("Model Gateway transport", () => {
         models: { reply: "anthropic/claude-sonnet-5-5" },
         fetch: recordingFetch,
       },
-      { token: "gateway-token", billing: "unified-billing" },
+      { token: "gateway-token" },
       OwnerIdSchema.make("owner-7")
     );
 
