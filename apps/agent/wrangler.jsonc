@@ -20,6 +20,7 @@
     "AI_GATEWAY_URL": "",
     "AI_GATEWAY_ID": "assistant",
     "REPLY_MODEL": "anthropic/claude-sonnet-5-5",
+    "MODEL_BILLING": "unified-billing",
   },
   "secrets": {
     "required": [

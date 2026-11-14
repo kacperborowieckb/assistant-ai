@@ -7,7 +7,7 @@
 1. Telegram sends an update to `POST /telegram/webhook`. The Edge checks the `X-Telegram-Bot-Api-Secret-Token` header and keeps only text messages from private chats.
 2. The Edge finds the Owner for the Channel Identity `telegram:<user id>` through the Directory. It reads with a D1 session.
 3. The Edge gives the Event to the Owner's Personal Agent. The Personal Agent stores the Event in its Inbox, writes an `EventReceived` Journal Entry, and schedules a Turn with the Agents SDK `schedule`, which uses a durable alarm. Then the Edge answers 200.
-4. The alarm runs a Turn for each pending Event, oldest first. The Turn reads the recent conversation and asks the Model Gateway for a reply to that Event. The Model Gateway records Usage. Burst merge is not in this slice.
+4. The alarm runs one Turn. The Turn answers each pending Event separately, oldest first. For each Event, it reads the recent conversation and asks the Model Gateway for a reply. The Model Gateway records Usage. Burst merge is not in this slice.
 5. The Turn writes `ReplyPlanned`, then sends the reply with Telegram `sendMessage`. It writes `ReplySent` only with the Telegram message id. A refused or failed send writes `ReplyFailed`, and the Events are failed.
 
 The Operator adds the Owner with `POST /operator/owners`. This route needs `Authorization: Bearer <OPERATOR_TOKEN>` and writes through the Directory interface. It does not open Registration.
@@ -91,8 +91,9 @@ pnpm control request --contains "You said: Hello agent"
 - `AI_GATEWAY_URL`: the AI Gateway REST base URL, `https://api.cloudflare.com/client/v4/accounts/<account id>/ai/v1`. It is empty in the repository, because it names the Operator's account. Set it before a deploy. A Turn with an empty value fails and names the value. `dev` and `request` replace it with the local fake.
 - `AI_GATEWAY_ID`: the gateway that the request names in `cf-aig-gateway-id`.
 - `REPLY_MODEL`: the model for the reply task, in the `<provider>/<model>` form of AI Gateway.
+- `MODEL_BILLING`: the billing mode of the Model Credentials, `unified-billing` (default) or `byok`. With `byok`, each request sends `cf-aig-no-wholesale: true`, so AI Gateway uses the Operator's stored provider key and does not fall back to Unified Billing. The setup of the stored key comes with `create-assistant`.
 
-The Model Gateway uses the AI Gateway REST endpoint, not the `/compat` endpoint, because Cloudflare marks `/compat` as deprecated for single-model chat completions. On this endpoint the token is a Cloudflare API token with the Workers AI Read permission, sent as `Authorization: Bearer`. Model Credentials use Unified Billing. Each request sends the Owner Id in `cf-aig-metadata` and `cf-aig-collect-log-payload: false`, so the gateway logs keep metadata and no prompt or reply text.
+The Model Gateway uses the AI Gateway REST endpoint, not the `/compat` endpoint, because Cloudflare marks `/compat` as deprecated for single-model chat completions. On this endpoint the token is a Cloudflare API token with the Workers AI Read permission, sent as `Authorization: Bearer`. Model Credentials are the token and the billing mode. Each request sends the Owner Id in `cf-aig-metadata` and `cf-aig-collect-log-payload: false`, so the gateway logs keep metadata and no prompt or reply text.
 
 ## Secrets
 

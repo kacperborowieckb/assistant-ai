@@ -1,5 +1,5 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { Layer } from "effect";
+import { Layer, Schema } from "effect";
 
 import type { OwnerId } from "../owner-id.ts";
 import { ModelProvider } from "./model-provider.ts";
@@ -12,14 +12,27 @@ export interface AiGatewayConfig {
   readonly fetch?: typeof fetch;
 }
 
+export const BillingModeSchema = Schema.Literals(["unified-billing", "byok"]);
+
+export type BillingMode = typeof BillingModeSchema.Type;
+
 export interface ModelCredentials {
   readonly token: string;
+  readonly billing: BillingMode;
 }
 
-export const aiGatewayHeaders = (gatewayId: string, ownerId: OwnerId) => ({
+const billingHeaders = (billing: BillingMode): Record<string, string> =>
+  billing === "byok" ? { "cf-aig-no-wholesale": "true" } : {};
+
+export const aiGatewayHeaders = (
+  gatewayId: string,
+  credentials: ModelCredentials,
+  ownerId: OwnerId
+): Record<string, string> => ({
   "cf-aig-gateway-id": gatewayId,
   "cf-aig-metadata": JSON.stringify({ ownerId }),
   "cf-aig-collect-log-payload": "false",
+  ...billingHeaders(credentials.billing),
 });
 
 export const aiGatewayModelProvider = (
@@ -31,7 +44,7 @@ export const aiGatewayModelProvider = (
     name: "cloudflare-ai-gateway",
     baseURL: config.url,
     apiKey: credentials.token,
-    headers: aiGatewayHeaders(config.gatewayId, ownerId),
+    headers: aiGatewayHeaders(config.gatewayId, credentials, ownerId),
     includeUsage: true,
     ...(config.fetch === undefined ? {} : { fetch: config.fetch }),
   });

@@ -3,7 +3,10 @@ import { env } from "cloudflare:test";
 import { Effect, Exit } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { aiGatewayModelProvider } from "../src/model-gateway/ai-gateway.ts";
+import {
+  aiGatewayHeaders,
+  aiGatewayModelProvider,
+} from "../src/model-gateway/ai-gateway.ts";
 import { ModelProvider } from "../src/model-gateway/model-provider.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
 import { decodeTurnEnv } from "../src/personal-agent/turn-services.ts";
@@ -37,7 +40,7 @@ describe("Model Gateway transport", () => {
         models: { reply: "anthropic/claude-sonnet-5-5" },
         fetch: recordingFetch,
       },
-      { token: "gateway-token" },
+      { token: "gateway-token", billing: "unified-billing" },
       OwnerIdSchema.make("owner-7")
     );
 
@@ -63,9 +66,20 @@ describe("Model Gateway transport", () => {
       JSON.stringify({ ownerId: "owner-7" })
     );
     expect(request?.headers.get("cf-aig-collect-log-payload")).toBe("false");
+    expect(request?.headers.has("cf-aig-no-wholesale")).toBe(false);
     expect(await request?.json()).toMatchObject({
       model: "anthropic/claude-sonnet-5-5",
     });
+  });
+
+  it("blocks the Unified Billing fallback when the billing mode is BYOK", () => {
+    const headers = aiGatewayHeaders(
+      "assistant",
+      { token: "gateway-token", billing: "byok" },
+      OwnerIdSchema.make("owner-7")
+    );
+
+    expect(headers["cf-aig-no-wholesale"]).toBe("true");
   });
 
   it("names the missing configuration without its values", async () => {

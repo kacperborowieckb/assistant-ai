@@ -47,7 +47,7 @@
     },
     {
       "id": "model-gateway",
-      "purpose": "The one interface to models. It selects the model for a task, calls it with the AI SDK through Cloudflare AI Gateway with the Owner Id as metadata and no stored bodies, retries with a timeout for each try, and records Usage for each model call in the Personal Agent SQLite.",
+      "purpose": "The one interface to models. It selects the model for a task, resolves the Model Credentials (token and billing mode), calls it with the AI SDK through Cloudflare AI Gateway with the Owner Id as metadata and no stored bodies, retries with a timeout for each try, and records Usage for each model call in the Personal Agent SQLite.",
       "roots": ["apps/agent/src/model-gateway"],
       "adrs": [
         "docs/decisions/0003-runtime-and-model-stack.md",

@@ -1,7 +1,10 @@
 import { Data, Effect, Layer, Option, Schema } from "effect";
 
 import { telegramChannel } from "../channels/telegram/telegram-channel.ts";
-import { aiGatewayModelProvider } from "../model-gateway/ai-gateway.ts";
+import {
+  aiGatewayModelProvider,
+  BillingModeSchema,
+} from "../model-gateway/ai-gateway.ts";
 import { ModelGateway } from "../model-gateway/model-gateway.ts";
 import type { OwnerId } from "../owner-id.ts";
 
@@ -25,6 +28,7 @@ const TurnEnvSchema = Schema.Struct({
   AI_GATEWAY_ID: NonEmpty,
   AI_GATEWAY_TOKEN: NonEmpty,
   REPLY_MODEL: NonEmpty,
+  MODEL_BILLING: BillingModeSchema,
 });
 
 const invalidNames = (env: Env) => {
@@ -59,7 +63,10 @@ export const liveTurnServices = (env: Env, ownerId: OwnerId) =>
                 gatewayId: config.AI_GATEWAY_ID,
                 models: { reply: config.REPLY_MODEL },
               },
-              { token: config.AI_GATEWAY_TOKEN },
+              {
+                token: config.AI_GATEWAY_TOKEN,
+                billing: config.MODEL_BILLING,
+              },
               ownerId
             )
           )
