@@ -1,4 +1,4 @@
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import type { OwnerId } from "../owner-id.ts";
@@ -8,6 +8,7 @@ import { journalEntries } from "../personal-agent/storage-schema.ts";
 export const JournalRecordSchema = Schema.TaggedUnion({
   EventReceived: { eventId: Schema.String },
   ReplyPlanned: { eventId: Schema.String, text: Schema.String },
+  SendStarted: { eventId: Schema.String },
   ReplySent: { eventId: Schema.String, channelMessageId: Schema.String },
   ReplyFailed: { eventId: Schema.String, reason: Schema.String },
 });
@@ -56,7 +57,15 @@ const makeJournal = (ownerId: OwnerId) =>
       .orderBy(asc(journalEntries.sequence))
       .pipe(Effect.map((rows) => rows.map(toJournalEntry)));
 
-    return { append, read };
+    const readForEvent = (eventId: string) =>
+      database
+        .select()
+        .from(journalEntries)
+        .where(eq(journalEntries.eventId, eventId))
+        .orderBy(asc(journalEntries.sequence))
+        .pipe(Effect.map((rows) => rows.map(toJournalEntry)));
+
+    return { append, read, readForEvent };
   });
 
 export class Journal extends Context.Service<

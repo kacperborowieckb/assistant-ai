@@ -47,6 +47,7 @@ const answer = (behavior: BehaviorConfig, event: InboxEvent) =>
       eventId: event.eventId,
       text: reply.text,
     });
+    yield* journal.append({ _tag: "SendStarted", eventId: event.eventId });
     const delivery = yield* channel.send({
       conversationId: event.conversationId,
       inReplyTo: event.channelMessageId,
@@ -74,11 +75,44 @@ const answer = (behavior: BehaviorConfig, event: InboxEvent) =>
     yield* inbox.markDone([event]);
   });
 
+export const unconfirmedSendReason =
+  "A send started but Telegram did not confirm it, so the agent did not send again";
+
+const settleFromJournal = (event: InboxEvent) =>
+  Effect.gen(function* settleFromJournalEffect() {
+    const inbox = yield* Inbox;
+    const journal = yield* Journal;
+    const entries = yield* journal.readForEvent(event.eventId);
+    const tags = new Set(entries.map((entry) => entry.record._tag));
+
+    if (tags.has("ReplySent")) {
+      yield* inbox.markDone([event]);
+      return "settled" as const;
+    }
+    if (tags.has("ReplyFailed")) {
+      yield* inbox.markFailed([event]);
+      return "settled" as const;
+    }
+    if (tags.has("SendStarted")) {
+      yield* journal.append({
+        _tag: "ReplyFailed",
+        eventId: event.eventId,
+        reason: unconfirmedSendReason,
+      });
+      yield* inbox.markFailed([event]);
+      return "settled" as const;
+    }
+    return "unanswered" as const;
+  });
+
 export const takeTurn = (behavior: BehaviorConfig) =>
   Effect.gen(function* takeTurnEffect() {
     const inbox = yield* Inbox;
     const events = yield* inbox.pending;
     for (const event of events) {
-      yield* answer(behavior, event);
+      const outcome = yield* settleFromJournal(event);
+      if (outcome === "unanswered") {
+        yield* answer(behavior, event);
+      }
     }
   });

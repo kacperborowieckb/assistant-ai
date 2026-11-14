@@ -46,7 +46,7 @@
     },
     {
       "id": "journal",
-      "purpose": "The append-only Journal in the Personal Agent SQLite. The interface has append and read only, and storage triggers refuse updates and deletes.",
+      "purpose": "The append-only Journal in the Personal Agent SQLite. The interface has append, read, and read for one Event, with no update or delete, and storage triggers refuse updates and deletes.",
       "roots": ["apps/agent/src/journal"],
       "adrs": [
         "docs/decisions/0004-owners-and-channels.md",
