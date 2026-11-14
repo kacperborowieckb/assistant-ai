@@ -7,7 +7,10 @@ import type { JournalRecord } from "../src/journal/journal.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
 import { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
-import { honestFailureText } from "../src/personal-agent/turn.ts";
+import {
+  honestFailureText,
+  unconfirmedSendReason,
+} from "../src/personal-agent/turn.ts";
 import {
   failModel,
   fakeModel,
@@ -163,6 +166,28 @@ describe("Honest failures", () => {
     ]);
 
     expect(fakeTelegram.sent).toEqual([]);
+    expect(await stateOfOnlyEvent(ownerId)).toBe("failed");
+  });
+
+  it("records an unconfirmed honest message and does not send it again when the Turn stopped after the send started", async () => {
+    const ownerId = await addOwner(7007);
+
+    await interruptedWith(ownerId, 7007, (eventId) => [
+      {
+        _tag: "TurnFailed",
+        eventId,
+        reason: "The model failed 3 times: earlier",
+      },
+      { _tag: "ReplyPlanned", eventId, text: honestFailureText },
+      { _tag: "SendStarted", eventId },
+    ]);
+
+    expect(fakeTelegram.sent).toEqual([]);
+    const records = await journalRecords(ownerId);
+    expect(records.at(-1)).toMatchObject({
+      _tag: "ReplyFailed",
+      reason: unconfirmedSendReason,
+    });
     expect(await stateOfOnlyEvent(ownerId)).toBe("failed");
   });
 

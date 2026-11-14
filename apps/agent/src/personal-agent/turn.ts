@@ -147,9 +147,18 @@ const settleFromJournal = (event: InboxEvent) =>
     const tags = new Set(entries.map((entry) => entry.record._tag));
 
     if (tags.has("TurnFailed")) {
-      yield* tags.has("SendStarted")
-        ? inbox.markFailed([event])
-        : sendHonestFailure(event);
+      if (!tags.has("SendStarted")) {
+        yield* sendHonestFailure(event);
+        return "settled" as const;
+      }
+      if (!tags.has("ReplySent") && !tags.has("ReplyFailed")) {
+        yield* journal.append({
+          _tag: "ReplyFailed",
+          eventId: event.eventId,
+          reason: unconfirmedSendReason,
+        });
+      }
+      yield* inbox.markFailed([event]);
       return "settled" as const;
     }
     if (tags.has("ReplySent")) {
