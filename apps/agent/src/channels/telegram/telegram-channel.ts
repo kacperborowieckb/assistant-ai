@@ -22,6 +22,27 @@ const SendMessageResponseSchema = Schema.Union([
 
 const failed = (reason: string): Delivery => ({ _tag: "Failed", reason });
 
+export const telegramTextLimit = 4096;
+
+const cutPosition = (text: string) => {
+  const window = text.slice(0, telegramTextLimit);
+  const lastBreak = Math.max(window.lastIndexOf("\n"), window.lastIndexOf(" "));
+  const cut = lastBreak > 0 ? lastBreak : telegramTextLimit;
+  const splitsSurrogatePair = /[\uD800-\uDBFF]/u.test(text.charAt(cut - 1));
+  return splitsSurrogatePair ? cut - 1 : cut;
+};
+
+export const telegramParts = (text: string): readonly string[] => {
+  if (text.length <= telegramTextLimit) {
+    return [text];
+  }
+  const cut = cutPosition(text);
+  return [
+    text.slice(0, cut).trimEnd(),
+    ...telegramParts(text.slice(cut).trimStart()),
+  ];
+};
+
 const sendMessageRequest = (config: TelegramConfig, reply: OutgoingReply) =>
   new Request(`${config.apiUrl}/bot${config.botToken}/sendMessage`, {
     method: "POST",
@@ -55,7 +76,7 @@ const deliveryFrom = (response: Response) =>
     )
   );
 
-const send = (config: TelegramConfig) => (reply: OutgoingReply) =>
+const sendPart = (config: TelegramConfig, reply: OutgoingReply) =>
   Effect.tryPromise(() =>
     (config.fetch ?? fetch)(sendMessageRequest(config, reply))
   ).pipe(
@@ -64,6 +85,24 @@ const send = (config: TelegramConfig) => (reply: OutgoingReply) =>
       onSuccess: deliveryFrom,
     })
   );
+
+const send = (config: TelegramConfig) => (reply: OutgoingReply) =>
+  Effect.gen(function* sendEffect() {
+    const parts = telegramParts(reply.text);
+    let delivery: Delivery = failed("The reply has no parts");
+    for (const [index, text] of parts.entries()) {
+      delivery = yield* sendPart(config, { ...reply, text });
+      if (delivery._tag === "Failed" && parts.length > 1) {
+        return failed(
+          `Part ${index + 1} of ${parts.length}: ${delivery.reason}`
+        );
+      }
+      if (delivery._tag === "Failed") {
+        return delivery;
+      }
+    }
+    return delivery;
+  });
 
 export const telegramChannel = (config: TelegramConfig) =>
   Layer.succeed(Channel, { send: send(config) });

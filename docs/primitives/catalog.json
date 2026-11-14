@@ -57,7 +57,7 @@
     },
     {
       "id": "channel",
-      "purpose": "The Channel send action and the Telegram Channel: it decodes private text messages from Telegram updates and sends a plain-text reply that links to the Owner's message. A send is confirmed only with a Telegram message id.",
+      "purpose": "The Channel send action and the Telegram Channel: it decodes private text messages from Telegram updates and sends a plain-text reply that links to the Owner's message, split into parts within the Telegram limit of 4,096 characters. A send is confirmed only with a Telegram message id.",
       "roots": ["apps/agent/src/channels"],
       "adrs": ["docs/decisions/0004-owners-and-channels.md"]
     },

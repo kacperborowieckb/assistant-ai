@@ -48,22 +48,35 @@ const isTakenIdentity = (cause: unknown) =>
     "UNIQUE constraint failed: channel_identities.channel_identity"
   );
 
-const makeDirectory = (database: D1Database) => {
-  const nearestReplica = database.withSession("first-unconstrained");
+const ownerRow = (
+  session: D1DatabaseSession,
+  channelIdentity: ChannelIdentity
+) =>
+  query(() =>
+    session
+      .prepare(
+        `SELECT owners.owner_id, owners.status
+         FROM channel_identities
+         JOIN owners ON owners.owner_id = channel_identities.owner_id
+         WHERE channel_identities.channel_identity = ?`
+      )
+      .bind(channelIdentity)
+      .first()
+  );
 
+const makeDirectory = (database: D1Database) => {
   const findOwner = (channelIdentity: ChannelIdentity) =>
     Effect.gen(function* findOwnerEffect() {
-      const row = yield* query(() =>
-        nearestReplica
-          .prepare(
-            `SELECT owners.owner_id, owners.status
-             FROM channel_identities
-             JOIN owners ON owners.owner_id = channel_identities.owner_id
-             WHERE channel_identities.channel_identity = ?`
-          )
-          .bind(channelIdentity)
-          .first()
+      const replicaRow = yield* ownerRow(
+        database.withSession("first-unconstrained"),
+        channelIdentity
       );
+      const row =
+        replicaRow ??
+        (yield* ownerRow(
+          database.withSession("first-primary"),
+          channelIdentity
+        ));
       if (row === null) {
         return Option.none<DirectoryOwner>();
       }

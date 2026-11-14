@@ -5,10 +5,10 @@
 ## Message flow
 
 1. Telegram sends an update to `POST /telegram/webhook`. The Edge checks the `X-Telegram-Bot-Api-Secret-Token` header and keeps only text messages from private chats.
-2. The Edge finds the Owner for the Channel Identity `telegram:<user id>` through the Directory. It reads with a D1 session.
+2. The Edge finds the Owner for the Channel Identity `telegram:<user id>` through the Directory. It reads with a D1 session from the nearest replica. When the replica has no row, it reads the primary, so an Owner who was just added is not lost to replica lag.
 3. The Edge gives the Event to the Owner's Personal Agent. The Personal Agent stores the Event in its Inbox, writes an `EventReceived` Journal Entry, and schedules a Turn with the Agents SDK `schedule`, which uses a durable alarm. Then the Edge answers 200.
 4. The alarm runs one Turn. The Turn answers each pending Event separately, oldest first. For each Event, it reads the recent conversation and asks the Model Gateway for a reply. The Model Gateway records Usage. Burst merge is not in this slice.
-5. The Turn writes `ReplyPlanned`, then sends the reply with Telegram `sendMessage`. It writes `ReplySent` only with the Telegram message id. A refused or failed send writes `ReplyFailed`, and the Events are failed.
+5. The Turn writes `ReplyPlanned`, then sends the reply with Telegram `sendMessage`. A reply longer than 4,096 characters goes as several messages, cut at a line break or a space when possible, and the send is confirmed only when Telegram confirms every part. It writes `ReplySent` only with the Telegram message id. A refused or failed send writes `ReplyFailed`, and the Events are failed.
 
 The Operator adds the Owner with `POST /operator/owners`. This route needs `Authorization: Bearer <OPERATOR_TOKEN>` and writes through the Directory interface. It does not open Registration.
 
@@ -51,6 +51,7 @@ What the tests prove now:
 - The prompt has the static system part first, then the conversation, then the new message.
 - Each Turn writes `EventReceived`, `ReplyPlanned`, and `ReplySent` Journal Entries for the Owner, and one Usage row with input, output, and cached tokens.
 - A send that Telegram refuses writes `ReplyFailed` and never `ReplySent`.
+- A reply longer than the Telegram limit of 4,096 characters is split into parts within the limit, without a cut inside an emoji. It is confirmed only when every part is confirmed, and a failed part fails the delivery.
 - The Journal storage refuses updates and deletes, and entries stay the same after a later Turn.
 - The Model Gateway calls `<AI Gateway URL>/chat/completions` with `cf-aig-gateway-id`, the Owner Id in `cf-aig-metadata`, and `cf-aig-collect-log-payload: false`.
 - A missing Turn configuration names the missing value and does not show a secret value.
