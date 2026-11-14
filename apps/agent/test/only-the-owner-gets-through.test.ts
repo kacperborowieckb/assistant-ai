@@ -137,6 +137,20 @@ describe("Only the Owner gets through", () => {
         };
       },
     ],
+    [
+      "a text from a bot",
+      7016,
+      (fromUserId: number) => {
+        const update = textUpdate({ fromUserId, text: "beep" });
+        return {
+          ...update,
+          message: {
+            ...update.message,
+            from: { id: fromUserId, is_bot: true },
+          },
+        };
+      },
+    ],
     ["a body that is not an update", 7014, () => ({ hello: "world" })],
   ])(
     "answers 200 and ignores %s from the Owner",
@@ -156,6 +170,8 @@ describe("Only the Owner gets through", () => {
   );
 
   it("answers 200 and ignores a request body that is not JSON", async () => {
+    const ownerId = await addOwner(7015);
+
     const response = await sendToEdge(
       new Request("https://agent.test/telegram/webhook", {
         method: "POST",
@@ -167,5 +183,11 @@ describe("Only the Owner gets through", () => {
     );
 
     expect(response.status).toBe(200);
+    await settle();
+    expect(fakeTelegram.sent).toEqual([]);
+    expect(await storedInOwnersAgent(ownerId)).toEqual({
+      events: [],
+      journal: [],
+    });
   });
 });
