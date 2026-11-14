@@ -25,6 +25,8 @@ The workspace `verify` script runs these checks in this order:
 | `pnpm test` | The behavior tests pass (see below). |
 | `pnpm control bundle` | The Worker builds with a dry run and is below the Workers size limit. |
 
+After a change to a table schema, run `pnpm --filter @repo/agent migrations:generate` and commit the new migration files.
+
 After a change to `wrangler.jsonc`, run `pnpm --filter @repo/agent types` and commit the new `worker-configuration.d.ts`.
 
 The root lint rules let only `src/personal-agent` import the Agents SDK (decision 0003). Other modules use `personalAgentFor` and the `PersonalAgent` class.
@@ -40,6 +42,7 @@ Local fixtures:
 
 - Test Worker entry. `test/worker.ts` exports the real Edge and a `PersonalAgent` subclass. The subclass gives the Turn a fake model from the AI SDK test utilities (`MockLanguageModelV4`) and the real Telegram Channel with a fake Telegram API `fetch`. Both fakes are in `test/fakes.ts`, and they record each call. The real Model Gateway, Inbox, Journal, and Usage code runs.
 - Directory migrations. `test/apply-migrations.ts` applies `src/directory/migrations` to the test D1 database before each test file.
+- Personal Agent migrations. Each Personal Agent applies `src/personal-agent/migrations` when it builds its storage layer. Drizzle Kit generates both sets from the table schemas (decision 0007).
 - No network. The test runtime answers every outbound `fetch` with status 503 and the text `Network is off in tests: <url>`. Remote bindings are off. A test proves this.
 - Test secrets. `vitest.config.mts` sets fixed fake values for the required secrets. Tests never read `.dev.vars`.
 - Loading the Agents SDK module graph is slow in the test runtime. The `worker` project pre-bundles `agents` and `effect` with the Vitest dependency optimizer. Tests import Worker modules at the top of the file, so the load happens while Vitest collects the file, not inside a test with a time limit. Call the Worker as `worker.fetch(request, env, createExecutionContext())`. Do not use `exports.default.fetch` in tests: its first call loads the module graph inside the test and can time out on a cold run.
@@ -52,6 +55,7 @@ What the tests prove now:
 - Each Turn writes `EventReceived`, `ReplyPlanned`, and `ReplySent` Journal Entries for the Owner, and one Usage row with input, output, and cached tokens.
 - A send that Telegram refuses writes `ReplyFailed` and never `ReplySent`.
 - A reply longer than the Telegram limit of 4,096 characters is split into parts within the limit, without a cut inside an emoji. It is confirmed only when every part is confirmed, and a failed part fails the delivery.
+- A Personal Agent on an older schema keeps its rows when a later migration changes a table, and applies each migration once. A migration that fails leaves no partial schema and fails the storage layer with `MigrationFailed`.
 - The Journal storage refuses updates and deletes, and entries stay the same after a later Turn.
 - The Model Gateway calls `<AI Gateway URL>/chat/completions` with `cf-aig-gateway-id`, the Owner Id in `cf-aig-metadata`, and `cf-aig-collect-log-payload: false`.
 - A missing Turn configuration names the missing value and does not show a secret value.
@@ -109,11 +113,11 @@ For local dev, put them in `apps/agent/.dev.vars`. Git ignores this file. Never 
 
 ## Bundle size and startup
 
-Measured on 2026-11-14 with `pnpm control bundle` (wrangler 4.162.0, Agents SDK 0.33.0, Effect 4.1.4, AI SDK 7.0.172). The Worker now includes the AI SDK, the OpenAI-compatible provider, and Effect Schema, so the full stack probe of the foundation slice is removed.
+Measured on 2026-11-14 with `pnpm control bundle` (wrangler 4.162.0, Agents SDK 0.33.0, Effect 4.1.4, AI SDK 7.0.172, Drizzle ORM 0.45.4). The Worker now includes the AI SDK, the OpenAI-compatible provider, and Effect Schema, so the full stack probe of the foundation slice is removed.
 
 | Entry | Size (uncompressed) | gzip (not limited) | Local startup CPU |
 | --- | --- | --- | --- |
-| Worker (`src/index.ts`) | 3,842.92 KiB | 728.48 KiB | 313.7 ms |
+| Worker (`src/index.ts`) | 4,033.05 KiB | 765.32 KiB | 238.4 ms |
 
 Limits from the [Workers limits page](https://developers.cloudflare.com/workers/platform/limits/), read on 2026-11-13:
 
@@ -121,6 +125,6 @@ Limits from the [Workers limits page](https://developers.cloudflare.com/workers/
 - Startup: the global scope must parse and run within 1 second.
 - CPU time: 10 ms for each HTTP request on the Free plan. Waiting for network I/O does not count.
 
-Result: the Worker uses 5.9% of the size limit. It fits the free plan for bundle size.
+Result: the Worker uses 6.2% of the size limit. It fits the free plan for bundle size.
 
 Startup CPU is measured on the local machine, which has a different CPU from Cloudflare. The numbers changed between runs on a shared machine, so `bundle` shows them but does not enforce them. The CPU time for each webhook request and each alarm Turn needs the deployed Worker and is measured in the live slice.

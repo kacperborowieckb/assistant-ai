@@ -4,23 +4,16 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 import { defaultBehaviorConfig } from "../behavior/behavior-config.ts";
 import type { Channel } from "../channels/channel.ts";
 import type { OwnerMessage } from "../event.ts";
-import { Journal, journalSchema } from "../journal/journal.ts";
+import { Journal } from "../journal/journal.ts";
 import type { ModelGateway } from "../model-gateway/model-gateway.ts";
-import { UsageLedger, usageSchema } from "../model-gateway/usage-ledger.ts";
+import { UsageLedger } from "../model-gateway/usage-ledger.ts";
 import { OwnerIdSchema } from "../owner-id.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "./agent-storage.ts";
-import { Conversation, conversationSchema } from "./conversation.ts";
-import { Inbox, inboxSchema } from "./inbox.ts";
+import { Conversation } from "./conversation.ts";
+import { Inbox } from "./inbox.ts";
 import { liveTurnServices } from "./turn-services.ts";
 import { takeTurn } from "./turn.ts";
-
-const personalAgentSchema = [
-  ...inboxSchema,
-  ...journalSchema,
-  ...conversationSchema,
-  ...usageSchema,
-];
 
 const personalAgentLayer = (
   storage: DurableObjectStorage,
@@ -32,7 +25,7 @@ const personalAgentLayer = (
     journal,
     Conversation.layer,
     UsageLedger.layer(ownerId)
-  ).pipe(Layer.provideMerge(AgentStorage.layer(storage, personalAgentSchema)));
+  ).pipe(Layer.provideMerge(AgentStorage.layer(storage)));
 };
 
 export type TurnServices = Layer.Layer<
