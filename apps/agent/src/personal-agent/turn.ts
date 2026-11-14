@@ -4,7 +4,8 @@ import { Effect } from "effect";
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { Channel } from "../channels/channel.ts";
 import { Journal } from "../journal/journal.ts";
-import { ModelGateway } from "../model-gateway/model-gateway.ts";
+import { ModelGateway, modelAttempts } from "../model-gateway/model-gateway.ts";
+import type { ModelUnavailable } from "../model-gateway/model-unavailable.ts";
 import { Conversation } from "./conversation.ts";
 import type { ConversationMessage } from "./conversation.ts";
 import { Inbox } from "./inbox.ts";
@@ -27,31 +28,24 @@ const ownerMessage = (event: InboxEvent): ConversationMessage => ({
   text: event.text,
 });
 
-const answer = (behavior: BehaviorConfig, event: InboxEvent) =>
-  Effect.gen(function* answerEffect() {
-    const inbox = yield* Inbox;
-    const conversation = yield* Conversation;
+export const honestFailureText =
+  "Sorry, I could not answer that. Please try again in a moment.";
+
+const deliver = (event: InboxEvent, text: string) =>
+  Effect.gen(function* deliverEffect() {
     const journal = yield* Journal;
     const channel = yield* Channel;
-    const modelGateway = yield* ModelGateway;
-
-    const history = yield* conversation.recent;
-    const reply = yield* modelGateway.generate({
-      task: "reply",
-      system: systemPrompt(behavior),
-      messages: [...history, ownerMessage(event)].map(toModelMessage),
-    });
 
     yield* journal.append({
       _tag: "ReplyPlanned",
       eventId: event.eventId,
-      text: reply.text,
+      text,
     });
     yield* journal.append({ _tag: "SendStarted", eventId: event.eventId });
     const delivery = yield* channel.send({
       conversationId: event.conversationId,
       inReplyTo: event.channelMessageId,
-      text: reply.text,
+      text,
     });
 
     if (delivery._tag === "Failed") {
@@ -60,14 +54,81 @@ const answer = (behavior: BehaviorConfig, event: InboxEvent) =>
         eventId: event.eventId,
         reason: delivery.reason,
       });
-      yield* inbox.markFailed([event]);
-      return;
+      return delivery;
     }
     yield* journal.append({
       _tag: "ReplySent",
       eventId: event.eventId,
       channelMessageId: delivery.channelMessageId,
     });
+    return delivery;
+  });
+
+const recordTurnFailed = (event: InboxEvent, reason: string) =>
+  Effect.gen(function* recordTurnFailedEffect() {
+    const inbox = yield* Inbox;
+    const journal = yield* Journal;
+
+    yield* journal.append({
+      _tag: "TurnFailed",
+      eventId: event.eventId,
+      reason,
+    });
+    yield* inbox.markFailed([event]);
+  });
+
+const sendHonestFailure = (event: InboxEvent) =>
+  Effect.gen(function* sendHonestFailureEffect() {
+    const inbox = yield* Inbox;
+
+    yield* deliver(event, honestFailureText);
+    yield* inbox.markFailed([event]);
+  });
+
+const failTurnWithHonestMessage = (event: InboxEvent, reason: string) =>
+  Effect.gen(function* failTurnWithHonestMessageEffect() {
+    const journal = yield* Journal;
+
+    yield* journal.append({
+      _tag: "TurnFailed",
+      eventId: event.eventId,
+      reason,
+    });
+    yield* sendHonestFailure(event);
+  });
+
+const modelFailureReason = (error: ModelUnavailable) =>
+  `The model failed ${modelAttempts} times: ${String(error.cause)}`;
+
+const answer = (behavior: BehaviorConfig, event: InboxEvent) =>
+  Effect.gen(function* answerEffect() {
+    const inbox = yield* Inbox;
+    const conversation = yield* Conversation;
+    const modelGateway = yield* ModelGateway;
+
+    const history = yield* conversation.recent;
+    const reply = yield* modelGateway
+      .generate({
+        task: "reply",
+        system: systemPrompt(behavior),
+        messages: [...history, ownerMessage(event)].map(toModelMessage),
+      })
+      .pipe(
+        Effect.catchTag("ModelUnavailable", (error) =>
+          failTurnWithHonestMessage(event, modelFailureReason(error)).pipe(
+            Effect.as(undefined)
+          )
+        )
+      );
+
+    if (reply === undefined) {
+      return;
+    }
+    const delivery = yield* deliver(event, reply.text);
+    if (delivery._tag === "Failed") {
+      yield* recordTurnFailed(event, delivery.reason);
+      return;
+    }
     yield* conversation.append([
       ownerMessage(event),
       { role: "agent", text: reply.text },
@@ -85,12 +146,30 @@ const settleFromJournal = (event: InboxEvent) =>
     const entries = yield* journal.readForEvent(event.eventId);
     const tags = new Set(entries.map((entry) => entry.record._tag));
 
+    if (tags.has("TurnFailed")) {
+      if (!tags.has("SendStarted")) {
+        yield* sendHonestFailure(event);
+        return "settled" as const;
+      }
+      if (!tags.has("ReplySent") && !tags.has("ReplyFailed")) {
+        yield* journal.append({
+          _tag: "ReplyFailed",
+          eventId: event.eventId,
+          reason: unconfirmedSendReason,
+        });
+      }
+      yield* inbox.markFailed([event]);
+      return "settled" as const;
+    }
     if (tags.has("ReplySent")) {
       yield* inbox.markDone([event]);
       return "settled" as const;
     }
-    if (tags.has("ReplyFailed")) {
-      yield* inbox.markFailed([event]);
+    const failedSend = entries.find(
+      (entry) => entry.record._tag === "ReplyFailed"
+    );
+    if (failedSend?.record._tag === "ReplyFailed") {
+      yield* recordTurnFailed(event, failedSend.record.reason);
       return "settled" as const;
     }
     if (tags.has("SendStarted")) {
@@ -99,7 +178,7 @@ const settleFromJournal = (event: InboxEvent) =>
         eventId: event.eventId,
         reason: unconfirmedSendReason,
       });
-      yield* inbox.markFailed([event]);
+      yield* recordTurnFailed(event, unconfirmedSendReason);
       return "settled" as const;
     }
     return "unanswered" as const;

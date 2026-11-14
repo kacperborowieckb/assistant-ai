@@ -58,6 +58,8 @@ const lastOwnerText = (
   return part?.type === "text" ? part.text : "";
 };
 
+const modelFailure = { remaining: 0 };
+
 let releaseModel = Promise.resolve();
 
 export const fakeModel = new MockLanguageModelV4({
@@ -65,6 +67,10 @@ export const fakeModel = new MockLanguageModelV4({
   modelId: "fake-reply-model",
   doGenerate: async (options) => {
     await releaseModel;
+    if (modelFailure.remaining > 0) {
+      modelFailure.remaining -= 1;
+      throw new Error("The model provider is down");
+    }
     return {
       content: [
         {
@@ -88,7 +94,12 @@ export const holdModel = () => {
   return () => resolve(undefined);
 };
 
+export const failModel = (times: number) => {
+  modelFailure.remaining = times;
+};
+
 export const resetFakes = () => {
+  modelFailure.remaining = 0;
   fakeTelegramState.sent = [];
   fakeTelegramState.answer = "confirm";
   fakeModel.doGenerateCalls.length = 0;
