@@ -81,6 +81,24 @@ describe("Telegram message parts", () => {
 });
 
 describe("Telegram send", () => {
+  it("refuses a blank reply without calling Telegram", async () => {
+    const api = fakeTelegramApi();
+
+    const deliveries = await Promise.all(
+      ["", "  \n ", " ".repeat(telegramTextLimit + 1)].map((text) =>
+        sendWith(api, text)
+      )
+    );
+
+    expect(deliveries).toEqual(
+      Array.from({ length: 3 }, () => ({
+        _tag: "Failed",
+        reason: "The reply has no text",
+      }))
+    );
+    expect(api.texts).toEqual([]);
+  });
+
   it("confirms a long reply only after every part is confirmed", async () => {
     const api = fakeTelegramApi();
 

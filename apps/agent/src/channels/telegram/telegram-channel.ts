@@ -45,10 +45,8 @@ const splitAtLimit = (text: string): readonly string[] => {
 
 const hasText = (part: string) => part.trim().length > 0;
 
-export const telegramParts = (text: string): readonly [string, ...string[]] => {
-  const [first = text, ...rest] = splitAtLimit(text).filter(hasText);
-  return [first, ...rest];
-};
+export const telegramParts = (text: string): readonly string[] =>
+  splitAtLimit(text).filter(hasText);
 
 const sendMessageRequest = (config: TelegramConfig, reply: OutgoingReply) =>
   new Request(`${config.apiUrl}/bot${config.botToken}/sendMessage`, {
@@ -97,6 +95,9 @@ const send = (config: TelegramConfig) => (reply: OutgoingReply) =>
   Effect.gen(function* sendEffect() {
     const parts = telegramParts(reply.text);
     const [first, ...rest] = parts;
+    if (first === undefined) {
+      return failed("The reply has no text");
+    }
     let delivery = yield* sendPart(config, { ...reply, text: first });
     let sentParts = 1;
     for (const text of rest) {
