@@ -50,6 +50,9 @@ Local fixtures:
 What the tests prove now:
 
 - The Operator route adds the Owner and the Channel Identity through the Directory, and Registration stays closed. A request without the Operator token gets 401 and stores nothing. A Channel Identity that already has an Owner gets 409.
+- A webhook request with a missing or wrong secret token (also one of another length) gets 401. The Owner's Personal Agent has no Inbox Event and no Journal Entry, and the fake Telegram API gets no `sendMessage`.
+- A text message from an unknown sender, or from an Owner who is suspended, gets 200 and no reply. The Directory gains no Owner and no Channel Identity, and the Owner's Personal Agent keeps no content.
+- A sticker, an edited message, a group chat text, a text from a bot, and a body that is not an update (or not JSON) get 200 and are ignored. The Owner's Personal Agent keeps no Event and no Journal Entry, and no reply is sent. Only a wrong or missing secret token gets 401. Telegram always sends the correct token, so it does not retry; the refusal reaches only other callers.
 - A text message from the Owner is in the Inbox when the webhook answers 200, while the fake model still holds the Turn. The alarm then runs the Turn, and the fake Telegram API gets exactly one `sendMessage`: plain text, to the Owner's chat, as a reply to the Owner's message.
 - The prompt has the static system part first, then the conversation, then the new message.
 - Each Turn writes `EventReceived`, `ReplyPlanned`, and `ReplySent` Journal Entries for the Owner, and one Usage row with input, output, and cached tokens.
