@@ -1,16 +1,16 @@
-import { asc, eq, sql } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { OwnerMessageSchema } from "../event.ts";
 import type { OwnerMessage } from "../event.ts";
 import { Journal } from "../journal/journal.ts";
 import { AgentStorage } from "./agent-storage.ts";
-import { inboxEvents } from "./storage-schema.ts";
+import { inboxEvents, inboxStates } from "./storage-schema.ts";
 
 export const InboxEventSchema = Schema.Struct({
   eventId: Schema.String,
   ...OwnerMessageSchema.fields,
-  state: Schema.Literals(["pending", "done", "failed"]),
+  state: Schema.Literals(inboxStates),
 });
 
 export type InboxEvent = typeof InboxEventSchema.Type;
@@ -66,7 +66,7 @@ const makeInbox = Effect.gen(function* makeInboxEffect() {
       .select()
       .from(inboxEvents)
       .where(eq(inboxEvents.state, "pending"))
-      .orderBy(asc(inboxEvents.receivedAt), asc(sql`rowid`))
+      .orderBy(asc(inboxEvents.sequence))
       .all()
       .map(toInboxEvent)
   );

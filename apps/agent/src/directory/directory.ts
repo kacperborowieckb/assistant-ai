@@ -6,14 +6,20 @@ import { OwnerIdSchema } from "../owner-id.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { ChannelIdentityTaken } from "./channel-identity-taken.ts";
 import type { ChannelIdentity } from "./channel-identity.ts";
-import { channelIdentities, owners, registration } from "./directory-schema.ts";
+import {
+  channelIdentities,
+  ownerStatuses,
+  owners,
+  registration,
+  registrationStates,
+} from "./directory-schema.ts";
 import { DirectoryUnavailable } from "./directory-unavailable.ts";
 
-export const OwnerStatusSchema = Schema.Literals(["active", "suspended"]);
+export const OwnerStatusSchema = Schema.Literals(ownerStatuses);
 
 export type OwnerStatus = typeof OwnerStatusSchema.Type;
 
-export const RegistrationStateSchema = Schema.Literals(["open", "closed"]);
+export const RegistrationStateSchema = Schema.Literals(registrationStates);
 
 export type RegistrationState = typeof RegistrationStateSchema.Type;
 

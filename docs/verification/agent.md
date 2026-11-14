@@ -117,7 +117,7 @@ Measured on 2026-11-14 with `pnpm control bundle` (wrangler 4.162.0, Agents SDK 
 
 | Entry | Size (uncompressed) | gzip (not limited) | Local startup CPU |
 | --- | --- | --- | --- |
-| Worker (`src/index.ts`) | 4,033.05 KiB | 765.32 KiB | 238.4 ms |
+| Worker (`src/index.ts`) | 4,033.46 KiB | 765.40 KiB | 238.4 ms |
 
 Limits from the [Workers limits page](https://developers.cloudflare.com/workers/platform/limits/), read on 2026-11-13:
 

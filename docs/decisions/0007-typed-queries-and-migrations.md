@@ -12,7 +12,7 @@ Use Drizzle ORM for both stores of `apps/agent`: the Directory in D1 (`drizzle-o
 
 - One table schema file for each store is the single source of truth: `src/directory/directory-schema.ts` and `src/personal-agent/storage-schema.ts`. Queries use these tables, so a wrong column name fails `pnpm typecheck`.
 - Module interfaces do not change. No module outside `directory` runs queries against the Directory ([0006](0006-directory-store.md)).
-- No SQL string stays in a storage module. SQL lives only in migration files.
+- No SQL string stays in a storage module. SQL lives only in migration files. The one exception is the `CHECK` constraints in the table schema files. They build their SQL from the same value lists as the column types (`src/check-values.ts`), so the lists exist once.
 - Run `pnpm --filter @repo/agent migrations:generate` after a schema change, and commit the new migration files. A change that Drizzle Kit cannot express (a trigger, seed data) goes in a custom migration (`drizzle-kit generate --custom`).
 - Directory migrations are in `src/directory/migrations`. Setup applies them with `wrangler d1 migrations apply`.
 - Personal Agent migrations are in `src/personal-agent/migrations`. Each Personal Agent applies the pending ones in order when it builds its storage layer, in one transaction. It records each applied migration in `__drizzle_migrations`. A migration that fails rolls back, the storage layer fails with `MigrationFailed`, and the Personal Agent runs no Turn on that schema.

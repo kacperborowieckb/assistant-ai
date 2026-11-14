@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "638af344-d12b-46dc-a75f-3aacc74995ff",
+  "id": "4668af66-2c32-4507-b897-7ec30170bf50",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "channel_identities": {

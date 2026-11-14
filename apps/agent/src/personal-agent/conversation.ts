@@ -2,10 +2,10 @@ import { desc } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { AgentStorage } from "./agent-storage.ts";
-import { conversationMessages } from "./storage-schema.ts";
+import { conversationMessages, conversationRoles } from "./storage-schema.ts";
 
 export const ConversationMessageSchema = Schema.Struct({
-  role: Schema.Literals(["owner", "agent"]),
+  role: Schema.Literals(conversationRoles),
   text: Schema.String,
 });
 

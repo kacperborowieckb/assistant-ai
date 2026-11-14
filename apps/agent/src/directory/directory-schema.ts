@@ -7,21 +7,23 @@ import {
   text,
 } from "drizzle-orm/sqlite-core";
 
+import { valueIn } from "../check-values.ts";
 import type { OwnerId } from "../owner-id.ts";
 import type { ChannelIdentity } from "./channel-identity.ts";
+
+export const ownerStatuses = ["active", "suspended"] as const;
+
+export const registrationStates = ["open", "closed"] as const;
 
 export const owners = sqliteTable(
   "owners",
   {
     ownerId: text("owner_id").$type<OwnerId>().primaryKey().notNull(),
-    status: text("status", { enum: ["active", "suspended"] }).notNull(),
+    status: text("status", { enum: ownerStatuses }).notNull(),
     createdAt: text("created_at").notNull(),
   },
   (table) => [
-    check(
-      "owners_status_check",
-      sql`${table.status} IN ('active', 'suspended')`
-    ),
+    check("owners_status_check", valueIn(table.status, ownerStatuses)),
   ]
 );
 
@@ -44,13 +46,10 @@ export const registration = sqliteTable(
   "registration",
   {
     singleton: integer("singleton").primaryKey().notNull(),
-    state: text("state", { enum: ["open", "closed"] }).notNull(),
+    state: text("state", { enum: registrationStates }).notNull(),
   },
   (table) => [
     check("registration_singleton_check", sql`${table.singleton} = 1`),
-    check(
-      "registration_state_check",
-      sql`${table.state} IN ('open', 'closed')`
-    ),
+    check("registration_state_check", valueIn(table.state, registrationStates)),
   ]
 );

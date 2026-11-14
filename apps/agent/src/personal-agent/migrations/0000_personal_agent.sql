@@ -7,7 +7,8 @@ CREATE TABLE `conversation_messages` (
 );
 --> statement-breakpoint
 CREATE TABLE `inbox_events` (
-	`event_id` text PRIMARY KEY NOT NULL,
+	`sequence` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`event_id` text NOT NULL,
 	`channel` text NOT NULL,
 	`channel_update_id` text NOT NULL,
 	`conversation_id` text NOT NULL,
@@ -19,6 +20,7 @@ CREATE TABLE `inbox_events` (
 	CONSTRAINT "inbox_events_state_check" CHECK("inbox_events"."state" IN ('pending', 'done', 'failed'))
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX `inbox_events_event_id_unique` ON `inbox_events` (`event_id`);--> statement-breakpoint
 CREATE INDEX `inbox_events_state` ON `inbox_events` (`state`,`received_at`);--> statement-breakpoint
 CREATE UNIQUE INDEX `inbox_events_channel_channel_update_id_unique` ON `inbox_events` (`channel`,`channel_update_id`);--> statement-breakpoint
 CREATE TABLE `journal_entries` (

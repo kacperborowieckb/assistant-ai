@@ -1,6 +1,6 @@
 {
-  "id": "4e516d3d-966f-45fe-af83-ada2ad154715",
-  "prevId": "548e4ea7-546c-4215-ab45-201f8644df0d",
+  "id": "02dc1eba-f151-4279-a5ee-adefb130f781",
+  "prevId": "79d7df96-64b5-4323-9384-d8cfe1d5c0d7",
   "version": "6",
   "dialect": "sqlite",
   "tables": {
@@ -50,10 +50,17 @@
     "inbox_events": {
       "name": "inbox_events",
       "columns": {
+        "sequence": {
+          "name": "sequence",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
         "event_id": {
           "name": "event_id",
           "type": "text",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
@@ -115,6 +122,11 @@
         }
       },
       "indexes": {
+        "inbox_events_event_id_unique": {
+          "name": "inbox_events_event_id_unique",
+          "columns": ["event_id"],
+          "isUnique": true
+        },
         "inbox_events_state": {
           "name": "inbox_events_state",
           "columns": ["state", "received_at"],

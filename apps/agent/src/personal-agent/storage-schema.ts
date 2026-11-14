@@ -1,4 +1,3 @@
-import { sql } from "drizzle-orm";
 import {
   check,
   index,
@@ -9,13 +8,19 @@ import {
   unique,
 } from "drizzle-orm/sqlite-core";
 
+import { valueIn } from "../check-values.ts";
 import type { OwnerMessage } from "../event.ts";
 import type { OwnerId } from "../owner-id.ts";
+
+export const inboxStates = ["pending", "done", "failed"] as const;
+
+export const conversationRoles = ["owner", "agent"] as const;
 
 export const inboxEvents = sqliteTable(
   "inbox_events",
   {
-    eventId: text("event_id").primaryKey().notNull(),
+    sequence: integer("sequence").primaryKey({ autoIncrement: true }),
+    eventId: text("event_id").notNull().unique(),
     channel: text("channel").$type<OwnerMessage["channel"]>().notNull(),
     channelUpdateId: text("channel_update_id").notNull(),
     conversationId: text("conversation_id").notNull(),
@@ -23,15 +28,12 @@ export const inboxEvents = sqliteTable(
     text: text("text").notNull(),
     sentAt: text("sent_at").notNull(),
     receivedAt: text("received_at").notNull(),
-    state: text("state", { enum: ["pending", "done", "failed"] }).notNull(),
+    state: text("state", { enum: inboxStates }).notNull(),
   },
   (table) => [
     unique().on(table.channel, table.channelUpdateId),
     index("inbox_events_state").on(table.state, table.receivedAt),
-    check(
-      "inbox_events_state_check",
-      sql`${table.state} IN ('pending', 'done', 'failed')`
-    ),
+    check("inbox_events_state_check", valueIn(table.state, inboxStates)),
   ]
 );
 
@@ -39,14 +41,14 @@ export const conversationMessages = sqliteTable(
   "conversation_messages",
   {
     sequence: integer("sequence").primaryKey({ autoIncrement: true }),
-    role: text("role", { enum: ["owner", "agent"] }).notNull(),
+    role: text("role", { enum: conversationRoles }).notNull(),
     text: text("text").notNull(),
     recordedAt: text("recorded_at").notNull(),
   },
   (table) => [
     check(
       "conversation_messages_role_check",
-      sql`${table.role} IN ('owner', 'agent')`
+      valueIn(table.role, conversationRoles)
     ),
   ]
 );
