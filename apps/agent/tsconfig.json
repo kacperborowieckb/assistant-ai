@@ -16,5 +16,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src", "test", "bundle", "worker-configuration.d.ts"]
+  "include": ["src", "test", "worker-configuration.d.ts"]
 }

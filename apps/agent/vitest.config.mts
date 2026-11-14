@@ -1,10 +1,12 @@
 import { builtinModules } from "node:module";
+import { fileURLToPath } from "node:url";
 
-import { cloudflareTest } from "@cloudflare/vitest-plugin";
+import { cloudflareTest, readD1Migrations } from "@cloudflare/vitest-plugin";
 import { defineConfig } from "vitest/config";
 
 const testSecrets = {
   AI_GATEWAY_TOKEN: "test-ai-gateway-token",
+  OPERATOR_TOKEN: "test-operator-token",
   TELEGRAM_BOT_TOKEN: "test-telegram-bot-token",
   TELEGRAM_WEBHOOK_SECRET: "test-telegram-webhook-secret",
 };
@@ -13,6 +15,10 @@ Object.assign(process.env, testSecrets);
 
 const refuseNetwork = (request: Request) =>
   new Response(`Network is off in tests: ${request.url}`, { status: 503 });
+
+const directoryMigrations = await readD1Migrations(
+  fileURLToPath(new URL("src/directory/migrations", import.meta.url))
+);
 
 const isNodeBuiltin = (id: string) =>
   id.startsWith("node:") || builtinModules.includes(id);
@@ -23,6 +29,7 @@ export default defineConfig({
       {
         plugins: [
           cloudflareTest({
+            main: "./test/worker.ts",
             wrangler: { configPath: "./wrangler.jsonc" },
             remoteBindings: false,
             miniflare: {
@@ -34,6 +41,8 @@ export default defineConfig({
         test: {
           name: "worker",
           include: ["test/**/*.test.ts"],
+          setupFiles: ["./test/apply-migrations.ts"],
+          provide: { directoryMigrations },
           deps: {
             optimizer: {
               ssr: {

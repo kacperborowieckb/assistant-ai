@@ -21,7 +21,6 @@ export interface BundleMeasurement {
 
 export const bundleTargets: readonly BundleTarget[] = [
   { name: "Worker", entry: "src/index.ts" },
-  { name: "Full stack probe", entry: "bundle/full-stack.ts" },
 ];
 
 export const workerSizeLimitBytes = 64 * 1024 * 1024;
