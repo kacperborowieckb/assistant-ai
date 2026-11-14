@@ -1,6 +1,6 @@
 # Primitives catalog
 
-A primitive is a building block that hides useful behavior behind a small interface. Record implemented primitives in [catalog.json](catalog.json). The catalog is empty because the workspace has no product implementation.
+A primitive is a building block that hides useful behavior behind a small interface. Record implemented primitives in [catalog.json](catalog.json).
 
 For each primitive, record `id`, `purpose`, `roots`, and `adrs`. Use a unique stable ID, a short purpose, existing repository-relative code paths, and the paths of current accepted decision records that shape the primitive. Use `adrs: []` when no record applies.
 

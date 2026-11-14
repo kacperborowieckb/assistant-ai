@@ -1,3 +1,8 @@
 {
-  "targets": []
+  "targets": [
+    {
+      "workspace": "apps/agent",
+      "guide": "docs/verification/agent.md"
+    }
+  ]
 }

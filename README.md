@@ -1,6 +1,6 @@
 # Personal agent foundation
 
-Working name: assistant-ai. A self-hosted personal agent that you text like a colleague: it remembers what you tell it and starts the conversation when it can help. Product apps and shared packages are not implemented yet.
+Working name: assistant-ai. A self-hosted personal agent that you text like a colleague: it remembers what you tell it and starts the conversation when it can help. `apps/agent` holds the agent Worker. Its verification guide is [docs/verification/agent.md](docs/verification/agent.md).
 
 Use the Node.js and pnpm versions specified in `package.json`.
 

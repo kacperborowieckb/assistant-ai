@@ -7,7 +7,7 @@
     "prepare": "lefthook install",
     "verify": "pnpm check && pnpm verify:foundation && pnpm verify:workspaces",
     "verify:foundation": "node tools/verify-foundation.mjs",
-    "verify:workspaces": "pnpm --recursive --filter './apps/*' --filter './packages/*' --if-present run verify"
+    "verify:workspaces": "turbo run verify --affected"
   },
   "devDependencies": {
     "lefthook": "2.2.2",
