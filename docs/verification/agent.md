@@ -57,6 +57,9 @@ What the tests prove now:
 - The prompt has the static system part first, then the conversation, then the new message.
 - Each Turn writes `EventReceived`, `ReplyPlanned`, and `ReplySent` Journal Entries for the Owner, and one Usage row with input, output, and cached tokens.
 - A send that Telegram refuses writes `ReplyFailed` and never `ReplySent`.
+- An update that Telegram sends again (same `update_id`), also after the Turn finished, gets 200 and no second Event and no second `sendMessage`.
+- An Event whose Turn stopped before the reply was planned gets one reply when the Turn runs again. An Event with a confirmed send in the Journal gets no second `sendMessage` and is marked done.
+- When a send started (`ReplyPlanned`) but the Journal has no confirmation, the Turn does not send again. It writes `ReplyFailed` with the reason that the send was not confirmed and marks the Event failed. Reason: Telegram cannot tell the agent whether a message arrived, so the rule never sends a second time and accepts that the Owner may get no reply. The Owner can send the message again.
 - A reply longer than the Telegram limit of 4,096 characters is split into parts within the limit, without a cut inside an emoji. It is confirmed only when every part is confirmed, and a failed part fails the delivery.
 - A Personal Agent on an older schema keeps its rows when a later migration changes a table, and applies each migration once. A migration that fails leaves no partial schema and fails the storage layer with `MigrationFailed`.
 - The Journal storage refuses updates and deletes, and entries stay the same after a later Turn.

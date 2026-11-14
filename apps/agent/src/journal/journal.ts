@@ -1,4 +1,4 @@
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import type { OwnerId } from "../owner-id.ts";
@@ -56,7 +56,15 @@ const makeJournal = (ownerId: OwnerId) =>
       .orderBy(asc(journalEntries.sequence))
       .pipe(Effect.map((rows) => rows.map(toJournalEntry)));
 
-    return { append, read };
+    const readForEvent = (eventId: string) =>
+      database
+        .select()
+        .from(journalEntries)
+        .where(eq(journalEntries.eventId, eventId))
+        .orderBy(asc(journalEntries.sequence))
+        .pipe(Effect.map((rows) => rows.map(toJournalEntry)));
+
+    return { append, read, readForEvent };
   });
 
 export class Journal extends Context.Service<
