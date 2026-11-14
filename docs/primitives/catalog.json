@@ -2,7 +2,7 @@
   "primitives": [
     {
       "id": "agent-worker",
-      "purpose": "The Cloudflare Worker entry of apps/agent. It exports the Edge fetch handler and the Durable Object classes.",
+      "purpose": "The Cloudflare Worker entry of apps/agent and the Edge. The Edge accepts the Telegram webhook with its secret token, finds the Owner through the Directory, and answers only after the Personal Agent stores the Event. It also has the Operator route that adds an Owner. It stores no Owner data.",
       "roots": [
         "apps/agent/src/index.ts",
         "apps/agent/src/edge",
@@ -11,17 +11,61 @@
       "adrs": [
         "docs/decisions/0001-repository-foundation.md",
         "docs/decisions/0003-runtime-and-model-stack.md",
+        "docs/decisions/0004-owners-and-channels.md",
+        "docs/decisions/0006-directory-store.md"
+      ]
+    },
+    {
+      "id": "directory",
+      "purpose": "The Directory in D1 with its migrations: Owners, Channel Identities, and the Registration state. Its interface finds the Owner for a Channel Identity, adds an Owner with a Channel Identity, and reads the Registration state. No other module runs SQL against the Directory.",
+      "roots": ["apps/agent/src/directory"],
+      "adrs": [
+        "docs/decisions/0004-owners-and-channels.md",
         "docs/decisions/0006-directory-store.md"
       ]
     },
     {
       "id": "personal-agent",
-      "purpose": "One Durable Object for each Owner, built on the pinned Agents SDK. personalAgentFor finds it by Owner Id. Each object builds one Effect runtime that gives its SQLite storage as the AgentStorage service.",
+      "purpose": "One Durable Object for each Owner, built on the pinned Agents SDK. personalAgentFor finds it by Owner Id. Each object builds one Effect runtime over its SQLite storage. It stores each Event in the Inbox, schedules the Turn with a durable alarm, and runs the Turn: model reply, Journal Entries, and the Channel send.",
       "roots": ["apps/agent/src/personal-agent"],
       "adrs": [
         "docs/decisions/0003-runtime-and-model-stack.md",
         "docs/decisions/0004-owners-and-channels.md"
       ]
+    },
+    {
+      "id": "event",
+      "purpose": "The Owner message Event that a Channel gives to the Personal Agent.",
+      "roots": ["apps/agent/src/event.ts"],
+      "adrs": ["docs/decisions/0004-owners-and-channels.md"]
+    },
+    {
+      "id": "journal",
+      "purpose": "The append-only Journal in the Personal Agent SQLite. The interface has append and read only, and storage triggers refuse updates and deletes.",
+      "roots": ["apps/agent/src/journal"],
+      "adrs": ["docs/decisions/0004-owners-and-channels.md"]
+    },
+    {
+      "id": "model-gateway",
+      "purpose": "The one interface to models. It selects the model for a task, calls it with the AI SDK through Cloudflare AI Gateway with the Owner Id as metadata and no stored bodies, retries with a timeout for each try, and records Usage for each model call in the Personal Agent SQLite.",
+      "roots": ["apps/agent/src/model-gateway"],
+      "adrs": [
+        "docs/decisions/0003-runtime-and-model-stack.md",
+        "docs/decisions/0004-owners-and-channels.md",
+        "docs/decisions/0005-model-transport-and-billing.md"
+      ]
+    },
+    {
+      "id": "channel",
+      "purpose": "The Channel send action and the Telegram Channel: it decodes private text messages from Telegram updates and sends a plain-text reply that links to the Owner's message. A send is confirmed only with a Telegram message id.",
+      "roots": ["apps/agent/src/channels"],
+      "adrs": ["docs/decisions/0004-owners-and-channels.md"]
+    },
+    {
+      "id": "behavior-config",
+      "purpose": "The typed Behavior Config defaults. It has the texting style only.",
+      "roots": ["apps/agent/src/behavior"],
+      "adrs": []
     },
     {
       "id": "owner-id",
@@ -30,17 +74,8 @@
       "adrs": ["docs/decisions/0004-owners-and-channels.md"]
     },
     {
-      "id": "agent-bundle-probe",
-      "purpose": "A Worker entry that adds the AI SDK and Effect Schema to the real Worker, so the bundle command measures the full agreed stack before the Turn uses it.",
-      "roots": ["apps/agent/bundle"],
-      "adrs": [
-        "docs/decisions/0003-runtime-and-model-stack.md",
-        "docs/decisions/0005-model-transport-and-billing.md"
-      ]
-    },
-    {
       "id": "agent-control-cli",
-      "purpose": "The control CLI of apps/agent: doctor checks configuration and secret names, dev runs the Worker locally, and bundle measures bundle size and local startup CPU.",
+      "purpose": "The control CLI of apps/agent: doctor checks configuration and secret names, dev runs the Worker locally with local fakes, owner add adds the Owner through the Operator route, request --contains proves a reply locally with no network, and bundle measures bundle size and local startup CPU.",
       "roots": ["apps/agent/control"],
       "adrs": [
         "docs/decisions/0001-repository-foundation.md",

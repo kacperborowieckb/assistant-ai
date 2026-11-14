@@ -9,13 +9,24 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PersonalAgent"] }],
   "d1_databases": [
-    { "binding": "DIRECTORY", "database_name": "assistant-directory" },
+    {
+      "binding": "DIRECTORY",
+      "database_name": "assistant-directory",
+      "migrations_dir": "src/directory/migrations",
+    },
   ],
+  "vars": {
+    "TELEGRAM_API_URL": "https://api.telegram.org",
+    "AI_GATEWAY_URL": "",
+    "AI_GATEWAY_ID": "assistant",
+    "REPLY_MODEL": "anthropic/claude-sonnet-5-5",
+  },
   "secrets": {
     "required": [
       "TELEGRAM_BOT_TOKEN",
       "TELEGRAM_WEBHOOK_SECRET",
       "AI_GATEWAY_TOKEN",
+      "OPERATOR_TOKEN",
     ],
   },
 }

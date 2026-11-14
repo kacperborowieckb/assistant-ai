@@ -9,6 +9,7 @@ import { wranglerConfigPath } from "./workspace.ts";
 
 const secretValues = {
   AI_GATEWAY_TOKEN: "value-of-ai-gateway-token-7f3a",
+  OPERATOR_TOKEN: "value-of-operator-token-2b6c",
   TELEGRAM_BOT_TOKEN: "value-of-telegram-bot-token-91c2",
   TELEGRAM_WEBHOOK_SECRET: "value-of-telegram-webhook-secret-4e8d",
 };
@@ -57,6 +58,7 @@ describe("doctor", () => {
     expect(report).toContain("TELEGRAM_BOT_TOKEN is set");
     expect(report).toContain("TELEGRAM_WEBHOOK_SECRET is missing");
     expect(report).toContain("AI_GATEWAY_TOKEN is missing");
+    expect(report).toContain("OPERATOR_TOKEN is missing");
     expect(report).not.toContain(secretValues.TELEGRAM_BOT_TOKEN);
   });
 

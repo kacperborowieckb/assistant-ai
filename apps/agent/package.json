@@ -10,13 +10,13 @@
     "verify": "pnpm typecheck && pnpm test && pnpm control bundle"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^3.0.92",
     "agents": "0.33.0",
     "ai": "^7.0.172",
     "effect": "4.1.4",
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@ai-sdk/openai-compatible": "^3.0.92",
     "@cloudflare/vitest-plugin": "^1.8.2",
     "@effect/platform-node": "4.1.4",
     "@types/node": "^24.19.2",
