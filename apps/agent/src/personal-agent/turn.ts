@@ -87,11 +87,11 @@ const settleFromJournal = (event: InboxEvent) =>
 
     if (tags.has("ReplySent")) {
       yield* inbox.markDone([event]);
-      return;
+      return "settled" as const;
     }
     if (tags.has("ReplyFailed")) {
       yield* inbox.markFailed([event]);
-      return;
+      return "settled" as const;
     }
     if (tags.has("SendStarted")) {
       yield* journal.append({
@@ -100,7 +100,7 @@ const settleFromJournal = (event: InboxEvent) =>
         reason: unconfirmedSendReason,
       });
       yield* inbox.markFailed([event]);
-      return;
+      return "settled" as const;
     }
     return "unanswered" as const;
   });
@@ -110,8 +110,8 @@ export const takeTurn = (behavior: BehaviorConfig) =>
     const inbox = yield* Inbox;
     const events = yield* inbox.pending;
     for (const event of events) {
-      const unanswered = yield* settleFromJournal(event);
-      if (unanswered !== undefined) {
+      const outcome = yield* settleFromJournal(event);
+      if (outcome === "unanswered") {
         yield* answer(behavior, event);
       }
     }

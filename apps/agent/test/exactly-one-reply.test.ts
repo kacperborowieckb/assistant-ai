@@ -1,4 +1,9 @@
-import { env, runInDurableObject } from "cloudflare:test";
+import {
+  abortAllDurableObjects,
+  env,
+  runDurableObjectAlarm,
+  runInDurableObject,
+} from "cloudflare:test";
 import { Effect } from "effect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -8,7 +13,13 @@ import { OwnerIdSchema } from "../src/owner-id.ts";
 import { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 import { unconfirmedSendReason } from "../src/personal-agent/turn.ts";
-import { fakeReplyPrefix, fakeTelegram, resetFakes } from "./fakes.ts";
+import {
+  fakeModel,
+  fakeReplyPrefix,
+  fakeTelegram,
+  holdModel,
+  resetFakes,
+} from "./fakes.ts";
 import { addOwner, telegramWebhook, textUpdate } from "./telegram-requests.ts";
 
 const inPersonalAgent = async <A, E>(
@@ -196,5 +207,25 @@ describe("Exactly one reply", () => {
       "SendStarted",
       "ReplyFailed",
     ]);
+  });
+
+  it("replies once after the Durable Object is reset in the middle of a Turn", async () => {
+    const ownerId = await addOwner(6007);
+    const releaseModel = holdModel();
+
+    await telegramWebhook(textUpdate({ fromUserId: 6007, text: "interrupt" }));
+    await vi.waitFor(() => expect(fakeModel.doGenerateCalls).toHaveLength(1));
+    await abortAllDurableObjects();
+    releaseModel();
+    const agent = await personalAgentFor(
+      env.PERSONAL_AGENT,
+      OwnerIdSchema.make(ownerId)
+    );
+    await runDurableObjectAlarm(agent);
+
+    await vi.waitFor(async () =>
+      expect(await stateOfOnlyEvent(ownerId)).toBe("done")
+    );
+    expect(fakeTelegram.sent).toHaveLength(1);
   });
 });
