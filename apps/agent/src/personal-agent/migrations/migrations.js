@@ -1,11 +1,9 @@
-import m0000 from "./0000_personal_agent.sql";
-import m0001 from "./0001_journal_append_only.sql";
-import journal from "./meta/_journal.json";
+import m0000 from "./20261114132133_personal_agent/migration.sql";
+import m0001 from "./20261114132301_journal_append_only/migration.sql";
 
 export default {
-  journal,
   migrations: {
-    m0000,
-    m0001,
+    "20261114132133_personal_agent": m0000,
+    "20261114132301_journal_append_only": m0001,
   },
 };

@@ -33,23 +33,19 @@ const makeInbox = Effect.gen(function* makeInboxEffect() {
   const journal = yield* Journal;
 
   const insert = (message: OwnerMessage) =>
-    Effect.sync(
-      () =>
-        database
-          .insert(inboxEvents)
-          .values({
-            eventId: crypto.randomUUID(),
-            ...message,
-            receivedAt: new Date().toISOString(),
-            state: "pending",
-          })
-          .onConflictDoNothing({
-            target: [inboxEvents.channel, inboxEvents.channelUpdateId],
-          })
-          .returning({ eventId: inboxEvents.eventId })
-          .all()
-          .at(0)?.eventId
-    );
+    database
+      .insert(inboxEvents)
+      .values({
+        eventId: crypto.randomUUID(),
+        ...message,
+        receivedAt: new Date().toISOString(),
+        state: "pending",
+      })
+      .onConflictDoNothing({
+        target: [inboxEvents.channel, inboxEvents.channelUpdateId],
+      })
+      .returning({ eventId: inboxEvents.eventId })
+      .pipe(Effect.map((rows) => rows.at(0)?.eventId));
 
   const store = (message: OwnerMessage) =>
     Effect.gen(function* storeEffect() {
@@ -61,27 +57,24 @@ const makeInbox = Effect.gen(function* makeInboxEffect() {
       return "stored" satisfies StoreResult;
     });
 
-  const pending = Effect.sync(() =>
-    database
-      .select()
-      .from(inboxEvents)
-      .where(eq(inboxEvents.state, "pending"))
-      .orderBy(asc(inboxEvents.sequence))
-      .all()
-      .map(toInboxEvent)
-  );
+  const pending = database
+    .select()
+    .from(inboxEvents)
+    .where(eq(inboxEvents.state, "pending"))
+    .orderBy(asc(inboxEvents.sequence))
+    .pipe(Effect.map((rows) => rows.map(toInboxEvent)));
 
   const settle =
     (state: "done" | "failed") => (events: readonly InboxEvent[]) =>
-      Effect.sync(() => {
-        for (const event of events) {
+      Effect.forEach(
+        events,
+        (event) =>
           database
             .update(inboxEvents)
             .set({ state })
-            .where(eq(inboxEvents.eventId, event.eventId))
-            .run();
-        }
-      });
+            .where(eq(inboxEvents.eventId, event.eventId)),
+        { discard: true }
+      );
 
   return {
     store,

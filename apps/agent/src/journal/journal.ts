@@ -39,27 +39,19 @@ const makeJournal = (ownerId: OwnerId) =>
     const { database } = yield* AgentStorage;
 
     const append = (record: JournalRecord) =>
-      Effect.sync(() => {
-        database
-          .insert(journalEntries)
-          .values({
-            ownerId,
-            recordedAt: new Date().toISOString(),
-            kind: record._tag,
-            eventId: record.eventId,
-            record: Schema.encodeSync(RecordJsonSchema)(record),
-          })
-          .run();
+      database.insert(journalEntries).values({
+        ownerId,
+        recordedAt: new Date().toISOString(),
+        kind: record._tag,
+        eventId: record.eventId,
+        record: Schema.encodeSync(RecordJsonSchema)(record),
       });
 
-    const read = Effect.sync(() =>
-      database
-        .select()
-        .from(journalEntries)
-        .orderBy(asc(journalEntries.sequence))
-        .all()
-        .map(toJournalEntry)
-    );
+    const read = database
+      .select()
+      .from(journalEntries)
+      .orderBy(asc(journalEntries.sequence))
+      .pipe(Effect.map((rows) => rows.map(toJournalEntry)));
 
     return { append, read };
   });

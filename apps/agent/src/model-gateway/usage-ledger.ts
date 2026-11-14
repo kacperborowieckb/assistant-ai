@@ -41,30 +41,22 @@ const makeUsageLedger = (ownerId: OwnerId) =>
     const { database } = yield* AgentStorage;
 
     const record = (task: ModelTask, modelId: string, usage: Usage) =>
-      Effect.sync(() => {
-        database
-          .insert(modelUsage)
-          .values({
-            ownerId,
-            recordedAt: new Date().toISOString(),
-            task,
-            modelId,
-            inputTokens: usage.inputTokens ?? null,
-            outputTokens: usage.outputTokens ?? null,
-            cachedInputTokens: usage.cachedInputTokens ?? null,
-            costUsd: usage.costUsd ?? null,
-          })
-          .run();
+      database.insert(modelUsage).values({
+        ownerId,
+        recordedAt: new Date().toISOString(),
+        task,
+        modelId,
+        inputTokens: usage.inputTokens ?? null,
+        outputTokens: usage.outputTokens ?? null,
+        cachedInputTokens: usage.cachedInputTokens ?? null,
+        costUsd: usage.costUsd ?? null,
       });
 
-    const read = Effect.sync(() =>
-      database
-        .select()
-        .from(modelUsage)
-        .orderBy(asc(modelUsage.sequence))
-        .all()
-        .map(toUsageRecord)
-    );
+    const read = database
+      .select()
+      .from(modelUsage)
+      .orderBy(asc(modelUsage.sequence))
+      .pipe(Effect.map((rows) => rows.map(toUsageRecord)));
 
     return { record, read };
   });

@@ -1,5 +1,7 @@
-import { drizzle } from "drizzle-orm/durable-sqlite";
-import { migrate } from "drizzle-orm/durable-sqlite/migrator";
+import { SqliteClient } from "@effect/sql-sqlite-do";
+import { makeWithDefaults } from "drizzle-orm/effect-sqlite-do";
+import type { EffectSQLiteDoDatabase } from "drizzle-orm/effect-sqlite-do";
+import { migrate } from "drizzle-orm/effect-sqlite-do/migrator";
 import { Context, Effect, Layer } from "effect";
 
 import { MigrationFailed } from "./migration-failed.ts";
@@ -7,14 +9,9 @@ import personalAgentMigrations from "./migrations/migrations.js";
 
 export type AgentMigrations = Parameters<typeof migrate>[1];
 
-export const makeAgentDatabase = (storage: DurableObjectStorage) =>
-  drizzle(storage);
-
-export type AgentDatabase = ReturnType<typeof makeAgentDatabase>;
-
 export class AgentStorage extends Context.Service<
   AgentStorage,
-  { readonly database: AgentDatabase }
+  { readonly database: EffectSQLiteDoDatabase }
 >()("PersonalAgent/AgentStorage") {
   static readonly layer = (
     storage: DurableObjectStorage,
@@ -23,12 +20,11 @@ export class AgentStorage extends Context.Service<
     Layer.effect(
       AgentStorage,
       Effect.gen(function* migrateStorage() {
-        const database = makeAgentDatabase(storage);
-        yield* Effect.tryPromise({
-          try: () => migrate(database, migrations),
-          catch: (cause) => new MigrationFailed({ cause }),
-        });
+        const database = yield* makeWithDefaults({});
+        yield* migrate(database, migrations).pipe(
+          Effect.mapError((cause) => new MigrationFailed({ cause }))
+        );
         return { database };
       })
-    );
+    ).pipe(Layer.provide(SqliteClient.layer({ storage })));
 }

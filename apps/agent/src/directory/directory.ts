@@ -1,5 +1,6 @@
+import { D1Client } from "@effect/sql-d1";
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/d1";
+import { makeWithDefaults } from "drizzle-orm/effect-d1";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 
 import { OwnerIdSchema } from "../owner-id.ts";
@@ -28,33 +29,39 @@ export interface DirectoryOwner {
   readonly status: OwnerStatus;
 }
 
-const query = <A>(run: () => Promise<A>) =>
-  Effect.tryPromise({
-    try: run,
-    catch: (cause) => new DirectoryUnavailable({ cause }),
-  });
+const takenIdentityMessage =
+  "UNIQUE constraint failed: channel_identities.channel_identity";
 
-const isTakenIdentity = (cause: unknown) =>
+const isTakenIdentity = (cause: unknown): boolean =>
   cause instanceof Error &&
-  cause.message.includes(
-    "UNIQUE constraint failed: channel_identities.channel_identity"
-  );
+  (cause.message.includes(takenIdentityMessage) ||
+    isTakenIdentity(cause.cause));
 
-const sessionDatabase = (session: D1DatabaseSession) =>
-  drizzle(session as unknown as D1Database);
+const unavailable = (cause: unknown) => new DirectoryUnavailable({ cause });
+
+const sessionClient = (session: D1DatabaseSession) =>
+  D1Client.layer({ db: session as unknown as D1Database });
+
+const openDatabase = (session: D1DatabaseSession) =>
+  makeWithDefaults({}).pipe(
+    Effect.provide(sessionClient(session)),
+    Effect.mapError(unavailable)
+  );
 
 const findOwnerIn = (
   session: D1DatabaseSession,
   channelIdentity: ChannelIdentity
 ) =>
-  query(() =>
-    sessionDatabase(session)
+  Effect.gen(function* findOwnerInEffect() {
+    const database = yield* openDatabase(session);
+    const rows = yield* database
       .select({ ownerId: owners.ownerId, status: owners.status })
       .from(channelIdentities)
       .innerJoin(owners, eq(owners.ownerId, channelIdentities.ownerId))
       .where(eq(channelIdentities.channelIdentity, channelIdentity))
-      .get()
-  );
+      .pipe(Effect.mapError(unavailable));
+    return rows.at(0);
+  });
 
 const makeDirectory = (database: D1Database) => {
   const findOwner = (channelIdentity: ChannelIdentity) =>
@@ -75,33 +82,41 @@ const makeDirectory = (database: D1Database) => {
   const addOwner = (channelIdentity: ChannelIdentity) =>
     Effect.gen(function* addOwnerEffect() {
       const ownerId = OwnerIdSchema.make(crypto.randomUUID());
-      const db = drizzle(database);
-      yield* Effect.tryPromise({
-        try: () =>
-          db.batch([
-            db.insert(owners).values({
-              ownerId,
-              status: "active",
-              createdAt: new Date().toISOString(),
-            }),
-            db.insert(channelIdentities).values({ channelIdentity, ownerId }),
-          ]),
-        catch: (cause) =>
-          isTakenIdentity(cause)
-            ? new ChannelIdentityTaken({ channelIdentity })
-            : new DirectoryUnavailable({ cause }),
+      const session = database.withSession("first-primary");
+      const db = yield* openDatabase(session);
+      const insertOwner = db.insert(owners).values({
+        ownerId,
+        status: "active",
+        createdAt: new Date().toISOString(),
       });
+      const insertIdentity = db
+        .insert(channelIdentities)
+        .values({ channelIdentity, ownerId });
+      const client = db.$client;
+      const statements = [insertOwner, insertIdentity].map((query) => {
+        const { sql, params } = query.toSQL();
+        return client.unsafe(sql, params);
+      });
+      yield* client
+        .batch(statements)
+        .pipe(
+          Effect.mapError((cause) =>
+            isTakenIdentity(cause)
+              ? new ChannelIdentityTaken({ channelIdentity })
+              : unavailable(cause)
+          )
+        );
       return ownerId;
     });
 
   const registrationState = Effect.gen(function* registrationStateEffect() {
-    const row = yield* query(() =>
-      drizzle(database)
-        .select({ state: registration.state })
-        .from(registration)
-        .where(eq(registration.singleton, 1))
-        .get()
-    );
+    const db = yield* openDatabase(database.withSession("first-primary"));
+    const rows = yield* db
+      .select({ state: registration.state })
+      .from(registration)
+      .where(eq(registration.singleton, 1))
+      .pipe(Effect.mapError(unavailable));
+    const row = rows.at(0);
     if (row === undefined) {
       return yield* new DirectoryUnavailable({
         cause: "The registration row is missing",

@@ -19,9 +19,9 @@ import { addOwner, telegramWebhook, textUpdate } from "./telegram-requests.ts";
 const personalAgentOf = (ownerId: string) =>
   personalAgentFor(env.PERSONAL_AGENT, OwnerIdSchema.make(ownerId));
 
-const inPersonalAgent = async <A>(
+const inPersonalAgent = async <A, E>(
   ownerId: string,
-  effect: Effect.Effect<A, never, Inbox | Journal | UsageLedger>
+  effect: Effect.Effect<A, E, Inbox | Journal | UsageLedger>
 ) =>
   runInDurableObject(await personalAgentOf(ownerId), (instance) =>
     instance.runtime.runPromise(effect)

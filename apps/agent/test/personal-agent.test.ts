@@ -12,21 +12,24 @@ const ownerB = OwnerIdSchema.make("owner-b");
 
 const sampleTable = Effect.gen(function* sampleTableEffect() {
   const { database } = yield* AgentStorage;
-  database.run(sql`CREATE TABLE IF NOT EXISTS sample (text TEXT NOT NULL)`);
+  yield* database.run(
+    sql`CREATE TABLE IF NOT EXISTS sample (text TEXT NOT NULL)`
+  );
   return database;
 });
 
 const storeNote = (text: string) =>
   Effect.gen(function* storeNoteEffect() {
     const database = yield* sampleTable;
-    database.run(sql`INSERT INTO sample (text) VALUES (${text})`);
+    yield* database.run(sql`INSERT INTO sample (text) VALUES (${text})`);
   });
 
 const readNotes = Effect.gen(function* readNotesEffect() {
   const database = yield* sampleTable;
-  return database
-    .all<{ text: string }>(sql`SELECT text FROM sample`)
-    .map((row) => row.text);
+  const rows = yield* database.all<{ text: string }>(
+    sql`SELECT text FROM sample`
+  );
+  return rows.map((row) => row.text);
 });
 
 describe("Personal Agent", () => {

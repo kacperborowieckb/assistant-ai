@@ -10,20 +10,10 @@ import { Conversation } from "../src/personal-agent/conversation.ts";
 import personalAgentMigrations from "../src/personal-agent/migrations/migrations.js";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 
-const nextEntry = {
-  idx: personalAgentMigrations.journal.entries.length,
-  when: Date.now() + 1_000_000,
-  tag: "next",
-  breakpoints: true,
-};
-
 const withNextMigration = (nextSql: string): AgentMigrations => ({
-  journal: {
-    entries: [...personalAgentMigrations.journal.entries, nextEntry],
-  },
   migrations: {
     ...personalAgentMigrations.migrations,
-    [`m${nextEntry.idx.toString().padStart(4, "0")}`]: nextSql,
+    "29990101000000_next": nextSql,
   },
 });
 
@@ -33,9 +23,10 @@ const freshAgent = (name: string) =>
 const columnsOf = (table: string) =>
   Effect.gen(function* columnsOfEffect() {
     const { database } = yield* AgentStorage;
-    return database
-      .all<{ name: string }>(sql`SELECT name FROM pragma_table_info(${table})`)
-      .map((column) => column.name);
+    const columns = yield* database.all<{ name: string }>(
+      sql`SELECT name FROM pragma_table_info(${table})`
+    );
+    return columns.map((column) => column.name);
   });
 
 const appendOwnerMessage = Effect.gen(function* appendEffect() {
