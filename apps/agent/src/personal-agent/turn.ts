@@ -4,7 +4,8 @@ import { Effect } from "effect";
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { Channel } from "../channels/channel.ts";
 import { Journal } from "../journal/journal.ts";
-import { ModelGateway } from "../model-gateway/model-gateway.ts";
+import { ModelGateway, modelAttempts } from "../model-gateway/model-gateway.ts";
+import type { ModelUnavailable } from "../model-gateway/model-unavailable.ts";
 import { Conversation } from "./conversation.ts";
 import type { ConversationMessage } from "./conversation.ts";
 import { Inbox } from "./inbox.ts";
@@ -27,31 +28,24 @@ const ownerMessage = (event: InboxEvent): ConversationMessage => ({
   text: event.text,
 });
 
-const answer = (behavior: BehaviorConfig, event: InboxEvent) =>
-  Effect.gen(function* answerEffect() {
-    const inbox = yield* Inbox;
-    const conversation = yield* Conversation;
+export const honestFailureText =
+  "Sorry, I could not answer that. Please try again in a moment.";
+
+const deliver = (event: InboxEvent, text: string) =>
+  Effect.gen(function* deliverEffect() {
     const journal = yield* Journal;
     const channel = yield* Channel;
-    const modelGateway = yield* ModelGateway;
-
-    const history = yield* conversation.recent;
-    const reply = yield* modelGateway.generate({
-      task: "reply",
-      system: systemPrompt(behavior),
-      messages: [...history, ownerMessage(event)].map(toModelMessage),
-    });
 
     yield* journal.append({
       _tag: "ReplyPlanned",
       eventId: event.eventId,
-      text: reply.text,
+      text,
     });
     yield* journal.append({ _tag: "SendStarted", eventId: event.eventId });
     const delivery = yield* channel.send({
       conversationId: event.conversationId,
       inReplyTo: event.channelMessageId,
-      text: reply.text,
+      text,
     });
 
     if (delivery._tag === "Failed") {
@@ -60,14 +54,60 @@ const answer = (behavior: BehaviorConfig, event: InboxEvent) =>
         eventId: event.eventId,
         reason: delivery.reason,
       });
-      yield* inbox.markFailed([event]);
-      return;
+      return "unconfirmed" as const;
     }
     yield* journal.append({
       _tag: "ReplySent",
       eventId: event.eventId,
       channelMessageId: delivery.channelMessageId,
     });
+    return "confirmed" as const;
+  });
+
+const failTurn = (event: InboxEvent, reason: string) =>
+  Effect.gen(function* failTurnEffect() {
+    const inbox = yield* Inbox;
+    const journal = yield* Journal;
+
+    yield* journal.append({
+      _tag: "TurnFailed",
+      eventId: event.eventId,
+      reason,
+    });
+    yield* deliver(event, honestFailureText);
+    yield* inbox.markFailed([event]);
+  });
+
+const modelFailureReason = (error: ModelUnavailable) =>
+  `The model failed ${modelAttempts} times: ${String(error.cause)}`;
+
+const answer = (behavior: BehaviorConfig, event: InboxEvent) =>
+  Effect.gen(function* answerEffect() {
+    const inbox = yield* Inbox;
+    const conversation = yield* Conversation;
+    const modelGateway = yield* ModelGateway;
+
+    const history = yield* conversation.recent;
+    const reply = yield* modelGateway
+      .generate({
+        task: "reply",
+        system: systemPrompt(behavior),
+        messages: [...history, ownerMessage(event)].map(toModelMessage),
+      })
+      .pipe(
+        Effect.catchTag("ModelUnavailable", (error) =>
+          failTurn(event, modelFailureReason(error)).pipe(Effect.as(undefined))
+        )
+      );
+
+    if (reply === undefined) {
+      return;
+    }
+    const outcome = yield* deliver(event, reply.text);
+    if (outcome === "unconfirmed") {
+      yield* inbox.markFailed([event]);
+      return;
+    }
     yield* conversation.append([
       ownerMessage(event),
       { role: "agent", text: reply.text },
@@ -90,6 +130,11 @@ const settleFromJournal = (event: InboxEvent) =>
       return "settled" as const;
     }
     if (tags.has("ReplyFailed")) {
+      yield* inbox.markFailed([event]);
+      return "settled" as const;
+    }
+    if (tags.has("TurnFailed") && !tags.has("SendStarted")) {
+      yield* deliver(event, honestFailureText);
       yield* inbox.markFailed([event]);
       return "settled" as const;
     }
