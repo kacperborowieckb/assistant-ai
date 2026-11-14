@@ -12,7 +12,7 @@ export interface SentTelegramMessage {
   };
 }
 
-export type TelegramAnswer = "confirm" | "refuse";
+export type TelegramAnswer = "confirm" | "refuse" | "lose-confirmation";
 
 const fakeTelegramState = {
   sent: [] as SentTelegramMessage[],
@@ -32,6 +32,9 @@ export const fakeTelegram = {
       url: request.url,
       body: await request.json(),
     });
+    if (fakeTelegramState.answer === "lose-confirmation") {
+      throw new TypeError("The connection dropped before Telegram answered");
+    }
     if (fakeTelegramState.answer === "refuse") {
       return Response.json(
         { ok: false, description: "Bad Request: chat not found" },

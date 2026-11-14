@@ -8,6 +8,7 @@ import { journalEntries } from "../personal-agent/storage-schema.ts";
 export const JournalRecordSchema = Schema.TaggedUnion({
   EventReceived: { eventId: Schema.String },
   ReplyPlanned: { eventId: Schema.String, text: Schema.String },
+  SendStarted: { eventId: Schema.String },
   ReplySent: { eventId: Schema.String, channelMessageId: Schema.String },
   ReplyFailed: { eventId: Schema.String, reason: Schema.String },
 });

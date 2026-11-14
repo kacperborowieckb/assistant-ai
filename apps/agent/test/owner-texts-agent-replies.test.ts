@@ -106,7 +106,7 @@ describe("Owner texts, agent replies", () => {
       "user",
     ]);
     expect(secondPrompt[0]).toEqual(fakeModel.doGenerateCalls[0]?.prompt[0]);
-    expect(await journalOf(ownerId)).toHaveLength(6);
+    expect(await journalOf(ownerId)).toHaveLength(8);
   });
 
   it("records the Turn in the Journal and its Usage for the Owner", async () => {
@@ -114,19 +114,20 @@ describe("Owner texts, agent replies", () => {
 
     await telegramWebhook(textUpdate({ fromUserId: 5003, text: "note this" }));
     await vi.waitFor(async () =>
-      expect(await journalOf(ownerId)).toHaveLength(3)
+      expect(await journalOf(ownerId)).toHaveLength(4)
     );
 
     const journal = await journalOf(ownerId);
     expect(journal.map((entry) => entry.record._tag)).toEqual([
       "EventReceived",
       "ReplyPlanned",
+      "SendStarted",
       "ReplySent",
     ]);
     expect(new Set(journal.map((entry) => entry.ownerId))).toEqual(
       new Set([ownerId])
     );
-    expect(journal[2]?.record).toMatchObject({
+    expect(journal[3]?.record).toMatchObject({
       channelMessageId: "9001",
       eventId: journal[0]?.record.eventId,
     });
@@ -154,16 +155,17 @@ describe("Owner texts, agent replies", () => {
 
     await telegramWebhook(textUpdate({ fromUserId: 5004, text: "hi" }));
     await vi.waitFor(async () =>
-      expect(await journalOf(ownerId)).toHaveLength(3)
+      expect(await journalOf(ownerId)).toHaveLength(4)
     );
 
     const journal = await journalOf(ownerId);
     expect(journal.map((entry) => entry.record._tag)).toEqual([
       "EventReceived",
       "ReplyPlanned",
+      "SendStarted",
       "ReplyFailed",
     ]);
-    expect(journal[2]?.record).toMatchObject({
+    expect(journal[3]?.record).toMatchObject({
       reason: "Telegram refused the message (400): Bad Request: chat not found",
     });
   });
@@ -211,7 +213,7 @@ describe("Journal", () => {
     const ownerId = await addOwner(5005);
     await telegramWebhook(textUpdate({ fromUserId: 5005, text: "keep" }));
     await vi.waitFor(async () =>
-      expect(await journalOf(ownerId)).toHaveLength(3)
+      expect(await journalOf(ownerId)).toHaveLength(4)
     );
     const firstTurn = await journalOf(ownerId);
 
@@ -225,10 +227,10 @@ describe("Journal", () => {
     });
     await telegramWebhook(textUpdate({ fromUserId: 5005, text: "again" }));
     await vi.waitFor(async () =>
-      expect(await journalOf(ownerId)).toHaveLength(6)
+      expect(await journalOf(ownerId)).toHaveLength(8)
     );
 
     const afterSecondTurn = await journalOf(ownerId);
-    expect(afterSecondTurn.slice(0, 3)).toEqual(firstTurn);
+    expect(afterSecondTurn.slice(0, 4)).toEqual(firstTurn);
   });
 });

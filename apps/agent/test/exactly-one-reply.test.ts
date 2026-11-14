@@ -66,8 +66,11 @@ const interruptedAfter = async (
         }
       })
     );
-    await instance.runTurn();
+    await instance.schedule(0, "runTurn");
   });
+  await vi.waitFor(async () =>
+    expect(await stateOfOnlyEvent(ownerId)).not.toBe("pending")
+  );
 };
 
 beforeEach(() => {
@@ -94,6 +97,7 @@ describe("Exactly one reply", () => {
     expect(await journalTags(ownerId)).toEqual([
       "EventReceived",
       "ReplyPlanned",
+      "SendStarted",
       "ReplySent",
     ]);
   });
@@ -109,8 +113,20 @@ describe("Exactly one reply", () => {
     expect(await journalTags(ownerId)).toEqual([
       "EventReceived",
       "ReplyPlanned",
+      "SendStarted",
       "ReplySent",
     ]);
+    expect(await stateOfOnlyEvent(ownerId)).toBe("done");
+  });
+
+  it("replies once to an Event whose reply was planned but whose send never started", async () => {
+    const ownerId = await addOwner(6005);
+
+    await interruptedAfter(ownerId, 6005, (eventId) => [
+      { _tag: "ReplyPlanned", eventId, text: "planned only" },
+    ]);
+
+    expect(fakeTelegram.sent).toHaveLength(1);
     expect(await stateOfOnlyEvent(ownerId)).toBe("done");
   });
 
@@ -119,6 +135,7 @@ describe("Exactly one reply", () => {
 
     await interruptedAfter(ownerId, 6003, (eventId) => [
       { _tag: "ReplyPlanned", eventId, text: "already sent" },
+      { _tag: "SendStarted", eventId },
       { _tag: "ReplySent", eventId, channelMessageId: "9100" },
     ]);
 
@@ -127,6 +144,7 @@ describe("Exactly one reply", () => {
     expect(await journalTags(ownerId)).toEqual([
       "EventReceived",
       "ReplyPlanned",
+      "SendStarted",
       "ReplySent",
     ]);
   });
@@ -136,6 +154,7 @@ describe("Exactly one reply", () => {
 
     await interruptedAfter(ownerId, 6004, (eventId) => [
       { _tag: "ReplyPlanned", eventId, text: "maybe sent" },
+      { _tag: "SendStarted", eventId },
     ]);
 
     expect(fakeTelegram.sent).toEqual([]);
@@ -146,11 +165,36 @@ describe("Exactly one reply", () => {
     expect(entries.map((entry) => entry.record)).toEqual([
       expect.objectContaining({ _tag: "EventReceived" }),
       expect.objectContaining({ _tag: "ReplyPlanned" }),
+      expect.objectContaining({ _tag: "SendStarted" }),
       expect.objectContaining({
         _tag: "ReplyFailed",
         reason: unconfirmedSendReason,
       }),
     ]);
     expect(await stateOfOnlyEvent(ownerId)).toBe("failed");
+  });
+
+  it("sends once and never again when Telegram may have accepted the message but the confirmation was lost", async () => {
+    const ownerId = await addOwner(6006);
+    fakeTelegram.answerWith("lose-confirmation");
+
+    await telegramWebhook(textUpdate({ fromUserId: 6006, text: "lost" }));
+    await vi.waitFor(async () =>
+      expect(await stateOfOnlyEvent(ownerId)).toBe("failed")
+    );
+    fakeTelegram.answerWith("confirm");
+    const agent = await personalAgentFor(
+      env.PERSONAL_AGENT,
+      OwnerIdSchema.make(ownerId)
+    );
+    await runInDurableObject(agent, (instance) => instance.runTurn());
+
+    expect(fakeTelegram.sent).toHaveLength(1);
+    expect(await journalTags(ownerId)).toEqual([
+      "EventReceived",
+      "ReplyPlanned",
+      "SendStarted",
+      "ReplyFailed",
+    ]);
   });
 });

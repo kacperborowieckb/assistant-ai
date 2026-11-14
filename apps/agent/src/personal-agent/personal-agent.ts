@@ -49,10 +49,16 @@ export class PersonalAgent extends Agent<Env> {
   );
 
   async receive(message: OwnerMessage): Promise<StoreConfirmation> {
-    const result = await this.runtime.runPromise(
+    await this.runtime.runPromise(
       Inbox.pipe(Effect.flatMap((inbox) => inbox.store(message)))
     );
-    if (result === "stored") {
+    const hasPendingEvents = await this.runtime.runPromise(
+      Inbox.pipe(
+        Effect.flatMap((inbox) => inbox.pending),
+        Effect.map((events) => events.length > 0)
+      )
+    );
+    if (hasPendingEvents) {
       await this.schedule(0, "runTurn", undefined, {
         retry: { maxAttempts: 1 },
       });
