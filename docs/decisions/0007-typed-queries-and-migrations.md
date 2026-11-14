@@ -21,7 +21,7 @@ Use Drizzle ORM with its native Effect drivers for both stores of `apps/agent`: 
 
 ## Why
 
-A typed schema moves column and row-shape errors from run time to type check. Every later slice adds tables, so the gain grows. Drizzle supports D1 and Durable Object SQLite with one schema style, and it generates migrations, which closes the migration question of #21 with the same tool. The native Effect drivers fit the Effect services of [0003](0003-runtime-and-model-stack.md): no `Effect.sync` wrapper, typed errors, and D1 sessions without a cast.
+A typed schema moves column and row-shape errors from run time to type check. Every later slice adds tables, so the gain grows. Drizzle supports D1 and Durable Object SQLite with one schema style, and it generates migrations, which closes the migration question of #21 with the same tool. The native Effect drivers fit the Effect services of [0003](0003-runtime-and-model-stack.md): no `Effect.sync` wrapper and typed errors.
 
 Rejected: Kysely. It types queries but has no migration generator that fits a Durable Object. Rejected: plain SQL with stricter tests. It keeps the run-time failure mode. Rejected: the stable Drizzle 0.45 with the Promise drivers. It needs `Effect.sync` wrappers that turn database errors into defects, and Drizzle moves to the 1.0 layout anyway.
 
