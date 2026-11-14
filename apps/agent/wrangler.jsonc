@@ -13,6 +13,7 @@
       "binding": "DIRECTORY",
       "database_name": "assistant-directory",
       "migrations_dir": "src/directory/migrations",
+      "migrations_pattern": "src/directory/migrations/*/migration.sql",
     },
   ],
   "vars": {

@@ -5,14 +5,18 @@
   "scripts": {
     "control": "node control/main.ts",
     "types": "wrangler types",
+    "migrations:generate": "drizzle-kit generate --config drizzle.directory.config.ts && drizzle-kit generate --config drizzle.personal-agent.config.ts",
     "typecheck": "wrangler types --check && tsc --project tsconfig.json && tsc --project control/tsconfig.json",
     "test": "vitest run",
     "verify": "pnpm typecheck && pnpm control map --check && pnpm test && pnpm control bundle"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.92",
+    "@effect/sql-d1": "4.1.4",
+    "@effect/sql-sqlite-do": "4.1.4",
     "agents": "0.33.0",
     "ai": "^7.0.172",
+    "drizzle-orm": "1.0.0-rc.5",
     "effect": "4.1.4",
     "zod": "^4.6.7"
   },
@@ -20,6 +24,7 @@
     "@cloudflare/vitest-plugin": "^1.8.2",
     "@effect/platform-node": "4.1.4",
     "@types/node": "^24.19.2",
+    "drizzle-kit": "1.0.0-rc.5",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0",
     "wrangler": "^4.162.0"

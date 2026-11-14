@@ -1,8 +1,9 @@
+import { asc } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { OwnerIdSchema } from "../owner-id.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
+import { journalEntries } from "../personal-agent/storage-schema.ts";
 
 export const JournalRecordSchema = Schema.TaggedUnion({
   EventReceived: { eventId: Schema.String },
@@ -20,66 +21,40 @@ export interface JournalEntry {
   readonly record: JournalRecord;
 }
 
-export const journalSchema = [
-  `CREATE TABLE IF NOT EXISTS journal_entries (
-    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
-    owner_id TEXT NOT NULL,
-    recorded_at TEXT NOT NULL,
-    kind TEXT NOT NULL,
-    event_id TEXT NOT NULL,
-    record TEXT NOT NULL
-  )`,
-  `CREATE TRIGGER IF NOT EXISTS journal_entries_no_update
-    BEFORE UPDATE ON journal_entries
-    BEGIN SELECT RAISE(ABORT, 'The Journal is append-only'); END`,
-  `CREATE TRIGGER IF NOT EXISTS journal_entries_no_delete
-    BEFORE DELETE ON journal_entries
-    BEGIN SELECT RAISE(ABORT, 'The Journal is append-only'); END`,
-];
-
 const RecordJsonSchema = Schema.fromJsonString(JournalRecordSchema);
 
-const EntryRowSchema = Schema.Struct({
-  sequence: Schema.Number,
-  owner_id: OwnerIdSchema,
-  recorded_at: Schema.String,
-  record: RecordJsonSchema,
-});
+const decodeRecord = Schema.decodeUnknownSync(RecordJsonSchema);
 
-const decodeEntryRows = Schema.decodeUnknownSync(Schema.Array(EntryRowSchema));
-
-const toJournalEntry = (row: typeof EntryRowSchema.Type): JournalEntry => ({
+const toJournalEntry = (
+  row: typeof journalEntries.$inferSelect
+): JournalEntry => ({
   sequence: row.sequence,
-  ownerId: row.owner_id,
-  recordedAt: row.recorded_at,
-  record: row.record,
+  ownerId: row.ownerId,
+  recordedAt: row.recordedAt,
+  record: decodeRecord(row.record),
 });
 
 const makeJournal = (ownerId: OwnerId) =>
   Effect.gen(function* makeJournalEffect() {
-    const { sql } = yield* AgentStorage;
+    const { database } = yield* AgentStorage;
 
     const append = (record: JournalRecord) =>
-      Effect.sync(() => {
-        sql.exec(
-          "INSERT INTO journal_entries (owner_id, recorded_at, kind, event_id, record) VALUES (?, ?, ?, ?, ?)",
+      database
+        .insert(journalEntries)
+        .values({
           ownerId,
-          new Date().toISOString(),
-          record._tag,
-          record.eventId,
-          Schema.encodeSync(RecordJsonSchema)(record)
-        );
-      });
+          recordedAt: new Date().toISOString(),
+          kind: record._tag,
+          eventId: record.eventId,
+          record: Schema.encodeSync(RecordJsonSchema)(record),
+        })
+        .pipe(Effect.asVoid);
 
-    const read = Effect.sync(() =>
-      decodeEntryRows(
-        sql
-          .exec(
-            "SELECT sequence, owner_id, recorded_at, record FROM journal_entries ORDER BY sequence"
-          )
-          .toArray()
-      ).map(toJournalEntry)
-    );
+    const read = database
+      .select()
+      .from(journalEntries)
+      .orderBy(asc(journalEntries.sequence))
+      .pipe(Effect.map((rows) => rows.map(toJournalEntry)));
 
     return { append, read };
   });

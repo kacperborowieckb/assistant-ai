@@ -6,31 +6,36 @@
       "roots": [
         "apps/agent/src/index.ts",
         "apps/agent/src/edge",
-        "apps/agent/wrangler.jsonc"
+        "apps/agent/wrangler.jsonc",
+        "apps/agent/drizzle.directory.config.ts",
+        "apps/agent/drizzle.personal-agent.config.ts"
       ],
       "adrs": [
         "docs/decisions/0001-repository-foundation.md",
         "docs/decisions/0003-runtime-and-model-stack.md",
         "docs/decisions/0004-owners-and-channels.md",
-        "docs/decisions/0006-directory-store.md"
+        "docs/decisions/0006-directory-store.md",
+        "docs/decisions/0007-typed-queries-and-migrations.md"
       ]
     },
     {
       "id": "directory",
-      "purpose": "The Directory in D1 with its migrations: Owners, Channel Identities, and the Registration state. Its interface finds the Owner for a Channel Identity, adds an Owner with a Channel Identity, and reads the Registration state. No other module runs SQL against the Directory.",
+      "purpose": "The Directory in D1 with its Drizzle schema and migrations: Owners, Channel Identities, and the Registration state. Its interface finds the Owner for a Channel Identity, adds an Owner with a Channel Identity, and reads the Registration state. No other module runs SQL against the Directory.",
       "roots": ["apps/agent/src/directory"],
       "adrs": [
         "docs/decisions/0004-owners-and-channels.md",
-        "docs/decisions/0006-directory-store.md"
+        "docs/decisions/0006-directory-store.md",
+        "docs/decisions/0007-typed-queries-and-migrations.md"
       ]
     },
     {
       "id": "personal-agent",
-      "purpose": "One Durable Object for each Owner, built on the pinned Agents SDK. personalAgentFor finds it by Owner Id. Each object builds one Effect runtime over its SQLite storage. It stores each Event in the Inbox, schedules the Turn with a durable alarm, and runs the Turn: model reply, Journal Entries, and the Channel send.",
+      "purpose": "One Durable Object for each Owner, built on the pinned Agents SDK. personalAgentFor finds it by Owner Id. Each object builds one Effect runtime over its SQLite storage. It stores each Event in the Inbox, schedules the Turn with a durable alarm, and runs the Turn: model reply, Journal Entries, and the Channel send. It owns the Drizzle storage schema and the versioned migrations that each Personal Agent applies once, in order, when it starts.",
       "roots": ["apps/agent/src/personal-agent"],
       "adrs": [
         "docs/decisions/0003-runtime-and-model-stack.md",
-        "docs/decisions/0004-owners-and-channels.md"
+        "docs/decisions/0004-owners-and-channels.md",
+        "docs/decisions/0007-typed-queries-and-migrations.md"
       ]
     },
     {
@@ -43,7 +48,10 @@
       "id": "journal",
       "purpose": "The append-only Journal in the Personal Agent SQLite. The interface has append and read only, and storage triggers refuse updates and deletes.",
       "roots": ["apps/agent/src/journal"],
-      "adrs": ["docs/decisions/0004-owners-and-channels.md"]
+      "adrs": [
+        "docs/decisions/0004-owners-and-channels.md",
+        "docs/decisions/0007-typed-queries-and-migrations.md"
+      ]
     },
     {
       "id": "model-gateway",
@@ -52,7 +60,8 @@
       "adrs": [
         "docs/decisions/0003-runtime-and-model-stack.md",
         "docs/decisions/0004-owners-and-channels.md",
-        "docs/decisions/0005-model-transport-and-billing.md"
+        "docs/decisions/0005-model-transport-and-billing.md",
+        "docs/decisions/0007-typed-queries-and-migrations.md"
       ]
     },
     {

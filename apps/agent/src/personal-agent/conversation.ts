@@ -1,18 +1,11 @@
+import { desc } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { AgentStorage } from "./agent-storage.ts";
-
-export const conversationSchema = [
-  `CREATE TABLE IF NOT EXISTS conversation_messages (
-    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
-    role TEXT NOT NULL CHECK (role IN ('owner', 'agent')),
-    text TEXT NOT NULL,
-    recorded_at TEXT NOT NULL
-  )`,
-];
+import { conversationMessages, conversationRoles } from "./storage-schema.ts";
 
 export const ConversationMessageSchema = Schema.Struct({
-  role: Schema.Literals(["owner", "agent"]),
+  role: Schema.Literals(conversationRoles),
   text: Schema.String,
 });
 
@@ -20,37 +13,26 @@ export type ConversationMessage = typeof ConversationMessageSchema.Type;
 
 const recentMessageLimit = 20;
 
-const decodeMessageRows = Schema.decodeUnknownSync(
-  Schema.Array(ConversationMessageSchema)
-);
-
 const makeConversation = Effect.gen(function* makeConversationEffect() {
-  const { sql } = yield* AgentStorage;
+  const { database } = yield* AgentStorage;
 
-  const recent = Effect.sync(() =>
-    decodeMessageRows(
-      sql
-        .exec(
-          `SELECT role, text FROM (
-             SELECT sequence, role, text FROM conversation_messages
-             ORDER BY sequence DESC LIMIT ?
-           ) ORDER BY sequence`,
-          recentMessageLimit
-        )
-        .toArray()
-    )
-  );
+  const recent = database
+    .select({
+      role: conversationMessages.role,
+      text: conversationMessages.text,
+    })
+    .from(conversationMessages)
+    .orderBy(desc(conversationMessages.sequence))
+    .limit(recentMessageLimit)
+    .pipe(Effect.map((rows) => rows.toReversed()));
 
   const append = (messages: readonly ConversationMessage[]) =>
-    Effect.sync(() => {
+    Effect.gen(function* appendEffect() {
       const recordedAt = new Date().toISOString();
       for (const message of messages) {
-        sql.exec(
-          "INSERT INTO conversation_messages (role, text, recorded_at) VALUES (?, ?, ?)",
-          message.role,
-          message.text,
-          recordedAt
-        );
+        yield* database
+          .insert(conversationMessages)
+          .values({ role: message.role, text: message.text, recordedAt });
       }
     });
 

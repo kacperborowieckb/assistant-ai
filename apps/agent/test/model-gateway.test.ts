@@ -1,15 +1,19 @@
 import { generateText } from "ai";
 import { env } from "cloudflare:test";
-import { Effect, Exit } from "effect";
+import { EffectDrizzleQueryError } from "drizzle-orm/effect-core";
+import { Effect, Exit, Layer } from "effect";
 import { describe, expect, it } from "vitest";
 
 import {
   aiGatewayHeaders,
   aiGatewayModelProvider,
 } from "../src/model-gateway/ai-gateway.ts";
+import { ModelGateway } from "../src/model-gateway/model-gateway.ts";
 import { ModelProvider } from "../src/model-gateway/model-provider.ts";
+import { UsageLedger } from "../src/model-gateway/usage-ledger.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
 import { decodeTurnEnv } from "../src/personal-agent/turn-services.ts";
+import { fakeModel, resetFakes } from "./fakes.ts";
 
 const chatCompletion = {
   id: "chatcmpl-1",
@@ -90,5 +94,42 @@ describe("Model Gateway transport", () => {
     expect(failure).toContain("AI_GATEWAY_URL");
     expect(failure).not.toContain(env.AI_GATEWAY_TOKEN);
     expect(failure).not.toContain(env.TELEGRAM_BOT_TOKEN);
+  });
+
+  it("does not repeat a successful model call when the usage write fails", async () => {
+    resetFakes();
+    const failingLedger = Layer.succeed(UsageLedger, {
+      record: () =>
+        Effect.fail(
+          new EffectDrizzleQueryError({
+            query: "insert",
+            params: undefined,
+            cause: "disk full",
+          })
+        ),
+      read: Effect.succeed([]),
+    });
+    const gateway = ModelGateway.layer.pipe(
+      Layer.provide(failingLedger),
+      Layer.provide(
+        Layer.succeed(ModelProvider, { languageModel: () => fakeModel })
+      )
+    );
+
+    const exit = await Effect.runPromiseExit(
+      ModelGateway.pipe(
+        Effect.flatMap((models) =>
+          models.generate({
+            task: "reply",
+            system: "Be brief.",
+            messages: [{ role: "user", content: "Hi" }],
+          })
+        ),
+        Effect.provide(gateway)
+      )
+    );
+
+    expect(Exit.isFailure(exit)).toBe(true);
+    expect(fakeModel.doGenerateCalls).toHaveLength(1);
   });
 });

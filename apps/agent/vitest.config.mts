@@ -1,5 +1,4 @@
 import { builtinModules } from "node:module";
-import { fileURLToPath } from "node:url";
 
 import { cloudflareTest, readD1Migrations } from "@cloudflare/vitest-plugin";
 import { defineConfig } from "vitest/config";
@@ -16,9 +15,11 @@ Object.assign(process.env, testSecrets);
 const refuseNetwork = (request: Request) =>
   new Response(`Network is off in tests: ${request.url}`, { status: 503 });
 
-const directoryMigrations = await readD1Migrations(
-  fileURLToPath(new URL("src/directory/migrations", import.meta.url))
-);
+const directoryMigrations = await readD1Migrations({
+  projectPath: import.meta.dirname,
+  migrationsDir: "src/directory/migrations",
+  migrationsPattern: "src/directory/migrations/*/migration.sql",
+});
 
 const isNodeBuiltin = (id: string) =>
   id.startsWith("node:") || builtinModules.includes(id);
@@ -47,7 +48,17 @@ export default defineConfig({
             optimizer: {
               ssr: {
                 enabled: true,
-                include: ["agents", "effect"],
+                include: [
+                  "agents",
+                  "effect",
+                  "drizzle-orm",
+                  "drizzle-orm/effect-d1",
+                  "drizzle-orm/effect-sqlite-do",
+                  "drizzle-orm/effect-sqlite-do/migrator",
+                  "drizzle-orm/sqlite-core",
+                  "@effect/sql-d1",
+                  "@effect/sql-sqlite-do",
+                ],
                 rolldownOptions: { external: isNodeBuiltin },
               },
             },

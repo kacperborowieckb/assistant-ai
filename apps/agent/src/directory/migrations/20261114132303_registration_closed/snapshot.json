@@ -1,0 +1,155 @@
+{
+  "id": "dd1f1acb-e3cf-49db-be36-ab79ab6e9a91",
+  "prevIds": ["1864ad46-844d-4c17-9d84-7362aaae18d9"],
+  "version": "7",
+  "dialect": "sqlite",
+  "ddl": [
+    {
+      "name": "channel_identities",
+      "entityType": "tables"
+    },
+    {
+      "name": "owners",
+      "entityType": "tables"
+    },
+    {
+      "name": "registration",
+      "entityType": "tables"
+    },
+    {
+      "table": "channel_identities",
+      "name": "channel_identity",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "channel_identities",
+      "name": "owner_id",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "owners",
+      "name": "owner_id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "owners",
+      "name": "status",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "owners",
+      "name": "created_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "registration",
+      "name": "singleton",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "registration",
+      "name": "state",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "channel_identities",
+      "name": "channel_identities_owner",
+      "columns": [
+        {
+          "value": "owner_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "channel_identities",
+      "name": "fk_channel_identities_owner_id_owners_owner_id_fk",
+      "columns": ["owner_id"],
+      "tableTo": "owners",
+      "columnsTo": ["owner_id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "channel_identities",
+      "name": "channel_identities_pk",
+      "columns": ["channel_identity"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "owners",
+      "name": "owners_pk",
+      "columns": ["owner_id"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "registration",
+      "name": "registration_pk",
+      "columns": ["singleton"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "owners",
+      "name": "owners_status_check",
+      "value": "\"status\" IN ('active', 'suspended')",
+      "entityType": "checks"
+    },
+    {
+      "table": "registration",
+      "name": "registration_singleton_check",
+      "value": "\"singleton\" = 1",
+      "entityType": "checks"
+    },
+    {
+      "table": "registration",
+      "name": "registration_state_check",
+      "value": "\"state\" IN ('open', 'closed')",
+      "entityType": "checks"
+    }
+  ],
+  "renames": []
+}

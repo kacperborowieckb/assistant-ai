@@ -1,4 +1,5 @@
 import { env, runInDurableObject } from "cloudflare:test";
+import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -10,23 +11,25 @@ const ownerA = OwnerIdSchema.make("owner-a");
 const ownerB = OwnerIdSchema.make("owner-b");
 
 const sampleTable = Effect.gen(function* sampleTableEffect() {
-  const { sql } = yield* AgentStorage;
-  sql.exec("CREATE TABLE IF NOT EXISTS sample (text TEXT NOT NULL)");
-  return sql;
+  const { database } = yield* AgentStorage;
+  yield* database.run(
+    sql`CREATE TABLE IF NOT EXISTS sample (text TEXT NOT NULL)`
+  );
+  return database;
 });
 
 const storeNote = (text: string) =>
   Effect.gen(function* storeNoteEffect() {
-    const sql = yield* sampleTable;
-    sql.exec("INSERT INTO sample (text) VALUES (?)", text);
+    const database = yield* sampleTable;
+    yield* database.run(sql`INSERT INTO sample (text) VALUES (${text})`);
   });
 
 const readNotes = Effect.gen(function* readNotesEffect() {
-  const sql = yield* sampleTable;
-  return sql
-    .exec<{ text: string }>("SELECT text FROM sample")
-    .toArray()
-    .map((row) => row.text);
+  const database = yield* sampleTable;
+  const rows = yield* database.all<{ text: string }>(
+    sql`SELECT text FROM sample`
+  );
+  return rows.map((row) => row.text);
 });
 
 describe("Personal Agent", () => {

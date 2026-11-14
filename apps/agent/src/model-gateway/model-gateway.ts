@@ -30,30 +30,39 @@ const usageOf = (usage: LanguageModelUsage): Usage => ({
   costUsd: undefined,
 });
 
-const modelIdOf = (
-  model: ReturnType<ModelProvider["Service"]["languageModel"]>
-) => (typeof model === "string" ? model : model.modelId);
+type LanguageModelRef = ReturnType<ModelProvider["Service"]["languageModel"]>;
+
+const modelIdOf = (model: LanguageModelRef) =>
+  typeof model === "string" ? model : model.modelId;
+
+const attemptModelCall = (request: ModelRequest, model: LanguageModelRef) =>
+  Effect.tryPromise({
+    try: (abortSignal) =>
+      generateText({
+        model,
+        system: request.system,
+        messages: [...request.messages],
+        maxRetries: 0,
+        abortSignal,
+      }),
+    catch: (cause) => new ModelUnavailable({ cause }),
+  }).pipe(
+    Effect.timeoutOrElse({
+      duration: attemptTimeout,
+      orElse: () => Effect.fail(new ModelUnavailable({ cause: "timeout" })),
+    })
+  );
 
 const makeModelGateway = Effect.gen(function* makeModelGatewayEffect() {
   const provider = yield* ModelProvider;
   const ledger = yield* UsageLedger;
 
-  const attempt = (request: ModelRequest) => {
+  const generate = (request: ModelRequest) => {
     const model = provider.languageModel(request.task);
-    return Effect.tryPromise({
-      try: (abortSignal) =>
-        generateText({
-          model,
-          system: request.system,
-          messages: [...request.messages],
-          maxRetries: 0,
-          abortSignal,
-        }),
-      catch: (cause) => new ModelUnavailable({ cause }),
-    }).pipe(
-      Effect.timeoutOrElse({
-        duration: attemptTimeout,
-        orElse: () => Effect.fail(new ModelUnavailable({ cause: "timeout" })),
+    return attemptModelCall(request, model).pipe(
+      Effect.retry({
+        times: modelAttempts - 1,
+        schedule: Schedule.exponential(firstRetryDelay),
       }),
       Effect.tap((result) =>
         ledger.record(request.task, modelIdOf(model), usageOf(result.usage))
@@ -64,14 +73,6 @@ const makeModelGateway = Effect.gen(function* makeModelGatewayEffect() {
       }))
     );
   };
-
-  const generate = (request: ModelRequest) =>
-    attempt(request).pipe(
-      Effect.retry({
-        times: modelAttempts - 1,
-        schedule: Schedule.exponential(firstRetryDelay),
-      })
-    );
 
   return { generate };
 });
