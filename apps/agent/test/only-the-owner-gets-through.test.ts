@@ -40,6 +40,9 @@ const suspend = (ownerId: string) =>
     .bind(ownerId)
     .run();
 
+const sameLengthWrongSecret = () =>
+  `${env.TELEGRAM_WEBHOOK_SECRET.slice(0, -1)}!`;
+
 const settle = () => scheduler.wait(200);
 
 beforeEach(() => {
@@ -49,7 +52,7 @@ beforeEach(() => {
 describe("Only the Owner gets through", () => {
   it.each([
     ["no secret token", 7001, null],
-    ["a wrong secret token", 7002, "not-the-secret"],
+    ["a wrong secret token of the same length", 7002, sameLengthWrongSecret()],
     ["a secret token of another length", 7003, "x"],
   ])(
     "answers 401 and stores nothing for %s",
