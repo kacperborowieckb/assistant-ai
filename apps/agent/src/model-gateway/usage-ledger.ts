@@ -41,16 +41,19 @@ const makeUsageLedger = (ownerId: OwnerId) =>
     const { database } = yield* AgentStorage;
 
     const record = (task: ModelTask, modelId: string, usage: Usage) =>
-      database.insert(modelUsage).values({
-        ownerId,
-        recordedAt: new Date().toISOString(),
-        task,
-        modelId,
-        inputTokens: usage.inputTokens ?? null,
-        outputTokens: usage.outputTokens ?? null,
-        cachedInputTokens: usage.cachedInputTokens ?? null,
-        costUsd: usage.costUsd ?? null,
-      });
+      database
+        .insert(modelUsage)
+        .values({
+          ownerId,
+          recordedAt: new Date().toISOString(),
+          task,
+          modelId,
+          inputTokens: usage.inputTokens ?? null,
+          outputTokens: usage.outputTokens ?? null,
+          cachedInputTokens: usage.cachedInputTokens ?? null,
+          costUsd: usage.costUsd ?? null,
+        })
+        .pipe(Effect.asVoid);
 
     const read = database
       .select()

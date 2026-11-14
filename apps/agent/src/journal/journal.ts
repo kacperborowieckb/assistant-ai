@@ -39,13 +39,16 @@ const makeJournal = (ownerId: OwnerId) =>
     const { database } = yield* AgentStorage;
 
     const append = (record: JournalRecord) =>
-      database.insert(journalEntries).values({
-        ownerId,
-        recordedAt: new Date().toISOString(),
-        kind: record._tag,
-        eventId: record.eventId,
-        record: Schema.encodeSync(RecordJsonSchema)(record),
-      });
+      database
+        .insert(journalEntries)
+        .values({
+          ownerId,
+          recordedAt: new Date().toISOString(),
+          kind: record._tag,
+          eventId: record.eventId,
+          record: Schema.encodeSync(RecordJsonSchema)(record),
+        })
+        .pipe(Effect.asVoid);
 
     const read = database
       .select()

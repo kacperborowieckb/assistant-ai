@@ -102,15 +102,20 @@ describe("Personal Agent migrations", () => {
         failing,
         readMessages
       );
-      const columns = await runWithMigrations(
+      const restart = await runWithMigrations(
         state.storage,
         undefined,
-        columnsOf("conversation_messages")
+        Effect.zip(readMessages, columnsOf("conversation_messages"))
       );
 
       expect(Exit.isFailure(failedStart)).toBe(true);
       expect(JSON.stringify(failedStart)).toContain("MigrationFailed");
-      expect(JSON.stringify(columns)).not.toContain("half_done");
+      expect(Exit.isSuccess(restart)).toBe(true);
+      if (Exit.isSuccess(restart)) {
+        const [messages, columns] = restart.value;
+        expect(messages).toEqual([{ role: "owner", text: "kept" }]);
+        expect(columns).not.toContain("half_done");
+      }
     });
   });
 
