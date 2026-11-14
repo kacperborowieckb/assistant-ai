@@ -3,6 +3,7 @@ import { Effect } from "effect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Journal } from "../src/journal/journal.ts";
+import type { JournalRecord } from "../src/journal/journal.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
 import { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
@@ -42,6 +43,41 @@ const stateOfOnlyEvent = async (ownerId: string) =>
         .exec<{ state: string }>("SELECT state FROM inbox_events")
         .one().state
   );
+
+const interruptedWith = async (
+  ownerId: string,
+  telegramUserId: number,
+  records: (eventId: string) => readonly JournalRecord[]
+) => {
+  const agent = await personalAgentFor(
+    env.PERSONAL_AGENT,
+    OwnerIdSchema.make(ownerId)
+  );
+  await runInDurableObject(agent, async (instance) => {
+    await instance.runtime.runPromise(
+      Effect.gen(function* seedEffect() {
+        const inbox = yield* Inbox;
+        const journal = yield* Journal;
+        yield* inbox.store({
+          channel: "telegram",
+          channelUpdateId: "interrupted-1",
+          conversationId: String(telegramUserId),
+          channelMessageId: "71",
+          text: "interrupted",
+          sentAt: new Date().toISOString(),
+        });
+        const [event] = yield* inbox.pending;
+        for (const record of records(event?.eventId ?? "")) {
+          yield* journal.append(record);
+        }
+      })
+    );
+    await instance.schedule(0, "runTurn");
+  });
+  await vi.waitFor(async () =>
+    expect(await stateOfOnlyEvent(ownerId)).not.toBe("pending")
+  );
+};
 
 beforeEach(() => {
   resetFakes();
@@ -112,42 +148,55 @@ describe("Honest failures", () => {
     ]);
   });
 
+  it("keeps the Event failed when the Turn stopped after the honest message was confirmed", async () => {
+    const ownerId = await addOwner(7005);
+
+    await interruptedWith(ownerId, 7005, (eventId) => [
+      {
+        _tag: "TurnFailed",
+        eventId,
+        reason: "The model failed 3 times: earlier",
+      },
+      { _tag: "ReplyPlanned", eventId, text: honestFailureText },
+      { _tag: "SendStarted", eventId },
+      { _tag: "ReplySent", eventId, channelMessageId: "9100" },
+    ]);
+
+    expect(fakeTelegram.sent).toEqual([]);
+    expect(await stateOfOnlyEvent(ownerId)).toBe("failed");
+  });
+
   it("sends the honest message once when the Turn stopped after recording the failure", async () => {
     const ownerId = await addOwner(7004);
-    const agent = await personalAgentFor(
-      env.PERSONAL_AGENT,
-      OwnerIdSchema.make(ownerId)
-    );
-    await runInDurableObject(agent, async (instance) => {
-      await instance.runtime.runPromise(
-        Effect.gen(function* seedEffect() {
-          const inbox = yield* Inbox;
-          const journal = yield* Journal;
-          yield* inbox.store({
-            channel: "telegram",
-            channelUpdateId: "failed-1",
-            conversationId: "7004",
-            channelMessageId: "71",
-            text: "failed earlier",
-            sentAt: new Date().toISOString(),
-          });
-          const [event] = yield* inbox.pending;
-          yield* journal.append({
-            _tag: "TurnFailed",
-            eventId: event?.eventId ?? "",
-            reason: "The model failed 3 times: earlier",
-          });
-        })
-      );
-      await instance.schedule(0, "runTurn");
-    });
-    await vi.waitFor(async () =>
-      expect(await stateOfOnlyEvent(ownerId)).toBe("failed")
-    );
+
+    await interruptedWith(ownerId, 7004, (eventId) => [
+      {
+        _tag: "TurnFailed",
+        eventId,
+        reason: "The model failed 3 times: earlier",
+      },
+    ]);
 
     expect(fakeModel.doGenerateCalls).toHaveLength(0);
     expect(fakeTelegram.sent.map((message) => message.body.text)).toEqual([
       honestFailureText,
     ]);
+    expect(await stateOfOnlyEvent(ownerId)).toBe("failed");
+  });
+
+  it("records a failed Turn with the reason when Telegram refuses a normal reply", async () => {
+    const ownerId = await addOwner(7006);
+    fakeTelegram.answerWith("refuse");
+
+    await telegramWebhook(textUpdate({ fromUserId: 7006, text: "refused" }));
+    await vi.waitFor(async () =>
+      expect(await stateOfOnlyEvent(ownerId)).toBe("failed")
+    );
+
+    const records = await journalRecords(ownerId);
+    expect(records.at(-1)).toMatchObject({
+      _tag: "TurnFailed",
+      reason: expect.stringContaining("Telegram refused"),
+    });
   });
 });

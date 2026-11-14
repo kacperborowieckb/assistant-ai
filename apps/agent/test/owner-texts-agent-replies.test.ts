@@ -155,7 +155,7 @@ describe("Owner texts, agent replies", () => {
 
     await telegramWebhook(textUpdate({ fromUserId: 5004, text: "hi" }));
     await vi.waitFor(async () =>
-      expect(await journalOf(ownerId)).toHaveLength(4)
+      expect(await journalOf(ownerId)).toHaveLength(5)
     );
 
     const journal = await journalOf(ownerId);
@@ -164,8 +164,9 @@ describe("Owner texts, agent replies", () => {
       "ReplyPlanned",
       "SendStarted",
       "ReplyFailed",
+      "TurnFailed",
     ]);
-    expect(journal[3]?.record).toMatchObject({
+    expect(journal[4]?.record).toMatchObject({
       reason: "Telegram refused the message (400): Bad Request: chat not found",
     });
   });

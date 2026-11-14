@@ -54,18 +54,18 @@ const deliver = (event: InboxEvent, text: string) =>
         eventId: event.eventId,
         reason: delivery.reason,
       });
-      return "unconfirmed" as const;
+      return delivery;
     }
     yield* journal.append({
       _tag: "ReplySent",
       eventId: event.eventId,
       channelMessageId: delivery.channelMessageId,
     });
-    return "confirmed" as const;
+    return delivery;
   });
 
-const failTurn = (event: InboxEvent, reason: string) =>
-  Effect.gen(function* failTurnEffect() {
+const recordTurnFailed = (event: InboxEvent, reason: string) =>
+  Effect.gen(function* recordTurnFailedEffect() {
     const inbox = yield* Inbox;
     const journal = yield* Journal;
 
@@ -74,8 +74,27 @@ const failTurn = (event: InboxEvent, reason: string) =>
       eventId: event.eventId,
       reason,
     });
+    yield* inbox.markFailed([event]);
+  });
+
+const sendHonestFailure = (event: InboxEvent) =>
+  Effect.gen(function* sendHonestFailureEffect() {
+    const inbox = yield* Inbox;
+
     yield* deliver(event, honestFailureText);
     yield* inbox.markFailed([event]);
+  });
+
+const failTurnWithHonestMessage = (event: InboxEvent, reason: string) =>
+  Effect.gen(function* failTurnWithHonestMessageEffect() {
+    const journal = yield* Journal;
+
+    yield* journal.append({
+      _tag: "TurnFailed",
+      eventId: event.eventId,
+      reason,
+    });
+    yield* sendHonestFailure(event);
   });
 
 const modelFailureReason = (error: ModelUnavailable) =>
@@ -96,16 +115,18 @@ const answer = (behavior: BehaviorConfig, event: InboxEvent) =>
       })
       .pipe(
         Effect.catchTag("ModelUnavailable", (error) =>
-          failTurn(event, modelFailureReason(error)).pipe(Effect.as(undefined))
+          failTurnWithHonestMessage(event, modelFailureReason(error)).pipe(
+            Effect.as(undefined)
+          )
         )
       );
 
     if (reply === undefined) {
       return;
     }
-    const outcome = yield* deliver(event, reply.text);
-    if (outcome === "unconfirmed") {
-      yield* inbox.markFailed([event]);
+    const delivery = yield* deliver(event, reply.text);
+    if (delivery._tag === "Failed") {
+      yield* recordTurnFailed(event, delivery.reason);
       return;
     }
     yield* conversation.append([
@@ -125,17 +146,21 @@ const settleFromJournal = (event: InboxEvent) =>
     const entries = yield* journal.readForEvent(event.eventId);
     const tags = new Set(entries.map((entry) => entry.record._tag));
 
+    if (tags.has("TurnFailed")) {
+      yield* tags.has("SendStarted")
+        ? inbox.markFailed([event])
+        : sendHonestFailure(event);
+      return "settled" as const;
+    }
     if (tags.has("ReplySent")) {
       yield* inbox.markDone([event]);
       return "settled" as const;
     }
-    if (tags.has("ReplyFailed")) {
-      yield* inbox.markFailed([event]);
-      return "settled" as const;
-    }
-    if (tags.has("TurnFailed") && !tags.has("SendStarted")) {
-      yield* deliver(event, honestFailureText);
-      yield* inbox.markFailed([event]);
+    const failedSend = entries.find(
+      (entry) => entry.record._tag === "ReplyFailed"
+    );
+    if (failedSend?.record._tag === "ReplyFailed") {
+      yield* recordTurnFailed(event, failedSend.record.reason);
       return "settled" as const;
     }
     if (tags.has("SendStarted")) {
@@ -144,7 +169,7 @@ const settleFromJournal = (event: InboxEvent) =>
         eventId: event.eventId,
         reason: unconfirmedSendReason,
       });
-      yield* inbox.markFailed([event]);
+      yield* recordTurnFailed(event, unconfirmedSendReason);
       return "settled" as const;
     }
     return "unanswered" as const;
