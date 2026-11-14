@@ -7,7 +7,7 @@
 1. Telegram sends an update to `POST /telegram/webhook`. The Edge checks the `X-Telegram-Bot-Api-Secret-Token` header and keeps only text messages from private chats.
 2. The Edge finds the Owner for the Channel Identity `telegram:<user id>` through the Directory. It reads with a D1 session.
 3. The Edge gives the Event to the Owner's Personal Agent. The Personal Agent stores the Event in its Inbox, writes an `EventReceived` Journal Entry, and schedules a Turn with the Agents SDK `schedule`, which uses a durable alarm. Then the Edge answers 200.
-4. The alarm runs the Turn. The Turn reads the pending Events and the recent conversation, and asks the Model Gateway for a reply. The Model Gateway records Usage.
+4. The alarm runs a Turn for each pending Event, oldest first. The Turn reads the recent conversation and asks the Model Gateway for a reply to that Event. The Model Gateway records Usage. Burst merge is not in this slice.
 5. The Turn writes `ReplyPlanned`, then sends the reply with Telegram `sendMessage`. It writes `ReplySent` only with the Telegram message id. A refused or failed send writes `ReplyFailed`, and the Events are failed.
 
 The Operator adds the Owner with `POST /operator/owners`. This route needs `Authorization: Bearer <OPERATOR_TOKEN>` and writes through the Directory interface. It does not open Registration.

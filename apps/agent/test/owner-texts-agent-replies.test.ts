@@ -33,6 +33,20 @@ const journalOf = (ownerId: string) =>
     Journal.pipe(Effect.flatMap((journal) => journal.read))
   );
 
+const ownerMessageFor = (
+  conversationId: string,
+  text: string,
+  updateId: string,
+  messageId: string
+) => ({
+  channel: "telegram" as const,
+  channelUpdateId: updateId,
+  conversationId,
+  channelMessageId: messageId,
+  text,
+  sentAt: new Date().toISOString(),
+});
+
 beforeEach(() => {
   resetFakes();
 });
@@ -152,6 +166,43 @@ describe("Owner texts, agent replies", () => {
     expect(journal[2]?.record).toMatchObject({
       reason: "Telegram refused the message (400): Bad Request: chat not found",
     });
+  });
+});
+
+describe("Pending Events", () => {
+  it("gives each pending Event its own reply, oldest first", async () => {
+    const ownerId = await addOwner(5006);
+
+    await runInDurableObject(
+      await personalAgentOf(ownerId),
+      async (instance) => {
+        await instance.runtime.runPromise(
+          Inbox.pipe(
+            Effect.flatMap((inbox) =>
+              Effect.all([
+                inbox.store(ownerMessageFor("5006", "first", "u-1", "41")),
+                inbox.store(ownerMessageFor("5006", "second", "u-2", "42")),
+              ])
+            )
+          )
+        );
+        await instance.runTurn();
+      }
+    );
+
+    expect(
+      fakeTelegram.sent.map((message) => [
+        message.body.reply_parameters.message_id,
+        message.body.text,
+      ])
+    ).toEqual([
+      [41, `${fakeReplyPrefix}first`],
+      [42, `${fakeReplyPrefix}second`],
+    ]);
+    const journal = await journalOf(ownerId);
+    expect(
+      journal.filter((entry) => entry.record._tag === "ReplySent")
+    ).toHaveLength(2);
   });
 });
 

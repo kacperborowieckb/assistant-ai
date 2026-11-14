@@ -27,14 +27,9 @@ const ownerMessage = (event: InboxEvent): ConversationMessage => ({
   text: event.text,
 });
 
-export const takeTurn = (behavior: BehaviorConfig) =>
-  Effect.gen(function* takeTurnEffect() {
+const answer = (behavior: BehaviorConfig, event: InboxEvent) =>
+  Effect.gen(function* answerEffect() {
     const inbox = yield* Inbox;
-    const events = yield* inbox.pending;
-    const answered = events.at(-1);
-    if (answered === undefined) {
-      return;
-    }
     const conversation = yield* Conversation;
     const journal = yield* Journal;
     const channel = yield* Channel;
@@ -44,37 +39,46 @@ export const takeTurn = (behavior: BehaviorConfig) =>
     const reply = yield* modelGateway.generate({
       task: "reply",
       system: systemPrompt(behavior),
-      messages: [...history, ...events.map(ownerMessage)].map(toModelMessage),
+      messages: [...history, ownerMessage(event)].map(toModelMessage),
     });
 
     yield* journal.append({
       _tag: "ReplyPlanned",
-      eventId: answered.eventId,
+      eventId: event.eventId,
       text: reply.text,
     });
     const delivery = yield* channel.send({
-      conversationId: answered.conversationId,
-      inReplyTo: answered.channelMessageId,
+      conversationId: event.conversationId,
+      inReplyTo: event.channelMessageId,
       text: reply.text,
     });
 
     if (delivery._tag === "Failed") {
       yield* journal.append({
         _tag: "ReplyFailed",
-        eventId: answered.eventId,
+        eventId: event.eventId,
         reason: delivery.reason,
       });
-      yield* inbox.markFailed(events);
+      yield* inbox.markFailed([event]);
       return;
     }
     yield* journal.append({
       _tag: "ReplySent",
-      eventId: answered.eventId,
+      eventId: event.eventId,
       channelMessageId: delivery.channelMessageId,
     });
     yield* conversation.append([
-      ...events.map(ownerMessage),
+      ownerMessage(event),
       { role: "agent", text: reply.text },
     ]);
-    yield* inbox.markDone(events);
+    yield* inbox.markDone([event]);
+  });
+
+export const takeTurn = (behavior: BehaviorConfig) =>
+  Effect.gen(function* takeTurnEffect() {
+    const inbox = yield* Inbox;
+    const events = yield* inbox.pending;
+    for (const event of events) {
+      yield* answer(behavior, event);
+    }
   });
