@@ -109,10 +109,19 @@ export const ExchangeSchema = Schema.Struct({
 
 export type Exchange = typeof ExchangeSchema.Type;
 
+export const JudgedToolCallSchema = Schema.Struct({
+  name: Schema.String,
+  input: Schema.String,
+  output: Schema.String,
+});
+
+export type JudgedToolCall = typeof JudgedToolCallSchema.Type;
+
 export const JudgeRequestSchema = Schema.Struct({
   ownerId: NonEmptyString,
   rubric: NonEmptyString,
   exchanges: Schema.Array(ExchangeSchema),
+  toolCalls: Schema.Array(JudgedToolCallSchema),
 });
 
 export type JudgeRequest = typeof JudgeRequestSchema.Type;

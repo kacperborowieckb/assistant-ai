@@ -204,6 +204,55 @@ describe("Eval runner with a fake model", () => {
   );
 });
 
+describe("Eval runner with two Owners", () => {
+  it(
+    "keeps the storage of Owner A and Owner B apart, and labels a failed check of Owner B",
+    async () => {
+      const isolationCase: EvalCase = {
+        name: "fake-isolation",
+        description: "Owner A keeps a Note and Owner B has none",
+        events: [
+          { text: "keep: the garage code is 4821" },
+          { text: "keep: the shed code is 77", owner: "B" },
+        ],
+        checks: [
+          { check: "note_count", equals: 1 },
+          { check: "note_matches", textIncludes: ["garage", "4821"] },
+          { check: "note_matches", owner: "B", textIncludes: ["shed", "77"] },
+          { check: "note_count", owner: "B", equals: 1 },
+          { check: "reply_judged", owner: "B", rubric: "B got a reply." },
+        ],
+      };
+      const leakCase: EvalCase = {
+        ...isolationCase,
+        name: "fake-leak",
+        checks: [
+          { check: "note_matches", owner: "B", textIncludes: ["garage"] },
+        ],
+      };
+
+      const { results, modelCalls } = await runFakeEval(
+        [isolationCase, leakCase],
+        1,
+        []
+      );
+      const report = renderEvalReport(results, 1);
+      const judgeInput = modelCalls.find(
+        (call) => call.model === fakeJudgeModel
+      )?.lastUserMessage;
+
+      expect(results.map(casePassed)).toStrictEqual([true, false]);
+      expect(judgeInput).toContain("Kept note");
+      expect(judgeInput).toContain("shed code is 77");
+      expect(judgeInput).not.toContain("garage");
+      expect(report).toContain(
+        'Run 1: Owner B, note_matches: a Note includes "garage". Found: 1 Note: "the shed code is 77, trust level owner"'
+      );
+    },
+    harnessTimeout
+  );
+});
+
 describe("Eval plan", () => {
   it("prints the expected number of model calls before the runs", () => {
     expect(renderEvalPlan([captureCase], 3)).toContain(

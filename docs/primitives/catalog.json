@@ -85,7 +85,8 @@
         "docs/decisions/0005-model-transport-and-billing.md",
         "docs/decisions/0007-typed-queries-and-migrations.md",
         "docs/decisions/0009-agent-loop-and-client-boundaries.md",
-        "docs/decisions/0011-eval-runner.md"
+        "docs/decisions/0011-eval-runner.md",
+        "docs/decisions/0012-eval-owners-and-judge-evidence.md"
       ]
     },
     {
@@ -125,7 +126,8 @@
       "adrs": [
         "docs/decisions/0001-repository-foundation.md",
         "docs/decisions/0002-agent-authority.md",
-        "docs/decisions/0011-eval-runner.md"
+        "docs/decisions/0011-eval-runner.md",
+        "docs/decisions/0012-eval-owners-and-judge-evidence.md"
       ]
     },
     {
@@ -135,7 +137,8 @@
       "adrs": [
         "docs/decisions/0002-agent-authority.md",
         "docs/decisions/0009-agent-loop-and-client-boundaries.md",
-        "docs/decisions/0011-eval-runner.md"
+        "docs/decisions/0011-eval-runner.md",
+        "docs/decisions/0012-eval-owners-and-judge-evidence.md"
       ]
     }
   ]

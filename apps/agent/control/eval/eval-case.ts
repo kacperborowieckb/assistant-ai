@@ -6,10 +6,12 @@ import {
   SeedProfileEntrySchema,
 } from "../../eval/eval-contract.ts";
 import { EvalCheckSchema } from "./eval-checks.ts";
+import { OwnerLabelSchema } from "./owner-label.ts";
 
 export const OwnerEventSchema = Schema.Struct({
   text: NonEmptyString,
   forwardedFrom: Schema.optionalKey(NonEmptyString),
+  owner: Schema.optionalKey(OwnerLabelSchema),
 });
 
 export type OwnerEvent = typeof OwnerEventSchema.Type;

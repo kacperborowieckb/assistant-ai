@@ -9,12 +9,16 @@ import {
   profileEntryKinds,
   trustLevels,
 } from "../../src/personal-agent/storage-schema.ts";
+import { OwnerLabelSchema } from "./owner-label.ts";
 import { counted } from "./wording.ts";
+
+const owner = { owner: Schema.optionalKey(OwnerLabelSchema) };
 
 const Count = Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
 
 const NoteCountCheckSchema = Schema.Struct({
   check: Schema.Literal("note_count"),
+  ...owner,
   equals: Count,
 });
 
@@ -24,6 +28,7 @@ const TextIncludesSchema = Schema.Array(NonEmptyString).pipe(
 
 const NoteMatchesCheckSchema = Schema.Struct({
   check: Schema.Literal("note_matches"),
+  ...owner,
   textIncludes: TextIncludesSchema,
   url: Schema.optionalKey(NonEmptyString),
   trustLevel: Schema.optionalKey(Schema.Literals(trustLevels)),
@@ -32,28 +37,33 @@ const NoteMatchesCheckSchema = Schema.Struct({
 
 const LinkCountCheckSchema = Schema.Struct({
   check: Schema.Literal("link_count"),
+  ...owner,
   equals: Count,
 });
 
 const NotesLinkedCheckSchema = Schema.Struct({
   check: Schema.Literal("notes_linked"),
+  ...owner,
   noteIncludes: TextIncludesSchema,
   linkedNoteIncludes: TextIncludesSchema,
 });
 
 const ProfileEntryMatchesCheckSchema = Schema.Struct({
   check: Schema.Literal("profile_entry_matches"),
+  ...owner,
   textIncludes: TextIncludesSchema,
   kind: Schema.optionalKey(Schema.Literals(profileEntryKinds)),
 });
 
 const ProfileEntryCountCheckSchema = Schema.Struct({
   check: Schema.Literal("profile_entry_count"),
+  ...owner,
   equals: Count,
 });
 
 const ToolCallsCheckSchema = Schema.Struct({
   check: Schema.Literal("tool_calls"),
+  ...owner,
   tool: NonEmptyString,
   min: Schema.optionalKey(Count),
   max: Schema.optionalKey(Count),
@@ -61,6 +71,7 @@ const ToolCallsCheckSchema = Schema.Struct({
 
 const ReplyJudgedCheckSchema = Schema.Struct({
   check: Schema.Literal("reply_judged"),
+  ...owner,
   rubric: NonEmptyString,
 });
 
