@@ -1,4 +1,5 @@
 import { Effect, Schedule, Schema } from "effect";
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 
 import {
   AgentObservationSchema,
@@ -20,20 +21,25 @@ interface JsonPost {
 }
 
 const postJson = ({ workerUrl, token, route, body }: JsonPost) =>
-  Effect.tryPromise({
-    try: async () => {
-      const response = await fetch(new URL(route, workerUrl), {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
-      return { status: response.status, text: await response.text() };
-    },
-    catch: (cause) => new EvalWorkerFailed({ route, detail: String(cause) }),
-  });
+  HttpClient.HttpClient.pipe(
+    Effect.flatMap((client) =>
+      client.execute(
+        HttpClientRequest.post(new URL(route, workerUrl)).pipe(
+          HttpClientRequest.bearerToken(token),
+          HttpClientRequest.bodyJsonUnsafe(body)
+        )
+      )
+    ),
+    Effect.flatMap((response) =>
+      response.text.pipe(
+        Effect.map((text) => ({ status: response.status, text }))
+      )
+    ),
+    Effect.mapError(
+      ({ message }) => new EvalWorkerFailed({ route, detail: message })
+    ),
+    Effect.provide(FetchHttpClient.layer)
+  );
 
 const decodedAnswer =
   <Answer>(route: string, schema: Schema.Codec<Answer, unknown>) =>
