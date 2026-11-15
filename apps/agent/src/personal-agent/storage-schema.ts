@@ -14,6 +14,8 @@ import type { OwnerId } from "../owner-id.ts";
 
 export const inboxStates = ["pending", "done", "failed"] as const;
 
+export const turnResults = ["model_replied", "model_failed"] as const;
+
 export const conversationRoles = ["owner", "agent"] as const;
 
 export const inboxEvents = sqliteTable(
@@ -73,3 +75,19 @@ export const modelUsage = sqliteTable("model_usage", {
   cachedInputTokens: integer("cached_input_tokens"),
   costUsd: real("cost_usd"),
 });
+
+export const turnTraces = sqliteTable(
+  "turn_traces",
+  {
+    sequence: integer("sequence").primaryKey({ autoIncrement: true }),
+    ownerId: text("owner_id").$type<OwnerId>().notNull(),
+    recordedAt: text("recorded_at").notNull(),
+    eventId: text("event_id").notNull(),
+    result: text("result", { enum: turnResults }).notNull(),
+    record: text("record").notNull(),
+  },
+  (table) => [
+    index("turn_traces_event").on(table.eventId),
+    check("turn_traces_result_check", valueIn(table.result, turnResults)),
+  ]
+);

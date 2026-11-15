@@ -16,6 +16,9 @@
       "migrations_pattern": "src/directory/migrations/*/migration.sql",
     },
   ],
+  "analytics_engine_datasets": [
+    { "binding": "OPERATOR_METRICS", "dataset": "assistant_operator_metrics" },
+  ],
   "vars": {
     "TELEGRAM_API_URL": "https://api.telegram.org",
     "AI_GATEWAY_URL": "",

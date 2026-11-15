@@ -1,6 +1,7 @@
 import { createExecutionContext, env } from "cloudflare:test";
 
 import worker from "../src/index.ts";
+import { fakeMetrics } from "./fakes.ts";
 
 let nextUpdateId = 1000;
 
@@ -27,7 +28,11 @@ export const textUpdate = ({
 };
 
 export const sendToEdge = (request: Parameters<typeof worker.fetch>[0]) =>
-  worker.fetch(request, env, createExecutionContext());
+  worker.fetch(
+    request,
+    { ...env, OPERATOR_METRICS: fakeMetrics.dataset },
+    createExecutionContext()
+  );
 
 export const telegramWebhook = (
   update: unknown,

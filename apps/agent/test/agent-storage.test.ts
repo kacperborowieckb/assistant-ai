@@ -119,7 +119,7 @@ describe("Personal Agent migrations", () => {
     });
   });
 
-  it("creates the Journal triggers that refuse updates and deletes", async () => {
+  it("creates the triggers that keep the Journal and the Traces append-only", async () => {
     const agent = await freshAgent("owner-journal-triggers");
 
     await runInDurableObject(agent, async (_instance, state) => {
@@ -134,6 +134,8 @@ describe("Personal Agent migrations", () => {
       expect(triggers).toEqual([
         "journal_entries_no_delete",
         "journal_entries_no_update",
+        "turn_traces_no_delete",
+        "turn_traces_no_update",
       ]);
     });
   });

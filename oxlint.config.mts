@@ -9,7 +9,20 @@ export default defineConfig({
     ".agents/skills/**",
     "apps/agent/worker-configuration.d.ts",
   ],
+  rules: {
+    "max-params": ["error", { max: 3 }],
+  },
   overrides: [
+    {
+      files: ["apps/**/src/**/*.ts", "apps/**/control/**/*.ts"],
+      excludeFiles: ["**/*.test.ts"],
+      rules: {
+        "max-lines": [
+          "error",
+          { max: 250, skipBlankLines: true, skipComments: true },
+        ],
+      },
+    },
     {
       files: ["apps/agent/**/*.ts"],
       rules: {

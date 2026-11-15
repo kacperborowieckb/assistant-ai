@@ -9,6 +9,9 @@ import type { ModelGateway } from "../model-gateway/model-gateway.ts";
 import { UsageLedger } from "../model-gateway/usage-ledger.ts";
 import { OwnerIdSchema } from "../owner-id.ts";
 import type { OwnerId } from "../owner-id.ts";
+import type { OperatorMetrics } from "../tracing/operator-metrics.ts";
+import type { Redactor } from "../tracing/redactor.ts";
+import { TurnTraces } from "../tracing/turn-trace.ts";
 import { AgentStorage } from "./agent-storage.ts";
 import { Conversation } from "./conversation.ts";
 import { Inbox } from "./inbox.ts";
@@ -24,12 +27,13 @@ const personalAgentLayer = (
     Inbox.layer.pipe(Layer.provide(journal)),
     journal,
     Conversation.layer,
-    UsageLedger.layer(ownerId)
+    UsageLedger.layer(ownerId),
+    TurnTraces.layer(ownerId)
   ).pipe(Layer.provideMerge(AgentStorage.layer(storage)));
 };
 
 export type TurnServices = Layer.Layer<
-  Channel | ModelGateway,
+  Channel | ModelGateway | OperatorMetrics | Redactor,
   unknown,
   UsageLedger
 >;
@@ -68,7 +72,7 @@ export class PersonalAgent extends Agent<Env> {
 
   async runTurn(): Promise<void> {
     await this.runtime.runPromise(
-      takeTurn(defaultBehaviorConfig).pipe(
+      takeTurn(this.ownerId, defaultBehaviorConfig).pipe(
         Effect.provide(this.turnServices(this.env, this.ownerId))
       )
     );
