@@ -8,6 +8,7 @@ import { Notes } from "../src/notes/notes.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
 import { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
+import { Profile } from "../src/profile/profile.ts";
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
 import { resetFakes } from "./fakes.ts";
 import { addOwner, telegramWebhook, textUpdate } from "./telegram-requests.ts";
@@ -32,6 +33,15 @@ const searchNotesOf = async (ownerId: string, query: string) =>
     (instance) =>
       instance.runtime.runPromise(
         Notes.pipe(Effect.flatMap((notes) => notes.search({ query, limit: 5 })))
+      )
+  );
+
+const profileOf = async (ownerId: string) =>
+  runInDurableObject(
+    await personalAgentFor(env.PERSONAL_AGENT, OwnerIdSchema.make(ownerId)),
+    (instance) =>
+      instance.runtime.runPromise(
+        Profile.pipe(Effect.flatMap((profile) => profile.read))
       )
   );
 
@@ -107,5 +117,43 @@ describe("Owner isolation", () => {
 
     expect(ofFirst.map((note) => note.text)).toEqual(["alpha-secret-plan"]);
     expect(ofSecond).toEqual([]);
+  });
+
+  it("never shows the Profile of one Owner to another Owner", async () => {
+    const first = await addOwner(9105);
+    const second = await addOwner(9106);
+    await runInDurableObject(
+      await personalAgentFor(env.PERSONAL_AGENT, OwnerIdSchema.make(first)),
+      (instance) =>
+        instance.runtime.runPromise(
+          Profile.pipe(
+            Effect.flatMap((profile) =>
+              profile.add({
+                kind: "fact",
+                text: "alpha-secret-diet",
+                eventId: "isolation-profile-event",
+                characterLimit: 100,
+              })
+            )
+          )
+        )
+    );
+    const profileOfFirst = await profileOf(first);
+    const profileOfSecond = await profileOf(second);
+    expect(profileOfFirst.map((entry) => entry.text)).toEqual([
+      "alpha-secret-diet",
+    ]);
+    expect(profileOfSecond).toEqual([]);
+
+    await telegramWebhook(textUpdate({ fromUserId: 9106, text: "hello" }));
+    await vi.waitFor(
+      async () => {
+        const secondNow = await readEverything(second);
+        expect(secondNow.traces).toHaveLength(1);
+      },
+      { timeout: 10_000 }
+    );
+    const secondData = await readEverything(second);
+    expect(JSON.stringify(secondData)).not.toContain("alpha-secret-diet");
   });
 });

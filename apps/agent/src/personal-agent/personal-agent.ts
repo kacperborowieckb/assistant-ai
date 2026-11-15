@@ -12,6 +12,7 @@ import { UsageLedger } from "../model-gateway/usage-ledger.ts";
 import { Notes } from "../notes/notes.ts";
 import { OwnerIdSchema } from "../owner-id.ts";
 import type { OwnerId } from "../owner-id.ts";
+import { Profile } from "../profile/profile.ts";
 import type { OperatorMetrics } from "../tracing/operator-metrics.ts";
 import type { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
@@ -31,6 +32,7 @@ const personalAgentLayer = (
     Inbox.layer.pipe(Layer.provide(journal)),
     journal,
     Notes.layer(ownerId).pipe(Layer.provide(journal)),
+    Profile.layer(ownerId).pipe(Layer.provide(journal)),
     Conversation.layer,
     TurnProgress.layer,
     UsageLedger.layer(ownerId),

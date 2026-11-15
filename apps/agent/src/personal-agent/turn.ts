@@ -8,6 +8,11 @@ import { ModelGateway } from "../model-gateway/model-gateway.ts";
 import { noteToolsFor } from "../notes/note-tools.ts";
 import { Notes } from "../notes/notes.ts";
 import type { OwnerId } from "../owner-id.ts";
+import { Profile } from "../profile/profile.ts";
+import {
+  updateProfileTool,
+  updateProfileToolName,
+} from "../profile/update-profile-tool.ts";
 import { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
 import { Conversation } from "./conversation.ts";
@@ -68,11 +73,12 @@ const answer = (
     const traces = yield* TurnTraces;
     const redactor = yield* Redactor;
     const notes = yield* Notes;
+    const profile = yield* Profile;
     const progress = yield* TurnProgress;
 
     const startedAt = yield* Clock.currentTimeMillis;
     const history = yield* conversation.recent;
-    const system = systemPrompt(behavior);
+    const system = systemPrompt(behavior, yield* profile.read);
     const earlier = yield* progress.completedFor(event.eventId);
     const stepsLeft =
       behavior.maxToolSteps - (yield* progress.usedStepCount(event.eventId));
@@ -96,6 +102,15 @@ const answer = (
         tools: {
           ...tools,
           ...noteToolsFor({ notes, progress, redactor }, event),
+          [updateProfileToolName]: updateProfileTool(
+            {
+              profile,
+              progress,
+              redactor,
+              characterLimit: behavior.maxProfileCharacters,
+            },
+            event.eventId
+          ),
         },
         stepLimit: stepsLeft,
       })
