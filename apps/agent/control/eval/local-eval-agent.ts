@@ -17,6 +17,8 @@ import { sendTelegramUpdate } from "../telegram-update.ts";
 import type { EvalCase, OwnerEvent } from "./eval-case.ts";
 import { evalWorkerClient } from "./eval-worker-client.ts";
 import { EvalWorkerFailed } from "./eval-worker-failed.ts";
+import { ownerLabelOf } from "./owner-label.ts";
+import type { OwnerLabel } from "./owner-label.ts";
 
 export const evalWorkerMain = "eval/worker.ts";
 
@@ -36,11 +38,13 @@ export interface FakeTelegramApi {
   readonly sentTelegramMessages: () => readonly FakeTelegramMessage[];
 }
 
-export interface EvalRun {
+export interface OwnerRun {
   readonly ownerId: string;
   readonly exchanges: readonly Exchange[];
   readonly observation: AgentObservation;
 }
+
+export type EvalRun = Readonly<Record<OwnerLabel, OwnerRun>>;
 
 const firstTelegramUserId = 1001;
 const firstMessageId = 1;
@@ -129,7 +133,7 @@ export const startLocalEvalAgent = Effect.fnUntraced(
       } satisfies Exchange;
     });
 
-    const runCase = Effect.fnUntraced(function* runCase(evalCase: EvalCase) {
+    const addEvalOwner = Effect.fnUntraced(function* addEvalOwner() {
       const userId = nextTelegramUserId;
       nextTelegramUserId += 1;
       const { ownerId } = yield* addOwner({
@@ -137,27 +141,44 @@ export const startLocalEvalAgent = Effect.fnUntraced(
         token: secrets.OPERATOR_TOKEN,
         telegramUserId: userId,
       });
+      return { ownerId, userId };
+    });
+
+    const runCase = Effect.fnUntraced(function* runCase(evalCase: EvalCase) {
+      const owners = {
+        A: yield* addEvalOwner(),
+        B: yield* addEvalOwner(),
+      } satisfies Record<OwnerLabel, { ownerId: string; userId: number }>;
       if (evalCase.seed !== undefined) {
         yield* client.seed({
-          ownerId,
-          conversationId: String(userId),
+          ownerId: owners.A.ownerId,
+          conversationId: String(owners.A.userId),
           notes: evalCase.seed.notes ?? [],
           profile: evalCase.seed.profile ?? [],
         });
       }
-      const exchanges: Exchange[] = [];
+      const exchanges: Record<OwnerLabel, Exchange[]> = { A: [], B: [] };
       for (const event of evalCase.events) {
-        exchanges.push(yield* exchange(ownerId, userId, event));
+        const label = ownerLabelOf(event);
+        exchanges[label].push(
+          yield* exchange(owners[label].ownerId, owners[label].userId, event)
+        );
       }
+      const ownerRun = Effect.fnUntraced(function* ownerRun(label: OwnerLabel) {
+        return {
+          ownerId: owners[label].ownerId,
+          exchanges: exchanges[label],
+          observation: yield* client.observe(owners[label].ownerId),
+        } satisfies OwnerRun;
+      });
       return {
-        ownerId,
-        exchanges,
-        observation: yield* client.observe(ownerId),
+        A: yield* ownerRun("A"),
+        B: yield* ownerRun("B"),
       } satisfies EvalRun;
     });
 
     const judge = (
-      run: EvalRun,
+      run: OwnerRun,
       rubric: string
     ): Effect.Effect<JudgeResult, EvalWorkerFailed> =>
       client.judge({ ownerId: run.ownerId, rubric, exchanges: run.exchanges });

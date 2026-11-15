@@ -34,9 +34,18 @@ describe("Eval Case files", () => {
   it("loads every case in the repository, named after its file", async () => {
     const cases = await Effect.runPromise(loadEvalCases());
 
-    expect(cases.map((evalCase) => evalCase.name)).toContain(
-      "capture-task-with-date"
-    );
+    expect(cases.map((evalCase) => evalCase.name)).toStrictEqual([
+      "capture-fact-about-owner",
+      "capture-link-alone",
+      "capture-link-with-comment",
+      "capture-related-notes",
+      "capture-task-with-date",
+      "isolation-between-owners",
+      "recall-answer-with-source-and-date",
+      "recall-follow-up",
+      "recall-no-matching-note",
+      "untrusted-forwarded-instruction",
+    ]);
   });
 
   it("fails with a schema error that names the file and the field", async () => {

@@ -6,7 +6,8 @@ import type { EvalCase } from "./eval-case.ts";
 import { evaluateCodeCheck } from "./eval-checks.ts";
 import type { CheckOutcome, EvalCheck } from "./eval-checks.ts";
 import type { EvalWorkerFailed } from "./eval-worker-failed.ts";
-import type { EvalRun } from "./local-eval-agent.ts";
+import type { EvalRun, OwnerRun } from "./local-eval-agent.ts";
+import { ownerLabelOf } from "./owner-label.ts";
 import type { TurnUnfinished } from "./turn-unfinished.ts";
 
 export interface EvalAgent {
@@ -17,7 +18,7 @@ export interface EvalAgent {
     TurnUnfinished | EvalWorkerFailed | OwnerNotAdded
   >;
   readonly judge: (
-    run: EvalRun,
+    run: OwnerRun,
     rubric: string
   ) => Effect.Effect<JudgeResult, EvalWorkerFailed>;
 }
@@ -43,24 +44,32 @@ interface CheckResult {
   readonly usage: readonly ObservedUsage[];
 }
 
+const labelledFor = (check: EvalCheck, outcome: CheckOutcome): CheckOutcome =>
+  check.owner === undefined
+    ? outcome
+    : { ...outcome, label: `Owner ${check.owner}, ${outcome.label}` };
+
 const checkRun = (
   agent: EvalAgent,
   run: EvalRun,
   check: EvalCheck
 ): Effect.Effect<CheckResult, EvalWorkerFailed> =>
   check.check === "reply_judged"
-    ? agent.judge(run, check.rubric).pipe(
+    ? agent.judge(run[ownerLabelOf(check)], check.rubric).pipe(
         Effect.map((judged) => ({
-          outcome: {
+          outcome: labelledFor(check, {
             label: "reply_judged: the judge model applies the rubric",
             passed: judged.passed,
             detail: judged.reason,
-          },
+          }),
           usage: judged.usage,
         }))
       )
     : Effect.succeed({
-        outcome: evaluateCodeCheck(check, run.observation),
+        outcome: labelledFor(
+          check,
+          evaluateCodeCheck(check, run[ownerLabelOf(check)].observation)
+        ),
         usage: [],
       });
 
@@ -78,7 +87,8 @@ const runOnce = (
           run,
           outcomes: checked.map((result) => result.outcome),
           usage: [
-            ...evalRun.observation.usage,
+            ...evalRun.A.observation.usage,
+            ...evalRun.B.observation.usage,
             ...checked.flatMap((result) => result.usage),
           ],
         }))
