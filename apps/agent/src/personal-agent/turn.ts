@@ -3,23 +3,21 @@ import { Clock, Effect } from "effect";
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { Channel } from "../channels/channel.ts";
 import { Journal } from "../journal/journal.ts";
-import {
-  ModelGateway,
-  attemptTimeoutMillis,
-  modelAttempts,
-} from "../model-gateway/model-gateway.ts";
-import type { ModelReply } from "../model-gateway/model-gateway.ts";
-import type { ModelUnavailable } from "../model-gateway/model-unavailable.ts";
+import { ModelGateway } from "../model-gateway/model-gateway.ts";
 import type { OwnerId } from "../owner-id.ts";
-import { OperatorMetrics } from "../tracing/operator-metrics.ts";
-import type { OperatorMetric } from "../tracing/operator-metrics.ts";
 import { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
-import type { PromptMessage, TurnTrace } from "../tracing/turn-trace.ts";
+import type { PromptMessage } from "../tracing/turn-trace.ts";
 import { Conversation } from "./conversation.ts";
 import type { ConversationMessage } from "./conversation.ts";
 import { Inbox } from "./inbox.ts";
 import type { InboxEvent } from "./inbox.ts";
+import {
+  modelFailureReason,
+  recordTurnMetric,
+  traceOf,
+} from "./turn-record.ts";
+import type { ModelOutcome } from "./turn-record.ts";
 
 export const systemPrompt = (behavior: BehaviorConfig) =>
   [
@@ -109,87 +107,6 @@ const failTurnWithHonestMessage = (event: InboxEvent, reason: string) =>
     yield* sendHonestFailure(event);
   });
 
-const modelFailureReason = (
-  error: ModelUnavailable,
-  redactor: Redactor["Service"]
-) =>
-  redactor.redact(
-    `The model failed ${modelAttempts} times: ${String(error.cause)}`
-  );
-
-type ModelOutcome =
-  | { readonly _tag: "Replied"; readonly reply: ModelReply }
-  | { readonly _tag: "ModelFailed"; readonly error: ModelUnavailable };
-
-const traceOf = (
-  event: InboxEvent,
-  system: string,
-  messages: readonly PromptMessage[],
-  outcome: ModelOutcome,
-  modelLatencyMillis: number,
-  redactor: Redactor["Service"]
-): TurnTrace => {
-  const base = {
-    eventId: event.eventId,
-    task: "reply",
-    modelSettings: { attempts: modelAttempts, attemptTimeoutMillis },
-    system,
-    messages,
-    toolCalls: [],
-    modelLatencyMillis,
-  } as const;
-  if (outcome._tag === "Replied") {
-    return {
-      ...base,
-      result: "replied",
-      modelId: outcome.reply.modelId,
-      reply: outcome.reply.text,
-      error: null,
-      usage: {
-        inputTokens: outcome.reply.usage.inputTokens ?? null,
-        outputTokens: outcome.reply.usage.outputTokens ?? null,
-        cachedInputTokens: outcome.reply.usage.cachedInputTokens ?? null,
-        costUsd: outcome.reply.usage.costUsd ?? null,
-      },
-    };
-  }
-  return {
-    ...base,
-    result: "model_failed",
-    modelId: outcome.error.modelId,
-    reply: null,
-    error: modelFailureReason(outcome.error, redactor),
-    usage: {
-      inputTokens: null,
-      outputTokens: null,
-      cachedInputTokens: null,
-      costUsd: null,
-    },
-  };
-};
-
-const recordTurnMetric = (
-  ownerId: OwnerId,
-  outcome: ModelOutcome,
-  result: Extract<OperatorMetric, { kind: "turn" }>["result"],
-  startedAt: number
-) =>
-  Effect.gen(function* recordTurnMetricEffect() {
-    const metrics = yield* OperatorMetrics;
-    const now = yield* Clock.currentTimeMillis;
-    yield* metrics.record({
-      kind: "turn",
-      ownerId,
-      result,
-      latencyMillis: now - startedAt,
-      modelId:
-        outcome._tag === "Replied"
-          ? outcome.reply.modelId
-          : outcome.error.modelId,
-      usage: outcome._tag === "Replied" ? outcome.reply.usage : undefined,
-    });
-  });
-
 const answer = (
   ownerId: OwnerId,
   behavior: BehaviorConfig,
@@ -216,7 +133,14 @@ const answer = (
       );
     const modelLatencyMillis = (yield* Clock.currentTimeMillis) - startedAt;
     yield* traces.record(
-      traceOf(event, system, messages, outcome, modelLatencyMillis, redactor)
+      traceOf({
+        event,
+        system,
+        messages,
+        outcome,
+        modelLatencyMillis,
+        redactor,
+      })
     );
 
     if (outcome._tag === "ModelFailed") {
@@ -224,13 +148,23 @@ const answer = (
         event,
         modelFailureReason(outcome.error, redactor)
       );
-      yield* recordTurnMetric(ownerId, outcome, "model_failed", startedAt);
+      yield* recordTurnMetric({
+        ownerId,
+        outcome,
+        result: "model_failed",
+        startedAt,
+      });
       return;
     }
     const delivery = yield* deliver(event, outcome.reply.text);
     if (delivery._tag === "Failed") {
       yield* recordTurnFailed(event, delivery.reason);
-      yield* recordTurnMetric(ownerId, outcome, "send_failed", startedAt);
+      yield* recordTurnMetric({
+        ownerId,
+        outcome,
+        result: "send_failed",
+        startedAt,
+      });
       return;
     }
     yield* conversation.append([
@@ -238,7 +172,7 @@ const answer = (
       { role: "agent", text: outcome.reply.text },
     ]);
     yield* inbox.markDone([event]);
-    yield* recordTurnMetric(ownerId, outcome, "replied", startedAt);
+    yield* recordTurnMetric({ ownerId, outcome, result: "replied", startedAt });
   });
 
 export const unconfirmedSendReason =

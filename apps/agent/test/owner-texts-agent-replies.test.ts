@@ -33,12 +33,17 @@ const journalOf = (ownerId: string) =>
     Journal.pipe(Effect.flatMap((journal) => journal.read))
   );
 
-const ownerMessageFor = (
-  conversationId: string,
-  text: string,
-  updateId: string,
-  messageId: string
-) => ({
+const ownerMessageFor = ({
+  conversationId,
+  text,
+  updateId,
+  messageId,
+}: {
+  readonly conversationId: string;
+  readonly text: string;
+  readonly updateId: string;
+  readonly messageId: string;
+}) => ({
   channel: "telegram" as const,
   channelUpdateId: updateId,
   conversationId,
@@ -183,8 +188,22 @@ describe("Pending Events", () => {
           Inbox.pipe(
             Effect.flatMap((inbox) =>
               Effect.all([
-                inbox.store(ownerMessageFor("5006", "first", "u-1", "41")),
-                inbox.store(ownerMessageFor("5006", "second", "u-2", "42")),
+                inbox.store(
+                  ownerMessageFor({
+                    conversationId: "5006",
+                    text: "first",
+                    updateId: "u-1",
+                    messageId: "41",
+                  })
+                ),
+                inbox.store(
+                  ownerMessageFor({
+                    conversationId: "5006",
+                    text: "second",
+                    updateId: "u-2",
+                    messageId: "42",
+                  })
+                ),
               ])
             )
           )
