@@ -181,6 +181,10 @@ describe("Exactly one reply", () => {
         _tag: "ReplyFailed",
         reason: unconfirmedSendReason,
       }),
+      expect.objectContaining({
+        _tag: "TurnFailed",
+        reason: unconfirmedSendReason,
+      }),
     ]);
     expect(await stateOfOnlyEvent(ownerId)).toBe("failed");
   });
@@ -206,6 +210,7 @@ describe("Exactly one reply", () => {
       "ReplyPlanned",
       "SendStarted",
       "ReplyFailed",
+      "TurnFailed",
     ]);
   });
 
