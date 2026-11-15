@@ -2,6 +2,7 @@ import { Option, Schema } from "effect";
 
 export const fakeChangePrefix = "change: ";
 export const fakeLinkPrefix = "link: ";
+export const fakeLinkedPrefix = "linked: ";
 const separator = " => ";
 
 const FoundNotesSchema = Schema.fromJsonString(
@@ -17,6 +18,15 @@ const WrittenNoteSchema = Schema.fromJsonString(
     linkedNoteIds: Schema.Array(Schema.String),
   })
 );
+
+const ListedNotesSchema = Schema.fromJsonString(
+  Schema.Struct({
+    linkedNotes: Schema.Array(Schema.Struct({ text: Schema.String })),
+    linkedNoteCount: Schema.Number,
+  })
+);
+
+const decodeListedNotes = Schema.decodeUnknownOption(ListedNotesSchema);
 
 const decodeFoundNotes = Schema.decodeUnknownOption(FoundNotesSchema);
 const decodeWrittenNote = Schema.decodeUnknownOption(WrittenNoteSchema);
@@ -37,12 +47,39 @@ const say = (content: string) => ({ role: "assistant", content });
 
 export const isFakeNoteEdit = (ownerText: string) =>
   ownerText.startsWith(fakeChangePrefix) ||
-  ownerText.startsWith(fakeLinkPrefix);
+  ownerText.startsWith(fakeLinkPrefix) ||
+  ownerText.startsWith(fakeLinkedPrefix);
+
+const fakeLinkedNotesMessage = (
+  ownerText: string,
+  toolResult: string | undefined
+) => {
+  if (toolResult === undefined) {
+    return toolCall("search_notes", {
+      query: ownerText.slice(fakeLinkedPrefix.length),
+    });
+  }
+  const listed = decodeListedNotes(toolResult);
+  if (Option.isSome(listed)) {
+    const [newest] = listed.value.linkedNotes;
+    return say(
+      `Linked: ${listed.value.linkedNoteCount} Note, newest: ${newest?.text ?? "none"}`
+    );
+  }
+  const found = decodeFoundNotes(toolResult);
+  const [best] = Option.isSome(found) ? found.value.notes : [];
+  return best === undefined
+    ? say("I do not know.")
+    : toolCall("list_linked_notes", { noteId: best.noteId });
+};
 
 export const fakeNoteEditMessage = (
   ownerText: string,
   toolResult: string | undefined
 ) => {
+  if (ownerText.startsWith(fakeLinkedPrefix)) {
+    return fakeLinkedNotesMessage(ownerText, toolResult);
+  }
   const isChange = ownerText.startsWith(fakeChangePrefix);
   const prefix = isChange ? fakeChangePrefix : fakeLinkPrefix;
   const [searched = "", ...textParts] = ownerText

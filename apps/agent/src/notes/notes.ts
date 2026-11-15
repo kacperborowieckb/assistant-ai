@@ -42,8 +42,6 @@ export interface UpdateRequest {
   readonly unlinkedNoteIds?: readonly string[] | undefined;
 }
 
-export const maxLinkedNotesPerMatch = 5;
-
 export interface RecalledNote extends Note {
   readonly linkedNotes: readonly Note[];
   readonly linkedNoteCount: number;
@@ -69,8 +67,13 @@ const makeNotes = (ownerId: OwnerId) =>
   Effect.gen(function* makeNotesEffect() {
     const { database } = yield* AgentStorage;
     const journal = yield* Journal;
-    const { requireOwnNotes, linkedNoteIdsOf, addLinks, removeLinks } =
-      yield* makeNoteLinks(ownerId);
+    const {
+      requireOwnNotes,
+      linkedNoteIdsOf,
+      linkedNotesOf,
+      addLinks,
+      removeLinks,
+    } = yield* makeNoteLinks(ownerId);
 
     const journalCapture = (eventId: string, noteId: string) =>
       Effect.gen(function* journalCaptureEffect() {
@@ -185,29 +188,12 @@ const makeNotes = (ownerId: OwnerId) =>
     const update = (request: UpdateRequest) =>
       database.transaction(() => writeUpdate(request));
 
-    const linkedNotesOf = Effect.fnUntraced(function* linkedNotesOf(
-      noteId: string
+    const listLinked = Effect.fnUntraced(function* listLinked(
+      noteId: string,
+      offset: number
     ) {
-      const linkedNoteIds = yield* linkedNoteIdsOf(noteId);
-      const shownNoteIds = linkedNoteIds.slice(0, maxLinkedNotesPerMatch);
-      if (shownNoteIds.length === 0) {
-        return { linkedNotes: [], linkedNoteCount: 0 };
-      }
-      const rows = yield* database
-        .select()
-        .from(notes)
-        .where(
-          and(eq(notes.ownerId, ownerId), inArray(notes.noteId, shownNoteIds))
-        );
-      return {
-        linkedNotes: shownNoteIds.flatMap((shownNoteId) => {
-          const row = rows.find(
-            (candidate) => candidate.noteId === shownNoteId
-          );
-          return row === undefined ? [] : [toNote(row)];
-        }),
-        linkedNoteCount: linkedNoteIds.length,
-      };
+      yield* requireOwnNotes([noteId]);
+      return yield* linkedNotesOf(noteId, offset);
     });
 
     const search = Effect.fnUntraced(function* search({
@@ -238,14 +224,14 @@ const makeNotes = (ownerId: OwnerId) =>
       });
       return yield* Effect.all(
         recalled.map((note) =>
-          linkedNotesOf(note.noteId).pipe(
+          linkedNotesOf(note.noteId, 0).pipe(
             Effect.map((linked) => ({ ...note, ...linked }))
           )
         )
       );
     });
 
-    return { capture, update, search };
+    return { capture, update, search, listLinked };
   });
 
 export class Notes extends Context.Service<

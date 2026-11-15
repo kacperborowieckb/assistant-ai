@@ -4,7 +4,10 @@ import { DateTime, Effect } from "effect";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { noteLinks, notes } from "../personal-agent/storage-schema.ts";
+import { toNote } from "./note-row.ts";
 import { UnknownNotes } from "./unknown-notes.ts";
+
+export const maxLinkedNotesPerMatch = 5;
 
 export const uniqueNoteIds = (noteIds: readonly string[] | undefined) =>
   noteIds === undefined ? [] : [...new Set(noteIds)];
@@ -60,6 +63,33 @@ export const makeNoteLinks = Effect.fnUntraced(function* makeNoteLinks(
         )
       );
 
+  const linkedNotesOf = Effect.fnUntraced(function* linkedNotesOf(
+    noteId: string,
+    offset: number
+  ) {
+    const linkedNoteIds = yield* linkedNoteIdsOf(noteId);
+    const shownNoteIds = linkedNoteIds.slice(
+      offset,
+      offset + maxLinkedNotesPerMatch
+    );
+    if (shownNoteIds.length === 0) {
+      return { linkedNotes: [], linkedNoteCount: linkedNoteIds.length };
+    }
+    const rows = yield* database
+      .select()
+      .from(notes)
+      .where(
+        and(eq(notes.ownerId, ownerId), inArray(notes.noteId, shownNoteIds))
+      );
+    return {
+      linkedNotes: shownNoteIds.flatMap((shownNoteId) => {
+        const row = rows.find((candidate) => candidate.noteId === shownNoteId);
+        return row === undefined ? [] : [toNote(row)];
+      }),
+      linkedNoteCount: linkedNoteIds.length,
+    };
+  });
+
   const addLinks = Effect.fnUntraced(function* addLinks(
     noteId: string,
     otherNoteIds: readonly string[]
@@ -93,5 +123,11 @@ export const makeNoteLinks = Effect.fnUntraced(function* makeNoteLinks(
       { discard: true }
     );
 
-  return { requireOwnNotes, linkedNoteIdsOf, addLinks, removeLinks };
+  return {
+    requireOwnNotes,
+    linkedNoteIdsOf,
+    linkedNotesOf,
+    addLinks,
+    removeLinks,
+  };
 });

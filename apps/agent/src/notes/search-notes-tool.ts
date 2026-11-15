@@ -5,10 +5,10 @@ import {
   effectInputSchema,
   ToolFailed,
 } from "../model-gateway/agent-tool.ts";
+import { maxLinkedNotesPerMatch } from "./note-links.ts";
 import type { NoteToolServices } from "./note-tool-services.ts";
-import { markUntrustedContent } from "./note.ts";
-import { maxLinkedNotesPerMatch } from "./notes.ts";
-import type { Note, RecalledNote } from "./notes.ts";
+import type { RecalledNote } from "./notes.ts";
+import { recalledNote } from "./recalled-note.ts";
 
 export const searchNotesToolName = "search_notes";
 
@@ -34,22 +34,6 @@ const SearchNotesInput = Schema.Struct({
       })
     )
   ),
-});
-
-const textOf = (note: Note) =>
-  note.trustLevel === "untrusted" ? markUntrustedContent(note.text) : note.text;
-
-const recalledNote = (note: Note) => ({
-  noteId: note.noteId,
-  text: textOf(note),
-  url: note.url ?? null,
-  source: {
-    channel: note.source.channel,
-    conversationId: note.source.conversationId,
-    channelMessageId: note.source.channelMessageId,
-  },
-  trustLevel: note.trustLevel,
-  capturedAt: note.capturedAt,
 });
 
 const foundNote = (note: RecalledNote) => ({

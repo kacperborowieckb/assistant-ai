@@ -5,7 +5,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Journal } from "../src/journal/journal.ts";
 import type { JournalRecord } from "../src/journal/journal.ts";
 import { captureNoteToolName } from "../src/notes/capture-note-tool.ts";
-import { maxLinkedNotesPerMatch, Notes } from "../src/notes/notes.ts";
+import { listLinkedNotesToolName } from "../src/notes/list-linked-notes-tool.ts";
+import { maxLinkedNotesPerMatch } from "../src/notes/note-links.ts";
+import { Notes } from "../src/notes/notes.ts";
 import { searchNotesToolName } from "../src/notes/search-notes-tool.ts";
 import { updateNoteToolName } from "../src/notes/update-note-tool.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
@@ -88,6 +90,40 @@ const toolCallNamesOfTraces = async (ownerId: string) =>
       )
     )
   );
+
+const seedHub = async (ownerId: string) => {
+  const total = maxLinkedNotesPerMatch + 2;
+  return runInDurableObject(await agentOf(ownerId), async (instance, state) => {
+    const { hubId, spokeIds } = await instance.runtime.runPromise(
+      Effect.gen(function* hubEffect() {
+        const notes = yield* Notes;
+        const hub = yield* notes.capture({
+          text: "hub topic",
+          source: sourceOfEvent("hub"),
+        });
+        const ids: string[] = [];
+        for (let index = 0; index < total; index += 1) {
+          const spoke = yield* notes.capture({
+            text: `spoke ${index}`,
+            source: sourceOfEvent(`spoke-${index}`),
+            linkedNoteIds: [hub.note.noteId],
+          });
+          ids.push(spoke.note.noteId);
+        }
+        return { hubId: hub.note.noteId, spokeIds: ids };
+      })
+    );
+    for (const [index, spokeId] of spokeIds.entries()) {
+      state.storage.sql.exec(
+        "UPDATE note_links SET created_at = ? WHERE from_note_id = ? OR to_note_id = ?",
+        `2026-01-0${index + 1}T00:00:00.000Z`,
+        spokeId,
+        spokeId
+      );
+    }
+    return { hubId, total };
+  });
+};
 
 const searchOf = async (ownerId: string, query: string) =>
   runInDurableObject(await agentOf(ownerId), (instance) =>
@@ -506,44 +542,9 @@ describe("Edit and link Notes", () => {
 
   it("returns the newest linked Notes of a match and their total count", async () => {
     const ownerId = await addOwner(7213);
-    const total = maxLinkedNotesPerMatch + 2;
-    const found = await runInDurableObject(
-      await agentOf(ownerId),
-      async (instance, state) => {
-        const spokeIds = await instance.runtime.runPromise(
-          Effect.gen(function* hubEffect() {
-            const notes = yield* Notes;
-            const hub = yield* notes.capture({
-              text: "hub topic",
-              source: sourceOfEvent("hub"),
-            });
-            const ids: string[] = [];
-            for (let index = 0; index < total; index += 1) {
-              const spoke = yield* notes.capture({
-                text: `spoke ${index}`,
-                source: sourceOfEvent(`spoke-${index}`),
-                linkedNoteIds: [hub.note.noteId],
-              });
-              ids.push(spoke.note.noteId);
-            }
-            return ids;
-          })
-        );
-        for (const [index, spokeId] of spokeIds.entries()) {
-          state.storage.sql.exec(
-            "UPDATE note_links SET created_at = ? WHERE from_note_id = ? OR to_note_id = ?",
-            `2026-01-0${index + 1}T00:00:00.000Z`,
-            spokeId,
-            spokeId
-          );
-        }
-        return instance.runtime.runPromise(
-          Notes.pipe(
-            Effect.flatMap((notes) => notes.search({ query: "hub", limit: 1 }))
-          )
-        );
-      }
-    );
+    const { total } = await seedHub(ownerId);
+
+    const found = await searchOf(ownerId, "hub");
 
     expect(found[0]?.linkedNoteCount).toBe(total);
     expect(found[0]?.linkedNotes.map((note) => note.text)).toEqual([
@@ -553,5 +554,39 @@ describe("Edit and link Notes", () => {
       "spoke 3",
       "spoke 2",
     ]);
+  });
+
+  it("lists the older linked Notes of a Note with list_linked_notes", async () => {
+    const ownerId = await addOwner(7214);
+    const { hubId } = await seedHub(ownerId);
+    scriptModel([
+      {
+        callTool: listLinkedNotesToolName,
+        input: { noteId: hubId, offset: maxLinkedNotesPerMatch },
+      },
+      { say: "Found the rest" },
+    ]);
+
+    await ownerSays(7214, "what else is linked to the hub?", 1);
+
+    const resultPrompt = JSON.stringify(fakeModel.doGenerateCalls[1]?.prompt);
+    expect(resultPrompt).toContain("spoke 1");
+    expect(resultPrompt).toContain("spoke 0");
+    expect(resultPrompt).not.toContain("spoke 2");
+    expect(resultPrompt).toContain('"linkedNoteCount":7');
+  });
+
+  it("returns an error from list_linked_notes for an unknown Note", async () => {
+    await addOwner(7215);
+    scriptModel([
+      { callTool: listLinkedNotesToolName, input: { noteId: "no-such-note" } },
+      { say: "Sorry" },
+    ]);
+
+    await ownerSays(7215, "what is linked?", 1);
+
+    expect(JSON.stringify(fakeModel.doGenerateCalls[1]?.prompt)).toContain(
+      "No Note of the Owner has the id no-such-note"
+    );
   });
 });
