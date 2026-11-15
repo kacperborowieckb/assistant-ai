@@ -6,3 +6,11 @@
 - JavaScript, TypeScript, lint, and format changes: `.agents/skills/ultracite/SKILL.md`.
 - Future shadcn UI work: `.agents/skills/shadcn/SKILL.md`.
 - Adding, changing, or removing a workspace or primitive, or adding or superseding a decision: update [the primitives catalog](docs/primitives/README.md) and [verification targets](docs/verification/README.md) in the same change. Add real control CLI proof and generated route maps with the first application that needs them.
+
+## Learning more about Effect
+
+This repository uses the Effect TypeScript library.
+
+Before you write Effect code, read all of `node_modules/effect/AGENTS.md`. Follow its links when required.
+
+If the guide does not cover an Effect API or concept, search the source code in `node_modules/effect/src`.
