@@ -12,7 +12,7 @@ export default {
       check: "reply_judged",
       rubric: [
         "The reply says that the birthday of Ana is on Friday.",
-        "It names the source of the Note (the message that the Owner sent) and the date when the Note was captured.",
+        "It names the source of the Note (the message that the Owner sent) and the date when the Note was captured. The date must match the capturedAt value of the Note in the search_notes result.",
         "It is short plain text, like a text message, with no markdown, headings, or lists.",
       ].join("\n"),
     },

@@ -181,7 +181,16 @@ export const startLocalEvalAgent = Effect.fnUntraced(
       run: OwnerRun,
       rubric: string
     ): Effect.Effect<JudgeResult, EvalWorkerFailed> =>
-      client.judge({ ownerId: run.ownerId, rubric, exchanges: run.exchanges });
+      client.judge({
+        ownerId: run.ownerId,
+        rubric,
+        exchanges: run.exchanges,
+        toolCalls: run.observation.toolCalls.map(({ name, input, output }) => ({
+          name,
+          input,
+          output,
+        })),
+      });
 
     return { runCase, judge };
   }

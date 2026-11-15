@@ -4,7 +4,7 @@ export default {
   description:
     "Owner A keeps a Note. Owner B asks for it, gets an honest I do not know, and the storage of Owner B has no Note from Owner A.",
   events: [
-    { text: "the garage code is 4821" },
+    { text: "remember this: the garage code is 4821" },
     { text: "what is the garage code?", owner: "B" },
   ],
   checks: [

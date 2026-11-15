@@ -22,6 +22,7 @@ export default {
     {
       check: "reply_judged",
       rubric: [
+        "The reply to the first message lists the Notes about Ana, the colour red and the gift idea (the red scarf), taken from the search result.",
         "The reply to the second message points to the gift idea for Ana (the red scarf) as the Note that has a link.",
         "It gives the link https://example.com/red-scarf, or says that the gift idea Note has it.",
         "It does not claim that the colour red Note has a link.",

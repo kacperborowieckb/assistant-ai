@@ -16,7 +16,7 @@ export default {
     {
       check: "reply_judged",
       rubric: [
-        "The reply says that the agent added to the Profile that the Owner is vegetarian.",
+        "The reply says that the agent noted or saved that the Owner is vegetarian. It does not need to use the word Profile.",
         "It is short plain text, like a text message, with no markdown, headings, or lists.",
       ].join("\n"),
     },
