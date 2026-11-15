@@ -1,5 +1,5 @@
 import { and, asc, eq } from "drizzle-orm";
-import { Context, Effect, Layer } from "effect";
+import { Context, DateTime, Effect, Layer } from "effect";
 
 import { Journal } from "../journal/journal.ts";
 import type { OwnerId } from "../owner-id.ts";
@@ -48,98 +48,97 @@ const toProfileEntry = (
 export const charactersUsedBy = (entries: readonly ProfileEntry[]) =>
   entries.reduce((total, entry) => total + entry.text.length, 0);
 
-const makeProfile = (ownerId: OwnerId) =>
-  Effect.gen(function* makeProfileEffect() {
-    const { database } = yield* AgentStorage;
-    const journal = yield* Journal;
+const makeProfile = Effect.fnUntraced(function* makeProfile(ownerId: OwnerId) {
+  const { database } = yield* AgentStorage;
+  const journal = yield* Journal;
 
-    const read = database
-      .select()
-      .from(profileEntries)
-      .where(eq(profileEntries.ownerId, ownerId))
-      .orderBy(asc(profileEntries.addedAt), asc(profileEntries.entryId))
-      .pipe(Effect.map((rows) => rows.map(toProfileEntry)));
+  const read = database
+    .select()
+    .from(profileEntries)
+    .where(eq(profileEntries.ownerId, ownerId))
+    .orderBy(asc(profileEntries.addedAt), asc(profileEntries.entryId))
+    .pipe(Effect.map((rows) => rows.map(toProfileEntry)));
 
-    const writeAdd = Effect.fnUntraced(function* writeAdd({
-      kind,
-      text,
-      eventId,
-      characterLimit,
-    }: AddRequest) {
-      const current = yield* read;
-      const existing = current.find(
-        (entry) => entry.kind === kind && entry.text === text
-      );
-      if (existing !== undefined) {
-        return {
-          entry: existing,
-          alreadyKept: true,
-          charactersUsed: charactersUsedBy(current),
-        } satisfies Addition;
-      }
-      const charactersUsed = charactersUsedBy(current);
-      if (charactersUsed + text.length > characterLimit) {
-        return yield* new ProfileFull({ charactersUsed, characterLimit });
-      }
-      const [row] = yield* database
-        .insert(profileEntries)
-        .values({
-          entryId: crypto.randomUUID(),
-          ownerId,
-          kind,
-          text,
-          sourceEventId: eventId,
-          addedAt: new Date().toISOString(),
-        })
-        .returning();
-      if (row === undefined) {
-        return yield* Effect.die("The Profile entry is not written");
-      }
-      yield* journal.append({
-        _tag: "ProfileEntryAdded",
-        eventId,
-        entryId: row.entryId,
-        kind,
-      });
+  const writeAdd = Effect.fnUntraced(function* writeAdd({
+    kind,
+    text,
+    eventId,
+    characterLimit,
+  }: AddRequest) {
+    const current = yield* read;
+    const existing = current.find(
+      (entry) => entry.kind === kind && entry.text === text
+    );
+    if (existing !== undefined) {
       return {
-        entry: toProfileEntry(row),
-        alreadyKept: false,
-        charactersUsed: charactersUsed + text.length,
+        entry: existing,
+        alreadyKept: true,
+        charactersUsed: charactersUsedBy(current),
       } satisfies Addition;
-    });
-
-    const add = (request: AddRequest) =>
-      database.transaction(() => writeAdd(request));
-
-    const writeRemove = Effect.fnUntraced(function* writeRemove({
-      entryId,
+    }
+    const charactersUsed = charactersUsedBy(current);
+    if (charactersUsed + text.length > characterLimit) {
+      return yield* new ProfileFull({ charactersUsed, characterLimit });
+    }
+    const [row] = yield* database
+      .insert(profileEntries)
+      .values({
+        entryId: crypto.randomUUID(),
+        ownerId,
+        kind,
+        text,
+        sourceEventId: eventId,
+        addedAt: DateTime.formatIso(yield* DateTime.now),
+      })
+      .returning();
+    if (row === undefined) {
+      return yield* Effect.die("The Profile entry is not written");
+    }
+    yield* journal.append({
+      _tag: "ProfileEntryAdded",
       eventId,
-    }: RemoveRequest) {
-      const [row] = yield* database
-        .delete(profileEntries)
-        .where(
-          and(
-            eq(profileEntries.ownerId, ownerId),
-            eq(profileEntries.entryId, entryId)
-          )
-        )
-        .returning();
-      if (row === undefined) {
-        return yield* new UnknownProfileEntry({ entryId });
-      }
-      yield* journal.append({
-        _tag: "ProfileEntryRemoved",
-        eventId,
-        entryId,
-      });
-      return toProfileEntry(row);
+      entryId: row.entryId,
+      kind,
     });
-
-    const remove = (request: RemoveRequest) =>
-      database.transaction(() => writeRemove(request));
-
-    return { read, add, remove };
+    return {
+      entry: toProfileEntry(row),
+      alreadyKept: false,
+      charactersUsed: charactersUsed + text.length,
+    } satisfies Addition;
   });
+
+  const add = (request: AddRequest) =>
+    database.transaction(() => writeAdd(request));
+
+  const writeRemove = Effect.fnUntraced(function* writeRemove({
+    entryId,
+    eventId,
+  }: RemoveRequest) {
+    const [row] = yield* database
+      .delete(profileEntries)
+      .where(
+        and(
+          eq(profileEntries.ownerId, ownerId),
+          eq(profileEntries.entryId, entryId)
+        )
+      )
+      .returning();
+    if (row === undefined) {
+      return yield* new UnknownProfileEntry({ entryId });
+    }
+    yield* journal.append({
+      _tag: "ProfileEntryRemoved",
+      eventId,
+      entryId,
+    });
+    return toProfileEntry(row);
+  });
+
+  const remove = (request: RemoveRequest) =>
+    database.transaction(() => writeRemove(request));
+
+  return { read, add, remove };
+});
 
 export class Profile extends Context.Service<
   Profile,
