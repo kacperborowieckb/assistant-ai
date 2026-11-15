@@ -2,6 +2,7 @@ import {
   check,
   index,
   integer,
+  primaryKey,
   real,
   sqliteTable,
   text,
@@ -13,6 +14,8 @@ import type { OwnerMessage } from "../event.ts";
 import type { OwnerId } from "../owner-id.ts";
 
 export const inboxStates = ["pending", "done", "failed"] as const;
+
+export const trustLevels = ["owner", "untrusted"] as const;
 
 export const turnResults = ["model_replied", "model_failed"] as const;
 
@@ -42,6 +45,31 @@ export const conversationMessages = sqliteTable("conversation_messages", {
   message: text("message").notNull(),
   recordedAt: text("recorded_at").notNull(),
 });
+
+export const turnProgress = sqliteTable(
+  "turn_progress",
+  {
+    sequence: integer("sequence").primaryKey({ autoIncrement: true }),
+    eventId: text("event_id").notNull(),
+    message: text("message").notNull(),
+    recordedAt: text("recorded_at").notNull(),
+  },
+  (table) => [index("turn_progress_event").on(table.eventId)]
+);
+
+export const turnModelSteps = sqliteTable(
+  "turn_model_steps",
+  {
+    eventId: text("event_id").notNull(),
+    modelStepKey: integer("model_step_key").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.eventId, table.modelStepKey] })]
+);
+
+export const conversationRecordedEvents = sqliteTable(
+  "conversation_recorded_events",
+  { eventId: text("event_id").primaryKey() }
+);
 
 export const journalEntries = sqliteTable("journal_entries", {
   sequence: integer("sequence").primaryKey({ autoIncrement: true }),
@@ -77,5 +105,29 @@ export const turnTraces = sqliteTable(
   (table) => [
     index("turn_traces_event").on(table.eventId),
     check("turn_traces_result_check", valueIn(table.result, turnResults)),
+  ]
+);
+
+export const notes = sqliteTable(
+  "notes",
+  {
+    noteId: text("note_id").primaryKey(),
+    ownerId: text("owner_id").$type<OwnerId>().notNull(),
+    text: text("text").notNull(),
+    url: text("url"),
+    sourceEventId: text("source_event_id").notNull(),
+    sourceChannel: text("source_channel")
+      .$type<OwnerMessage["channel"]>()
+      .notNull(),
+    sourceConversationId: text("source_conversation_id").notNull(),
+    sourceChannelMessageId: text("source_channel_message_id").notNull(),
+    trustLevel: text("trust_level", { enum: trustLevels }).notNull(),
+    textHash: text("text_hash").notNull(),
+    capturedAt: text("captured_at").notNull(),
+    lastCheckedAt: text("last_checked_at").notNull(),
+  },
+  (table) => [
+    unique().on(table.sourceEventId, table.textHash),
+    check("notes_trust_level_check", valueIn(table.trustLevel, trustLevels)),
   ]
 );

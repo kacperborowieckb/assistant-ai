@@ -12,7 +12,7 @@ import { Journal } from "../src/journal/journal.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
 import { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
-import { unconfirmedSendReason } from "../src/personal-agent/turn.ts";
+import { unconfirmedSendReason } from "../src/personal-agent/turn-recovery.ts";
 import {
   fakeModel,
   fakeReplyPrefix,

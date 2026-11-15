@@ -114,12 +114,15 @@ const defaultModelFailureMessage = "The model provider is down";
 const modelFailure = { remaining: 0, message: defaultModelFailureMessage };
 
 let releaseModel = Promise.resolve();
+let callsBeforeHold = 0;
 
 export const fakeModel = new MockLanguageModelV4({
   provider: "fake",
   modelId: "fake-reply-model",
   doGenerate: async (options) => {
-    await releaseModel;
+    if (fakeModel.doGenerateCalls.length > callsBeforeHold) {
+      await releaseModel;
+    }
     if (modelFailure.remaining > 0) {
       modelFailure.remaining -= 1;
       throw new Error(modelFailure.message);
@@ -151,9 +154,10 @@ export const fakeModel = new MockLanguageModelV4({
   },
 });
 
-export const holdModel = () => {
+export const holdModel = (answeredCalls = 0) => {
   const { promise, resolve } = Promise.withResolvers<undefined>();
   releaseModel = promise;
+  callsBeforeHold = answeredCalls;
   return () => resolve(undefined);
 };
 
@@ -183,4 +187,5 @@ export const resetFakes = () => {
   fakeTelegramState.answer = "confirm";
   fakeModel.doGenerateCalls.length = 0;
   releaseModel = Promise.resolve();
+  callsBeforeHold = 0;
 };

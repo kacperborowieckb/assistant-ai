@@ -2,118 +2,50 @@ import type { ModelMessage } from "ai";
 import { Clock, Effect } from "effect";
 
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
-import { Channel } from "../channels/channel.ts";
-import { Journal } from "../journal/journal.ts";
 import { noTools } from "../model-gateway/agent-tool.ts";
 import type { AgentTools } from "../model-gateway/agent-tool.ts";
 import { ModelGateway } from "../model-gateway/model-gateway.ts";
+import { noteToolsFor } from "../notes/capture-note-tool.ts";
+import { Notes } from "../notes/notes.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
 import { Conversation } from "./conversation.ts";
 import { Inbox } from "./inbox.ts";
 import type { InboxEvent } from "./inbox.ts";
+import { ownerMessage } from "./owner-message.ts";
+import { systemPrompt } from "./system-prompt.ts";
+import {
+  deliver,
+  failTurnWithHonestMessage,
+  recordTurnFailed,
+} from "./turn-delivery.ts";
+import { TurnProgress } from "./turn-progress.ts";
 import {
   modelFailureReason,
+  stepLimitReason,
   responseMessagesOf,
   toolMessagesOf,
   recordTurnMetric,
   traceOf,
 } from "./turn-record.ts";
 import type { ModelOutcome } from "./turn-record.ts";
+import { settleFromJournal } from "./turn-recovery.ts";
 
-export const systemPrompt = (behavior: BehaviorConfig) =>
-  [
-    "You are the Owner's Personal Agent. You talk with the Owner in a chat.",
-    "Answer the Owner's newest messages. Be honest when you do not know something.",
-    behavior.textingStyle,
-  ].join("\n");
-
-const ownerMessage = (event: InboxEvent): ModelMessage => ({
-  role: "user",
-  content: event.text,
-});
-
-export const honestFailureText =
-  "Sorry, I could not answer that. Please try again in a moment.";
-
-const deliver = (event: InboxEvent, text: string) =>
-  Effect.gen(function* deliverEffect() {
-    const journal = yield* Journal;
-    const channel = yield* Channel;
-    const redactor = yield* Redactor;
-
-    yield* journal.append({
-      _tag: "ReplyPlanned",
-      eventId: event.eventId,
-      text,
-    });
-    yield* journal.append({ _tag: "SendStarted", eventId: event.eventId });
-    const delivery = yield* channel.send({
-      conversationId: event.conversationId,
-      inReplyTo: event.channelMessageId,
-      text,
-    });
-
-    if (delivery._tag === "Failed") {
-      const reason = redactor.redact(delivery.reason);
-      yield* journal.append({
-        _tag: "ReplyFailed",
-        eventId: event.eventId,
-        reason,
-      });
-      return { _tag: "Failed", reason } as const;
-    }
-    yield* journal.append({
-      _tag: "ReplySent",
-      eventId: event.eventId,
-      channelMessageId: delivery.channelMessageId,
-    });
-    return delivery;
-  });
-
-const recordTurnFailed = (event: InboxEvent, reason: string) =>
-  Effect.gen(function* recordTurnFailedEffect() {
-    const inbox = yield* Inbox;
-    const journal = yield* Journal;
-
-    yield* journal.append({
-      _tag: "TurnFailed",
-      eventId: event.eventId,
-      reason,
-    });
-    yield* inbox.markFailed([event]);
-  });
-
-const sendHonestFailure = (event: InboxEvent) =>
-  Effect.gen(function* sendHonestFailureEffect() {
-    const inbox = yield* Inbox;
-
-    yield* deliver(event, honestFailureText);
-    yield* inbox.markFailed([event]);
-  });
-
-const failTurnWithHonestMessage = (event: InboxEvent, reason: string) =>
-  Effect.gen(function* failTurnWithHonestMessageEffect() {
-    const journal = yield* Journal;
-
-    yield* journal.append({
-      _tag: "TurnFailed",
-      eventId: event.eventId,
-      reason,
-    });
-    yield* sendHonestFailure(event);
-  });
-
-const rememberCompletedSteps = (event: InboxEvent, outcome: ModelOutcome) =>
+const rememberCompletedSteps = (
+  event: InboxEvent,
+  earlier: readonly ModelMessage[],
+  outcome: ModelOutcome
+) =>
   Effect.gen(function* rememberCompletedStepsEffect() {
     const conversation = yield* Conversation;
     const redactor = yield* Redactor;
     const completed = toolMessagesOf(outcome);
 
-    if (completed.length > 0) {
-      yield* conversation.append([
+    if (earlier.length + completed.length > 0) {
+      yield* conversation.append(event.eventId, [
         ownerMessage(event),
+        ...earlier,
         ...completed.map((message) => redactor.redactMessage(message)),
       ]);
     }
@@ -135,18 +67,37 @@ const answer = (
     const modelGateway = yield* ModelGateway;
     const traces = yield* TurnTraces;
     const redactor = yield* Redactor;
+    const notes = yield* Notes;
+    const progress = yield* TurnProgress;
 
     const startedAt = yield* Clock.currentTimeMillis;
     const history = yield* conversation.recent;
     const system = systemPrompt(behavior);
-    const messages = [...history, ownerMessage(event)];
+    const earlier = yield* progress.completedFor(event.eventId);
+    const stepsLeft =
+      behavior.maxToolSteps - (yield* progress.usedStepCount(event.eventId));
+    if (stepsLeft <= 0) {
+      yield* conversation.append(event.eventId, [
+        ownerMessage(event),
+        ...earlier,
+      ]);
+      yield* failTurnWithHonestMessage(
+        event,
+        stepLimitReason(behavior.maxToolSteps)
+      );
+      return;
+    }
+    const messages = [...history, ownerMessage(event), ...earlier];
     const outcome: ModelOutcome = yield* modelGateway
       .generate({
         task: "reply",
         system,
         messages,
-        tools,
-        stepLimit: behavior.maxToolSteps,
+        tools: {
+          ...tools,
+          ...noteToolsFor({ notes, progress, redactor }, event),
+        },
+        stepLimit: stepsLeft,
       })
       .pipe(
         Effect.map((reply): ModelOutcome => ({ _tag: "Replied", reply })),
@@ -170,7 +121,7 @@ const answer = (
     );
 
     if (outcome._tag === "ModelFailed") {
-      yield* rememberCompletedSteps(event, outcome);
+      yield* rememberCompletedSteps(event, earlier, outcome);
       yield* failTurnWithHonestMessage(
         event,
         modelFailureReason(outcome.error, redactor)
@@ -186,7 +137,7 @@ const answer = (
     const replyText = redactor.redact(outcome.reply.text);
     const delivery = yield* deliver(event, replyText);
     if (delivery._tag === "Failed") {
-      yield* rememberCompletedSteps(event, outcome);
+      yield* rememberCompletedSteps(event, earlier, outcome);
       yield* recordTurnFailed(event, delivery.reason);
       yield* recordTurnMetric({
         ownerId,
@@ -196,62 +147,15 @@ const answer = (
       });
       return;
     }
-    yield* conversation.append([
+    yield* conversation.append(event.eventId, [
       ownerMessage(event),
+      ...earlier,
       ...responseMessagesOf(outcome).map((message) =>
         redactor.redactMessage(message)
       ),
     ]);
     yield* inbox.markDone([event]);
     yield* recordTurnMetric({ ownerId, outcome, result: "replied", startedAt });
-  });
-
-export const unconfirmedSendReason =
-  "A send started but Telegram did not confirm it, so the agent did not send again";
-
-const settleFromJournal = (event: InboxEvent) =>
-  Effect.gen(function* settleFromJournalEffect() {
-    const inbox = yield* Inbox;
-    const journal = yield* Journal;
-    const entries = yield* journal.readForEvent(event.eventId);
-    const tags = new Set(entries.map((entry) => entry.record._tag));
-
-    if (tags.has("TurnFailed")) {
-      if (!tags.has("SendStarted")) {
-        yield* sendHonestFailure(event);
-        return "settled" as const;
-      }
-      if (!tags.has("ReplySent") && !tags.has("ReplyFailed")) {
-        yield* journal.append({
-          _tag: "ReplyFailed",
-          eventId: event.eventId,
-          reason: unconfirmedSendReason,
-        });
-      }
-      yield* inbox.markFailed([event]);
-      return "settled" as const;
-    }
-    if (tags.has("ReplySent")) {
-      yield* inbox.markDone([event]);
-      return "settled" as const;
-    }
-    const failedSend = entries.find(
-      (entry) => entry.record._tag === "ReplyFailed"
-    );
-    if (failedSend?.record._tag === "ReplyFailed") {
-      yield* recordTurnFailed(event, failedSend.record.reason);
-      return "settled" as const;
-    }
-    if (tags.has("SendStarted")) {
-      yield* journal.append({
-        _tag: "ReplyFailed",
-        eventId: event.eventId,
-        reason: unconfirmedSendReason,
-      });
-      yield* recordTurnFailed(event, unconfirmedSendReason);
-      return "settled" as const;
-    }
-    return "unanswered" as const;
   });
 
 export const takeTurn = (

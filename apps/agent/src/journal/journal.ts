@@ -12,6 +12,7 @@ export const JournalRecordSchema = Schema.TaggedUnion({
   SendStarted: { eventId: Schema.String },
   ReplySent: { eventId: Schema.String, channelMessageId: Schema.String },
   ReplyFailed: { eventId: Schema.String, reason: Schema.String },
+  NoteCaptured: { eventId: Schema.String, noteId: Schema.String },
 });
 
 export type JournalRecord = typeof JournalRecordSchema.Type;

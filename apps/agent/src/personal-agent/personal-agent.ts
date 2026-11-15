@@ -9,6 +9,7 @@ import { noTools } from "../model-gateway/agent-tool.ts";
 import type { AgentTools } from "../model-gateway/agent-tool.ts";
 import type { ModelGateway } from "../model-gateway/model-gateway.ts";
 import { UsageLedger } from "../model-gateway/usage-ledger.ts";
+import { Notes } from "../notes/notes.ts";
 import { OwnerIdSchema } from "../owner-id.ts";
 import type { OwnerId } from "../owner-id.ts";
 import type { OperatorMetrics } from "../tracing/operator-metrics.ts";
@@ -17,6 +18,7 @@ import { TurnTraces } from "../tracing/turn-trace.ts";
 import { AgentStorage } from "./agent-storage.ts";
 import { Conversation } from "./conversation.ts";
 import { Inbox } from "./inbox.ts";
+import { TurnProgress } from "./turn-progress.ts";
 import { liveTurnServices } from "./turn-services.ts";
 import { takeTurn } from "./turn.ts";
 
@@ -28,7 +30,9 @@ const personalAgentLayer = (
   return Layer.mergeAll(
     Inbox.layer.pipe(Layer.provide(journal)),
     journal,
+    Notes.layer(ownerId).pipe(Layer.provide(journal)),
     Conversation.layer,
+    TurnProgress.layer,
     UsageLedger.layer(ownerId),
     TurnTraces.layer(ownerId)
   ).pipe(Layer.provideMerge(AgentStorage.layer(storage)));

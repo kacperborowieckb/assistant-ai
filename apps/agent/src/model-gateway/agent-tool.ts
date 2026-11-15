@@ -1,6 +1,6 @@
-import { tool } from "ai";
-import type { FlexibleSchema, Tool } from "ai";
-import { Data, Effect } from "effect";
+import { jsonSchema, tool } from "ai";
+import type { FlexibleSchema, JSONSchema7, Tool } from "ai";
+import { Data, Effect, Result, Schema } from "effect";
 
 export class ToolFailed extends Data.TaggedError("ToolFailed")<{
   readonly message: string;
@@ -18,12 +18,29 @@ export interface AgentTool {
 
 export type AgentTools = Readonly<Record<string, AgentTool>>;
 
+export const effectInputSchema = <Input>(
+  schema: Schema.Codec<Input, unknown>
+): FlexibleSchema<Input> =>
+  jsonSchema<Input>(Schema.toJsonSchemaDocument(schema).schema as JSONSchema7, {
+    validate: (value) =>
+      Result.match(Schema.decodeUnknownResult(schema)(value), {
+        onSuccess: (decoded) => ({ success: true, value: decoded }),
+        onFailure: (issue) => ({
+          success: false,
+          error: new Error(String(issue)),
+        }),
+      }),
+  });
+
 export const noTools: AgentTools = {};
 
 interface AgentToolDefinition<Input, Output> {
   readonly description: string;
   readonly inputSchema: FlexibleSchema<Input>;
-  readonly execute: (input: Input) => Effect.Effect<Output, ToolFailed>;
+  readonly execute: (
+    input: Input,
+    call: { readonly toolCallId: string; readonly modelStepKey: number }
+  ) => Effect.Effect<Output, ToolFailed>;
 }
 
 export const agentTool = <Input, Output>(
@@ -33,7 +50,13 @@ export const agentTool = <Input, Output>(
     tool<Input, unknown, Record<string, unknown>>({
       description: definition.description,
       inputSchema: definition.inputSchema,
-      execute: (input: Input) => runEffect(definition.execute(input)),
+      execute: (input: Input, { toolCallId, messages }) =>
+        runEffect(
+          definition.execute(input, {
+            toolCallId,
+            modelStepKey: messages.length,
+          })
+        ),
     }),
 });
 

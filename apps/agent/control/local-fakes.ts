@@ -2,7 +2,7 @@ import { once } from "node:events";
 import { createServer } from "node:http";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
-import { Effect, Queue, Schema } from "effect";
+import { Effect, Option, Queue, Schema } from "effect";
 
 export const fakeReplyPrefix = "You said: ";
 
@@ -33,6 +33,14 @@ const ChatCompletionBodySchema = Schema.Struct({
   ),
 });
 
+export const fakeKeepPrefix = "keep: ";
+
+const KeptNoteSchema = Schema.fromJsonString(
+  Schema.Struct({ noteId: Schema.String, text: Schema.String })
+);
+
+const decodeKeptNote = Schema.decodeUnknownOption(KeptNoteSchema);
+
 const readBody = async (request: IncomingMessage) => {
   const chunks: Buffer[] = [];
   for await (const chunk of request) {
@@ -53,6 +61,49 @@ const lastOwnerText = (
     (message) => message.role === "user"
   )?.content;
   return typeof content === "string" ? content : "";
+};
+
+const toolResultOf = (
+  messages: (typeof ChatCompletionBodySchema.Type)["messages"]
+) => {
+  const last = messages.at(-1);
+  return last?.role === "tool" && typeof last.content === "string"
+    ? last.content
+    : undefined;
+};
+
+const fakeAssistantMessage = (
+  ownerText: string,
+  toolResult: string | undefined
+) => {
+  if (!ownerText.startsWith(fakeKeepPrefix)) {
+    return { role: "assistant", content: `${fakeReplyPrefix}${ownerText}` };
+  }
+  if (toolResult === undefined) {
+    return {
+      role: "assistant",
+      content: null,
+      tool_calls: [
+        {
+          id: "call-keep-1",
+          type: "function",
+          function: {
+            name: "capture_note",
+            arguments: JSON.stringify({
+              text: ownerText.slice(fakeKeepPrefix.length),
+            }),
+          },
+        },
+      ],
+    };
+  }
+  const kept = decodeKeptNote(toolResult);
+  return {
+    role: "assistant",
+    content: Option.isSome(kept)
+      ? `Kept note ${kept.value.noteId}: ${kept.value.text}`
+      : "Sorry, I could not keep that.",
+  };
 };
 
 const headerValue = (request: IncomingMessage, name: string) => {
@@ -93,6 +144,9 @@ export const startLocalFakes = Effect.gen(function* startLocalFakesEffect() {
       metadata: headerValue(request, "cf-aig-metadata"),
       collectLogPayload: headerValue(request, "cf-aig-collect-log-payload"),
     });
+    const ownerText = lastOwnerText(completion.messages);
+    const toolResult = toolResultOf(completion.messages);
+    const message = fakeAssistantMessage(ownerText, toolResult);
     sendJson(response, 200, {
       id: `fake-completion-${modelCalls.length}`,
       object: "chat.completion",
@@ -101,11 +155,8 @@ export const startLocalFakes = Effect.gen(function* startLocalFakesEffect() {
       choices: [
         {
           index: 0,
-          message: {
-            role: "assistant",
-            content: `${fakeReplyPrefix}${lastOwnerText(completion.messages)}`,
-          },
-          finish_reason: "stop",
+          message,
+          finish_reason: message.content === null ? "tool_calls" : "stop",
         },
       ],
       usage: { prompt_tokens: 20, completion_tokens: 5, total_tokens: 25 },

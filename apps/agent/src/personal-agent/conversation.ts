@@ -7,7 +7,10 @@ import {
   ModelMessageSchema,
 } from "../model-gateway/model-message-schema.ts";
 import { AgentStorage } from "./agent-storage.ts";
-import { conversationMessages } from "./storage-schema.ts";
+import {
+  conversationMessages,
+  conversationRecordedEvents,
+} from "./storage-schema.ts";
 
 const recentMessageLimit = 20;
 
@@ -38,8 +41,8 @@ const makeConversation = Effect.gen(function* makeConversationEffect() {
       Effect.map(startingAtOwnerMessage)
     );
 
-  const append = (messages: readonly ModelMessage[]) =>
-    Effect.gen(function* appendEffect() {
+  const writeMessages = (messages: readonly ModelMessage[]) =>
+    Effect.gen(function* writeMessagesEffect() {
       const recordedAt = new Date().toISOString();
       for (const message of messages) {
         const checked = yield* checkMessage(message).pipe(Effect.orDie);
@@ -48,6 +51,20 @@ const makeConversation = Effect.gen(function* makeConversationEffect() {
           .values({ message: encodeMessage(checked), recordedAt });
       }
     });
+
+  const append = (eventId: string, messages: readonly ModelMessage[]) =>
+    database.transaction(() =>
+      Effect.gen(function* appendEffect() {
+        const [recorded] = yield* database
+          .insert(conversationRecordedEvents)
+          .values({ eventId })
+          .onConflictDoNothing()
+          .returning();
+        if (recorded !== undefined) {
+          yield* writeMessages(messages);
+        }
+      })
+    );
 
   return { recent, append };
 });

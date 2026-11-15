@@ -20,13 +20,16 @@ import type { InboxEvent } from "./inbox.ts";
 
 export type ModelFailure = ModelUnavailable | StepLimitReached;
 
+export const stepLimitReason = (stepLimit: number) =>
+  `The model did not give a final answer in ${stepLimit} steps`;
+
 export const modelFailureReason = (
   error: ModelFailure,
   redactor: Redactor["Service"]
 ) =>
   redactor.redact(
     error._tag === "StepLimitReached"
-      ? `The model did not give a final answer in ${error.stepLimit} steps`
+      ? stepLimitReason(error.stepLimit)
       : `The model failed ${modelAttempts} times: ${String(error.cause)}`
   );
 
