@@ -4,6 +4,7 @@ import { telegramChannel } from "../channels/telegram/telegram-channel.ts";
 import {
   aiGatewayModelProvider,
   BillingModeSchema,
+  ReasoningEffortSchema,
 } from "../model-gateway/ai-gateway.ts";
 import { ModelGateway } from "../model-gateway/model-gateway.ts";
 import type { OwnerId } from "../owner-id.ts";
@@ -30,6 +31,7 @@ const TurnEnvSchema = Schema.Struct({
   AI_GATEWAY_ID: NonEmpty,
   AI_GATEWAY_TOKEN: NonEmpty,
   REPLY_MODEL: NonEmpty,
+  REPLY_REASONING_EFFORT: ReasoningEffortSchema,
   MODEL_BILLING: BillingModeSchema,
 });
 
@@ -70,7 +72,12 @@ export const liveTurnServices = (env: Env, ownerId: OwnerId) =>
               {
                 url: config.AI_GATEWAY_URL,
                 gatewayId: config.AI_GATEWAY_ID,
-                models: { reply: config.REPLY_MODEL },
+                routes: {
+                  reply: {
+                    model: config.REPLY_MODEL,
+                    reasoningEffort: config.REPLY_REASONING_EFFORT,
+                  },
+                },
               },
               {
                 token: config.AI_GATEWAY_TOKEN,

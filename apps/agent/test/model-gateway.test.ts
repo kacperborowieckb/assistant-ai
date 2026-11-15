@@ -41,7 +41,12 @@ describe("Model Gateway transport", () => {
       {
         url: "https://api.cloudflare.com/client/v4/accounts/account-1/ai/v1",
         gatewayId: "assistant",
-        models: { reply: "anthropic/claude-sonnet-5-5" },
+        routes: {
+          reply: {
+            model: "anthropic/claude-sonnet-5-5",
+            reasoningEffort: "none",
+          },
+        },
         fetch: recordingFetch,
       },
       { token: "gateway-token", billing: "unified-billing" },
@@ -73,6 +78,7 @@ describe("Model Gateway transport", () => {
     expect(request?.headers.has("cf-aig-no-wholesale")).toBe(false);
     expect(await request?.json()).toMatchObject({
       model: "anthropic/claude-sonnet-5-5",
+      reasoning_effort: "none",
     });
   });
 

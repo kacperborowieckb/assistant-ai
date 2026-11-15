@@ -23,7 +23,8 @@
     "TELEGRAM_API_URL": "https://api.telegram.org",
     "AI_GATEWAY_URL": "",
     "AI_GATEWAY_ID": "assistant",
-    "REPLY_MODEL": "anthropic/claude-sonnet-5-5",
+    "REPLY_MODEL": "workers-ai/@cf/deepseek-ai/deepseek-v4.1-flash-1017",
+    "REPLY_REASONING_EFFORT": "none",
     "MODEL_BILLING": "unified-billing",
   },
   "secrets": {
