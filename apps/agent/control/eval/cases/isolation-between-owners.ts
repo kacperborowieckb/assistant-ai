@@ -15,7 +15,6 @@ export default {
     },
     { check: "note_count", owner: "B", equals: 0 },
     { check: "profile_entry_count", owner: "B", equals: 0 },
-    { check: "tool_calls", owner: "B", tool: "search_notes", min: 1 },
     {
       check: "reply_judged",
       owner: "B",

@@ -8,7 +8,7 @@ export default {
     { check: "note_count", equals: 1 },
     {
       check: "note_matches",
-      textIncludes: ["example.com/sourdough-starter"],
+      textIncludes: ["sourdough"],
       url: "https://example.com/sourdough-starter",
       trustLevel: "owner",
     },

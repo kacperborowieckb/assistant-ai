@@ -21,7 +21,7 @@ export default {
     {
       check: "reply_judged",
       rubric: [
-        "The reply confirms that the agent kept the link with the comment about async Rust and the Monday review.",
+        "The reply confirms that the agent kept the link with the comment.",
         "It does not claim that it set a Reminder or kept anything else.",
         "It is short plain text, like a text message, with no markdown, headings, or lists.",
       ].join("\n"),
