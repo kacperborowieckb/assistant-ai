@@ -15,7 +15,8 @@
         "docs/decisions/0003-runtime-and-model-stack.md",
         "docs/decisions/0004-owners-and-channels.md",
         "docs/decisions/0006-directory-store.md",
-        "docs/decisions/0007-typed-queries-and-migrations.md"
+        "docs/decisions/0007-typed-queries-and-migrations.md",
+        "docs/decisions/0008-workers-paid-plan.md"
       ]
     },
     {
@@ -35,7 +36,8 @@
       "adrs": [
         "docs/decisions/0003-runtime-and-model-stack.md",
         "docs/decisions/0004-owners-and-channels.md",
-        "docs/decisions/0007-typed-queries-and-migrations.md"
+        "docs/decisions/0007-typed-queries-and-migrations.md",
+        "docs/decisions/0008-workers-paid-plan.md"
       ]
     },
     {

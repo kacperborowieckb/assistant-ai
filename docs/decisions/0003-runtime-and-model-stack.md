@@ -2,7 +2,7 @@
 
 Status: accepted
 
-Partly superseded: [0005](0005-model-transport-and-billing.md) replaces the Model Credentials paragraph.
+Partly superseded: [0005](0005-model-transport-and-billing.md) replaces the Model Credentials paragraph. [0008](0008-workers-paid-plan.md) replaces the claim that the free plan covers the infrastructure for one Owner.
 
 Date: 2026-11-13
 

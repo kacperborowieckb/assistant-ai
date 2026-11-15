@@ -31,7 +31,7 @@ For the Owner:
 For the Operator:
 
 - From `git clone` to the first Telegram reply in less than 10 minutes.
-- The Cloudflare free plan covers the infrastructure for one Owner. The only real cost is the model, paid by the Operator.
+- The Cloudflare Workers Paid plan ($5 per month) covers the infrastructure for one Owner. The other cost is the model, paid by the Operator. The MVP can run on the free plan, without a guarantee ([decision 0008](../decisions/0008-workers-paid-plan.md)).
 - A fork can change behavior, add a Channel, or add a Skill without changes to the core.
 
 For the future hosted business:

@@ -2,7 +2,7 @@
 
 Date: 2026-11-15
 
-Ticket: #17. Open decision: #28.
+Ticket: #17. Decision: [0008](../decisions/0008-workers-paid-plan.md) (#28).
 
 ## What ran
 
@@ -26,7 +26,7 @@ CPU time comes from `wrangler tail`, in whole milliseconds, and applies to the f
 | --- | --- | --- | --- |
 | Worker bundle size | 4230 KiB (gzip 805 KiB) | 64 MiB | Yes |
 | Worker startup time | 64 ms | 1000 ms | Yes |
-| Edge request CPU, 7 messages | 10, 6, 21 (cold), 3, 8, 4, 4 ms | 10 ms per request | One request over, see #28 |
+| Edge request CPU, 7 messages | 10, 6, 21 (cold), 3, 8, 4, 4 ms | 10 ms per request | One request over, see decision 0008 |
 | Durable Object `receive` CPU | 7 to 63 ms | 30 s | Yes |
 | Turn CPU | 12 to 62 ms | 30 s | Yes |
 | Turn wall time | 1.4 to 6.2 s | not limited | Yes |
