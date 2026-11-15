@@ -14,7 +14,7 @@ import type { AgentMigrations } from "../src/personal-agent/agent-storage.ts";
 import { Conversation } from "../src/personal-agent/conversation.ts";
 import personalAgentMigrations from "../src/personal-agent/migrations/migrations.js";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
-import { honestFailureText } from "../src/personal-agent/turn.ts";
+import { honestFailureText } from "../src/personal-agent/turn-delivery.ts";
 import { redactedMark } from "../src/tracing/redactor.ts";
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
 import {

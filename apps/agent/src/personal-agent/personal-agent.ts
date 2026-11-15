@@ -18,6 +18,7 @@ import { TurnTraces } from "../tracing/turn-trace.ts";
 import { AgentStorage } from "./agent-storage.ts";
 import { Conversation } from "./conversation.ts";
 import { Inbox } from "./inbox.ts";
+import { TurnProgress } from "./turn-progress.ts";
 import { liveTurnServices } from "./turn-services.ts";
 import { takeTurn } from "./turn.ts";
 
@@ -31,6 +32,7 @@ const personalAgentLayer = (
     journal,
     Notes.layer(ownerId).pipe(Layer.provide(journal)),
     Conversation.layer,
+    TurnProgress.layer,
     UsageLedger.layer(ownerId),
     TurnTraces.layer(ownerId)
   ).pipe(Layer.provideMerge(AgentStorage.layer(storage)));

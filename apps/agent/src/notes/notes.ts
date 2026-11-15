@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { Journal } from "../journal/journal.ts";
@@ -121,15 +121,7 @@ const makeNotes = (ownerId: OwnerId) =>
         )
       );
 
-    const keptForEvent = (eventId: string) =>
-      database
-        .select()
-        .from(notes)
-        .where(eq(notes.sourceEventId, eventId))
-        .orderBy(asc(notes.capturedAt))
-        .pipe(Effect.map((rows) => rows.map(toNote)));
-
-    return { capture, keptForEvent };
+    return { capture };
   });
 
 export class Notes extends Context.Service<

@@ -52,6 +52,16 @@ const journalOf = async (ownerId: string) =>
     )
   );
 
+const conversationRolesOf = async (ownerId: string) =>
+  runInDurableObject(await agentOf(ownerId), (_, state) =>
+    state.storage.sql
+      .exec<{ message: string }>(
+        "SELECT message FROM conversation_messages ORDER BY sequence"
+      )
+      .toArray()
+      .map((row) => (JSON.parse(row.message) as { role: string }).role)
+  );
+
 const capturedEntriesOf = async (ownerId: string) => {
   const records = await journalOf(ownerId);
   return records.filter((record) => record._tag === "NoteCaptured");
@@ -190,9 +200,21 @@ describe("Capture a Note", () => {
     expect(await notesOf(ownerId)).toHaveLength(1);
     expect(fakeTelegram.sent).toHaveLength(1);
     expect(await capturedEntriesOf(ownerId)).toHaveLength(1);
-    expect(JSON.stringify(fakeModel.doGenerateCalls.at(-1)?.prompt)).toContain(
-      "You already kept these Notes"
+    const recoveredPrompt = fakeModel.doGenerateCalls.at(-1)?.prompt ?? [];
+    const partTypes = recoveredPrompt.flatMap((message) =>
+      typeof message.content === "string"
+        ? []
+        : message.content.map((part) => part.type)
     );
+    expect(partTypes).toEqual(
+      expect.arrayContaining(["tool-call", "tool-result"])
+    );
+    expect(await conversationRolesOf(ownerId)).toEqual([
+      "user",
+      "assistant",
+      "tool",
+      "assistant",
+    ]);
   });
 
   it("writes nothing and tells the model the Note was not kept when the write fails", async () => {

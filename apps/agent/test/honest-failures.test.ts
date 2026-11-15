@@ -7,10 +7,8 @@ import type { JournalRecord } from "../src/journal/journal.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
 import { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
-import {
-  honestFailureText,
-  unconfirmedSendReason,
-} from "../src/personal-agent/turn.ts";
+import { honestFailureText } from "../src/personal-agent/turn-delivery.ts";
+import { unconfirmedSendReason } from "../src/personal-agent/turn.ts";
 import {
   failModel,
   fakeModel,

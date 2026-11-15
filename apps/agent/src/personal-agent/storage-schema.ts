@@ -45,6 +45,17 @@ export const conversationMessages = sqliteTable("conversation_messages", {
   recordedAt: text("recorded_at").notNull(),
 });
 
+export const turnProgress = sqliteTable(
+  "turn_progress",
+  {
+    sequence: integer("sequence").primaryKey({ autoIncrement: true }),
+    eventId: text("event_id").notNull(),
+    message: text("message").notNull(),
+    recordedAt: text("recorded_at").notNull(),
+  },
+  (table) => [index("turn_progress_event").on(table.eventId)]
+);
+
 export const journalEntries = sqliteTable("journal_entries", {
   sequence: integer("sequence").primaryKey({ autoIncrement: true }),
   ownerId: text("owner_id").$type<OwnerId>().notNull(),

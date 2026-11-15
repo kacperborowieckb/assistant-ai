@@ -31,7 +31,7 @@
     },
     {
       "id": "personal-agent",
-      "purpose": "One Durable Object for each Owner, built on the pinned Agents SDK. personalAgentFor finds it by Owner Id. Each object builds one Effect runtime over its SQLite storage. It stores each Event in the Inbox, schedules the Turn with a durable alarm, and runs the Turn: model reply, Journal Entries, and the Channel send. It owns the Drizzle storage schema and the versioned migrations that each Personal Agent applies once, in order, when it starts.",
+      "purpose": "One Durable Object for each Owner, built on the pinned Agents SDK. personalAgentFor finds it by Owner Id. Each object builds one Effect runtime over its SQLite storage. It stores each Event in the Inbox, schedules the Turn with a durable alarm, and runs the Turn: model reply, Journal Entries, and the Channel send. It saves each finished tool step, so a Turn that restarts replays it and does not run the tool again. It owns the Drizzle storage schema and the versioned migrations that each Personal Agent applies once, in order, when it starts.",
       "roots": ["apps/agent/src/personal-agent"],
       "adrs": [
         "docs/decisions/0003-runtime-and-model-stack.md",
