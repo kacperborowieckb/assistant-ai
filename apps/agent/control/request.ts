@@ -12,15 +12,15 @@ const sampleTelegramUserId = 424_242;
 const sampleMessageId = 7;
 const replyTimeout = "30 seconds";
 const nextPartTimeout = "1 second";
-const partJoiner = "\n";
 
 const collapseWhitespace = (text: string) => text.replaceAll(/\s+/gu, " ");
 
-const replyContains = (reply: string, contains: string) =>
-  collapseWhitespace(reply).includes(collapseWhitespace(contains)) ||
-  collapseWhitespace(reply.replaceAll(partJoiner, "")).includes(
-    collapseWhitespace(contains)
+const replyPartsContain = (parts: readonly string[], contains: string) => {
+  const wanted = collapseWhitespace(contains);
+  return [" ", ""].some((separator) =>
+    collapseWhitespace(parts.join(separator)).includes(wanted)
   );
+};
 
 export class ReplyMissing extends Data.TaggedError("ReplyMissing")<{
   readonly contains: string;
@@ -92,7 +92,7 @@ export const requestReply = ({
     });
     lines.push(renderAddedOwner(owner));
 
-    let reply = "";
+    let replyParts: readonly string[] = [];
     for (const [index, message] of messages.entries()) {
       const webhook = yield* Effect.promise(() =>
         fetch(new URL("/telegram/webhook", url), {
@@ -123,9 +123,9 @@ export const requestReply = ({
         sentParts.push(nextPart.value);
       }
       const [sent] = sentParts;
-      reply = sentParts.map((part) => part.text).join(partJoiner);
+      replyParts = sentParts.map((part) => part.text);
       lines.push(
-        `Telegram sendMessage to chat ${sent?.chatId ?? "none"}, reply to message ${sent?.replyToMessageId ?? "none"}: "${reply}"`
+        `Telegram sendMessage to chat ${sent?.chatId ?? "none"}, reply to message ${sent?.replyToMessageId ?? "none"}: "${replyParts.join("")}"`
       );
     }
     for (const call of fakes.modelCalls()) {
@@ -133,8 +133,8 @@ export const requestReply = ({
         `AI Gateway call: gateway ${call.gatewayId ?? "missing"}, metadata ${call.metadata ?? "missing"}, collect log payload ${call.collectLogPayload ?? "missing"}`
       );
     }
-    if (!replyContains(reply, contains)) {
-      return yield* new ReplyMissing({ contains, reply });
+    if (!replyPartsContain(replyParts, contains)) {
+      return yield* new ReplyMissing({ contains, reply: replyParts.join("") });
     }
     lines.push(`Result: the reply contains "${contains}"`);
     return lines.join("\n");
