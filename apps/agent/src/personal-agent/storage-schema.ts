@@ -20,6 +20,8 @@ export const trustLevels = ["owner", "untrusted"] as const;
 
 export const noteChanges = ["text", "links", "text_and_links"] as const;
 
+export const profileEntryKinds = ["fact", "style_rule"] as const;
+
 export const turnResults = ["model_replied", "model_failed"] as const;
 
 export const inboxEvents = sqliteTable(
@@ -153,5 +155,21 @@ export const noteLinks = sqliteTable(
       "note_links_ordered_check",
       sql`${table.fromNoteId} < ${table.toNoteId}`
     ),
+  ]
+);
+
+export const profileEntries = sqliteTable(
+  "profile_entries",
+  {
+    entryId: text("entry_id").primaryKey(),
+    ownerId: text("owner_id").$type<OwnerId>().notNull(),
+    kind: text("kind", { enum: profileEntryKinds }).notNull(),
+    text: text("text").notNull(),
+    sourceEventId: text("source_event_id").notNull(),
+    addedAt: text("added_at").notNull(),
+  },
+  (table) => [
+    unique().on(table.kind, table.text),
+    check("profile_entries_kind_check", valueIn(table.kind, profileEntryKinds)),
   ]
 );

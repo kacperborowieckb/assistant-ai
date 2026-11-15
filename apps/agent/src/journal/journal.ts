@@ -6,6 +6,7 @@ import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import {
   journalEntries,
   noteChanges,
+  profileEntryKinds,
 } from "../personal-agent/storage-schema.ts";
 
 export const JournalRecordSchema = Schema.TaggedUnion({
@@ -21,6 +22,12 @@ export const JournalRecordSchema = Schema.TaggedUnion({
     noteId: Schema.String,
     change: Schema.Literals(noteChanges),
   },
+  ProfileEntryAdded: {
+    eventId: Schema.String,
+    entryId: Schema.String,
+    kind: Schema.Literals(profileEntryKinds),
+  },
+  ProfileEntryRemoved: { eventId: Schema.String, entryId: Schema.String },
 });
 
 export type JournalRecord = typeof JournalRecordSchema.Type;
