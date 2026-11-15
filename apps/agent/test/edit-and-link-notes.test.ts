@@ -398,6 +398,60 @@ describe("Edit and link Notes", () => {
     expect(await notesOf(ownerId)).toHaveLength(1);
   });
 
+  it("does not restore a removed link when the same capture repeats", async () => {
+    const ownerId = await addOwner(7212);
+    scriptModel([
+      { callTool: captureNoteToolName, input: { text: "Ana likes red" } },
+      { say: "Kept" },
+    ]);
+    await ownerSays(7212, "Ana likes red", 1);
+    const [first] = await notesOf(ownerId);
+    scriptModel([
+      {
+        callTool: captureNoteToolName,
+        input: { text: "Ana birthday", linkedNoteIds: [first?.note_id] },
+      },
+      { say: "Kept" },
+    ]);
+    await ownerSays(7212, "Ana birthday", 2);
+    const [, second] = await notesOf(ownerId);
+    scriptModel([
+      {
+        callTool: updateNoteToolName,
+        input: { noteId: second?.note_id, unlinkedNoteIds: [first?.note_id] },
+      },
+      { say: "Unlinked" },
+    ]);
+    await ownerSays(7212, "unlink", 3);
+    expect(await linksOf(ownerId)).toEqual([]);
+
+    const repeated = await runInDurableObject(
+      await agentOf(ownerId),
+      (instance) =>
+        instance.runtime.runPromise(
+          Notes.pipe(
+            Effect.flatMap((notes) =>
+              notes.capture({
+                text: "Ana birthday",
+                linkedNoteIds: [first?.note_id ?? ""],
+                source: {
+                  eventId: second?.source_event_id ?? "",
+                  channel: "telegram",
+                  conversationId: "7212",
+                  channelMessageId: second?.source_channel_message_id ?? "",
+                  trustLevel: "owner",
+                },
+              })
+            )
+          )
+        )
+    );
+
+    expect(repeated.alreadyKept).toBe(true);
+    expect(repeated.linkedNoteIds).toEqual([]);
+    expect(await linksOf(ownerId)).toEqual([]);
+  });
+
   it("returns the source and the URL of linked Notes in a search result", async () => {
     const ownerId = await addOwner(7210);
     scriptModel([

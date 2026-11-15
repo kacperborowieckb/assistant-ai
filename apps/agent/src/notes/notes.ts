@@ -124,7 +124,9 @@ const makeNotes = (ownerId: OwnerId) =>
           return yield* Effect.die("The Note is neither written nor found");
         }
         yield* journalCapture(source.eventId, row.noteId);
-        yield* addLinks(row.noteId, uniqueNoteIds(linkedNoteIds));
+        if (inserted !== undefined) {
+          yield* addLinks(row.noteId, uniqueNoteIds(linkedNoteIds));
+        }
         return {
           note: toNote(row),
           alreadyKept: inserted === undefined,
