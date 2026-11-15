@@ -104,11 +104,19 @@ export const startLocalEvalAgent = Effect.fnUntraced(
           text: event.text,
           forwardedFrom: event.forwardedFrom,
         },
-      });
+      }).pipe(
+        Effect.mapError(
+          ({ message }) =>
+            new EvalWorkerFailed({
+              route: "/telegram/webhook",
+              detail: message,
+            })
+        )
+      );
       if (webhook.status !== 200) {
         return yield* new EvalWorkerFailed({
           route: "/telegram/webhook",
-          detail: `${webhook.status} ${yield* Effect.promise(() => webhook.text())}`,
+          detail: `${webhook.status} ${webhook.text}`,
         });
       }
       yield* client.settled(ownerId, event.text);

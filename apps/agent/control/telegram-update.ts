@@ -1,4 +1,5 @@
 import { DateTime, Effect } from "effect";
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 
 const millisecondsPerSecond = 1000;
 
@@ -32,26 +33,28 @@ const telegramUpdateBody = (
   },
 });
 
-export const sendTelegramUpdate = ({
-  workerUrl,
-  webhookSecret,
-  update,
-}: {
-  readonly workerUrl: URL;
-  readonly webhookSecret: string;
-  readonly update: TelegramTextUpdate;
-}) =>
-  DateTime.now.pipe(
-    Effect.flatMap((sentAt) =>
-      Effect.promise(() =>
-        fetch(new URL("/telegram/webhook", workerUrl), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Telegram-Bot-Api-Secret-Token": webhookSecret,
-          },
-          body: JSON.stringify(telegramUpdateBody(update, sentAt)),
-        })
+export const sendTelegramUpdate = Effect.fnUntraced(
+  function* sendTelegramUpdate({
+    workerUrl,
+    webhookSecret,
+    update,
+  }: {
+    readonly workerUrl: URL;
+    readonly webhookSecret: string;
+    readonly update: TelegramTextUpdate;
+  }) {
+    const client = yield* HttpClient.HttpClient;
+    const sentAt = yield* DateTime.now;
+    const response = yield* client.execute(
+      HttpClientRequest.post(new URL("/telegram/webhook", workerUrl)).pipe(
+        HttpClientRequest.setHeader(
+          "X-Telegram-Bot-Api-Secret-Token",
+          webhookSecret
+        ),
+        HttpClientRequest.bodyJsonUnsafe(telegramUpdateBody(update, sentAt))
       )
-    )
-  );
+    );
+    return { status: response.status, text: yield* response.text };
+  },
+  Effect.provide(FetchHttpClient.layer)
+);
