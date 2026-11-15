@@ -5,10 +5,10 @@ import { OwnerPreferences } from "../preferences/owner-preferences.ts";
 import { currentTimeText } from "./local-time.ts";
 import { namedTimeZone } from "./time-zone.ts";
 
-export const ownerCurrentTimeText = ({
-  defaultTimeZone,
-}: Pick<BehaviorConfig, "defaultTimeZone">) =>
-  Effect.gen(function* ownerCurrentTimeTextEffect() {
+export const ownerCurrentTimeText = Effect.fnUntraced(
+  function* ownerCurrentTimeText({
+    defaultTimeZone,
+  }: Pick<BehaviorConfig, "defaultTimeZone">) {
     const preferences = yield* OwnerPreferences;
     const preferred = yield* preferences.timeZone;
     const timeZone = preferred.pipe(
@@ -16,4 +16,5 @@ export const ownerCurrentTimeText = ({
       Option.flatMap(namedTimeZone)
     );
     return currentTimeText(yield* DateTime.now, timeZone);
-  });
+  }
+);

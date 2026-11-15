@@ -1,7 +1,7 @@
 import { DateTime, Option, Schema } from "effect";
 
 export const normalizeTimeZoneName = (name: string): Option.Option<string> =>
-  DateTime.zoneMakeNamed(name.trim()).pipe(Option.map(DateTime.zoneToString));
+  namedTimeZone(name).pipe(Option.map(DateTime.zoneToString));
 
 export const TimeZoneNameSchema = Schema.String.pipe(
   Schema.check(
