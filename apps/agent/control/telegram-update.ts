@@ -1,4 +1,6 @@
-import { Effect } from "effect";
+import { DateTime, Effect } from "effect";
+
+const millisecondsPerSecond = 1000;
 
 export interface TelegramTextUpdate {
   readonly updateId: number;
@@ -8,17 +10,14 @@ export interface TelegramTextUpdate {
   readonly forwardedFrom?: string | undefined;
 }
 
-const telegramUpdateBody = ({
-  updateId,
-  messageId,
-  userId,
-  text,
-  forwardedFrom,
-}: TelegramTextUpdate) => ({
+const telegramUpdateBody = (
+  { updateId, messageId, userId, text, forwardedFrom }: TelegramTextUpdate,
+  sentAt: DateTime.Utc
+) => ({
   update_id: updateId,
   message: {
     message_id: messageId,
-    date: Math.floor(Date.now() / 1000),
+    date: Math.floor(DateTime.toEpochMillis(sentAt) / millisecondsPerSecond),
     chat: { id: userId, type: "private" },
     from: { id: userId, is_bot: false, first_name: "Owner" },
     text,
@@ -42,13 +41,17 @@ export const sendTelegramUpdate = ({
   readonly webhookSecret: string;
   readonly update: TelegramTextUpdate;
 }) =>
-  Effect.promise(() =>
-    fetch(new URL("/telegram/webhook", workerUrl), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Telegram-Bot-Api-Secret-Token": webhookSecret,
-      },
-      body: JSON.stringify(telegramUpdateBody(update)),
-    })
+  DateTime.now.pipe(
+    Effect.flatMap((sentAt) =>
+      Effect.promise(() =>
+        fetch(new URL("/telegram/webhook", workerUrl), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Telegram-Bot-Api-Secret-Token": webhookSecret,
+          },
+          body: JSON.stringify(telegramUpdateBody(update, sentAt)),
+        })
+      )
+    )
   );

@@ -4,6 +4,7 @@ import { modelAttempts } from "../../src/model-gateway/model-call-policy.ts";
 import type { EvalCase } from "./eval-case.ts";
 import { casePassed, runPassed } from "./run-eval.ts";
 import type { CaseResult } from "./run-eval.ts";
+import { counted } from "./wording.ts";
 
 export interface ModelCallEstimate {
   readonly least: number;
@@ -29,13 +30,10 @@ export const modelCallEstimate = (
   };
 };
 
-const plural = (count: number, word: string) =>
-  `${count} ${word}${count === 1 ? "" : "s"}`;
-
 export const renderEvalPlan = (cases: readonly EvalCase[], k: number) => {
   const estimate = modelCallEstimate(cases, k);
   return [
-    `Eval: ${plural(cases.length, "case")} (${cases.map((evalCase) => evalCase.name).join(", ")}), k = ${k}.`,
+    `Eval: ${counted(cases.length, "case")} (${cases.map((evalCase) => evalCase.name).join(", ")}), k = ${k}.`,
     `Expected model calls: ${estimate.least} to ${estimate.most} (each run: 1 to ${defaultBehaviorConfig.maxToolSteps} model steps for each Owner Event, and 1 call for each judge check). A failed call is tried up to ${modelAttempts} times.`,
     "The calls go to the real model through AI Gateway and cost money.",
   ].join("\n");
@@ -81,5 +79,5 @@ const renderCase = (result: CaseResult) => {
 export const renderEvalReport = (results: readonly CaseResult[], k: number) =>
   [
     ...results.flatMap(renderCase),
-    `Result: ${results.filter(casePassed).length} of ${plural(results.length, "case")} passed pass^${k}.`,
+    `Result: ${results.filter(casePassed).length} of ${counted(results.length, "case")} passed pass^${k}.`,
   ].join("\n");

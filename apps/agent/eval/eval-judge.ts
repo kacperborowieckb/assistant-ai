@@ -18,7 +18,7 @@ import type {
 export const judgeInstructions = [
   "You are the judge of an Eval. You read a conversation between an Owner and their personal agent, and a rubric.",
   "Decide if the agent's replies meet every point of the rubric. Judge only the agent's replies, not the Owner's messages.",
-  'Answer with one JSON object and nothing else: {"verdict": "pass" or "fail", "reason": "one short sentence"}.',
+  'Answer with one JSON object and nothing else, with no code fence: {"verdict": "pass" or "fail", "reason": "one short sentence"}.',
 ].join("\n");
 
 const exchangeLines = (exchange: Exchange) => [
@@ -44,11 +44,8 @@ const JudgeAnswerSchema = Schema.fromJsonString(
   })
 );
 
-const jsonObjectIn = (text: string) =>
-  text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
-
 const verdictOf = (text: string) =>
-  Schema.decodeUnknownOption(JudgeAnswerSchema)(jsonObjectIn(text)).pipe(
+  Schema.decodeUnknownOption(JudgeAnswerSchema)(text).pipe(
     Option.match({
       onNone: () => ({
         passed: false,
@@ -75,44 +72,43 @@ const collectedUsageLedger = (collected: Usage[]) =>
     read: Effect.succeed([]),
   });
 
-export const judgeExchanges = (
+export const judgeExchanges = Effect.fnUntraced(function* judgeExchanges(
   env: Env,
   ownerId: OwnerId,
   request: JudgeRequest
-) =>
-  Effect.gen(function* judgeExchangesEffect() {
-    const config = yield* decodeTurnEnv(env);
-    const collected: Usage[] = [];
-    const verdict = yield* ModelGateway.pipe(
-      Effect.flatMap((gateway) =>
-        gateway.generate({
-          task: "eval_judge",
-          system: judgeInstructions,
-          messages: [{ role: "user", content: judgePrompt(request) }],
-          stepLimit: 1,
-        })
-      ),
-      Effect.map((reply) => verdictOf(reply.text)),
-      Effect.catchTags({
-        ModelUnavailable: (error) =>
-          Effect.succeed({
-            passed: false,
-            reason: `The judge model failed: ${String(error.cause)}`,
-          }),
-        StepLimitReached: () =>
-          Effect.succeed({
-            passed: false,
-            reason: "The judge model called a tool instead of answering.",
-          }),
-      }),
-      Effect.provide(
-        liveModelGateway(config, ownerId).pipe(
-          Layer.provide(collectedUsageLedger(collected))
-        )
+) {
+  const config = yield* decodeTurnEnv(env);
+  const collected: Usage[] = [];
+  const verdict = yield* ModelGateway.pipe(
+    Effect.flatMap((gateway) =>
+      gateway.generate({
+        task: "eval_judge",
+        system: judgeInstructions,
+        messages: [{ role: "user", content: judgePrompt(request) }],
+        stepLimit: 1,
+      })
+    ),
+    Effect.map((reply) => verdictOf(reply.text)),
+    Effect.catchTags({
+      ModelUnavailable: (error) =>
+        Effect.succeed({
+          passed: false,
+          reason: `The judge model failed: ${String(error.cause)}`,
+        }),
+      StepLimitReached: () =>
+        Effect.succeed({
+          passed: false,
+          reason: "The judge model called a tool instead of answering.",
+        }),
+    }),
+    Effect.provide(
+      liveModelGateway(config, ownerId).pipe(
+        Layer.provide(collectedUsageLedger(collected))
       )
-    );
-    return {
-      ...verdict,
-      usage: collected.map(observedJudgeUsage),
-    } satisfies JudgeResult;
-  });
+    )
+  );
+  return {
+    ...verdict,
+    usage: collected.map(observedJudgeUsage),
+  } satisfies JudgeResult;
+});

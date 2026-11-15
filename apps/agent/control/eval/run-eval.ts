@@ -94,7 +94,7 @@ const runOnce = (
             detail: unfinished.message,
           },
         ],
-        usage: [],
+        usage: unfinished.usage,
       })
     )
   );

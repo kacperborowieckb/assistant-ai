@@ -160,11 +160,11 @@ A case file exports a default object that `satisfies EvalCaseFile`. Its name is 
 - `description`: what the case measures.
 - `seed` (optional): `notes` (text, optional `url`, optional `forwardedFrom` for an `untrusted` Note) and `profile` entries (`kind` `fact` or `style_rule`, and `text`).
 - `events`: the Owner Events in order, each with `text` and an optional `forwardedFrom` sender name for a forwarded message.
-- `checks`: `note_count` (`equals`), `note_matches` (`textIncludes` words, case does not matter; optional `url`, `trustLevel`, and `forwardOrigin`), `profile_entry_count` (`equals`), `tool_calls` (`tool`, optional `min` and `max`; with neither, at least 1), and `reply_judged` (`rubric`). The judge sees the whole conversation of the run.
+- `checks`: `note_count` (`equals`), `note_matches` (`textIncludes` words, case does not matter; optional `url`, `trustLevel`, and `forwardOrigin`), `link_count` (`equals`, undirected links), `notes_linked` (`noteIncludes` and `linkedNoteIncludes`: a Note with the first words links to a Note with the second words), `profile_entry_count` (`equals`), `profile_entry_matches` (`textIncludes`, optional `kind`), `tool_calls` (`tool`, optional `min` and `max`; with neither, at least 1), and `reply_judged` (`rubric`). The judge sees the whole conversation of the run.
 
 Cases: `capture-task-with-date`.
 
-Local proof with no network: `control/eval/run-eval.test.ts` runs the runner against the fake AI Gateway of `local-fakes.ts` with a fake judge (`fake-judge.ts`) that answers the verdicts that a test gives. One failed judge verdict of k runs fails the case, and the report has the pass count, the failed check, and the tokens. A case with seeded Notes and a Profile entry passes all k runs. `control/eval/eval-cases.test.ts` checks the case schema errors and the `--case` selection.
+Local proof with no network: `control/eval/run-eval.test.ts` runs the runner against the fake AI Gateway of `local-fakes.ts` with a fake judge (`fake-judge.ts`) that answers the verdicts that a test gives. One failed judge verdict of k runs fails the case, and the report has the pass count, the failed check, and the tokens. A case with seeded Notes and a Profile entry passes all k runs, and its link and Profile text checks fail with what the runner found when the links or the kind do not match. `control/eval/eval-cases.test.ts` checks the case schema errors and the `--case` selection.
 
 ## Configuration
 

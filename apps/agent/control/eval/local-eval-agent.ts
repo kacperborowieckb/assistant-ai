@@ -1,11 +1,5 @@
-import { Effect, Schedule, Schema } from "effect";
+import { Effect } from "effect";
 
-import {
-  AgentObservationSchema,
-  evalRoutes,
-  JudgeResultSchema,
-  SeedResponseSchema,
-} from "../../eval/eval-contract.ts";
 import type {
   AgentObservation,
   Exchange,
@@ -21,12 +15,11 @@ import { startLocalWorker, temporarySecrets } from "../local-worker.ts";
 import { addOwner } from "../operator.ts";
 import { sendTelegramUpdate } from "../telegram-update.ts";
 import type { EvalCase, OwnerEvent } from "./eval-case.ts";
+import { evalWorkerClient } from "./eval-worker-client.ts";
 import { EvalWorkerFailed } from "./eval-worker-failed.ts";
-import { TurnUnfinished } from "./turn-unfinished.ts";
 
 export const evalWorkerMain = "eval/worker.ts";
 
-const observationInterval = "250 millis";
 const turnMarginMillis = 30_000;
 export const turnTimeoutMillis =
   defaultBehaviorConfig.maxToolSteps * modelAttempts * attemptTimeoutMillis +
@@ -88,62 +81,11 @@ export const startLocalEvalAgent = Effect.fnUntraced(
     let nextTelegramUserId = firstTelegramUserId;
     let nextMessageId = firstMessageId;
 
-    const postEval = <Response>(
-      route: string,
-      body: unknown,
-      schema: Schema.Codec<Response, unknown>
-    ) =>
-      Effect.tryPromise({
-        try: async () => {
-          const response = await fetch(new URL(route, workerUrl), {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${secrets.OPERATOR_TOKEN}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(body),
-          });
-          return { status: response.status, text: await response.text() };
-        },
-        catch: (cause) =>
-          new EvalWorkerFailed({ route, detail: String(cause) }),
-      }).pipe(
-        Effect.flatMap(({ status, text }) =>
-          status === 200
-            ? Schema.decodeUnknownEffect(Schema.fromJsonString(schema))(
-                text
-              ).pipe(
-                Effect.mapError(
-                  ({ message }) =>
-                    new EvalWorkerFailed({ route, detail: message })
-                )
-              )
-            : Effect.fail(
-                new EvalWorkerFailed({ route, detail: `${status} ${text}` })
-              )
-        )
-      );
-
-    const observe = (ownerId: string) =>
-      postEval(evalRoutes.observation, { ownerId }, AgentObservationSchema);
-
-    const settled = (ownerId: string, ownerText: string) =>
-      observe(ownerId).pipe(
-        Effect.repeat({
-          schedule: Schedule.spaced(observationInterval),
-          until: (observation) => observation.pendingEventCount === 0,
-        }),
-        Effect.timeoutOrElse({
-          duration: turnTimeoutMillis,
-          orElse: () =>
-            Effect.fail(
-              new TurnUnfinished({
-                ownerText,
-                timeoutMillis: turnTimeoutMillis,
-              })
-            ),
-        })
-      );
+    const client = evalWorkerClient({
+      workerUrl,
+      operatorToken: secrets.OPERATOR_TOKEN,
+      turnTimeoutMillis,
+    });
 
     const exchange = Effect.fnUntraced(function* exchange(
       ownerId: string,
@@ -169,7 +111,7 @@ export const startLocalEvalAgent = Effect.fnUntraced(
           detail: `${webhook.status} ${yield* Effect.promise(() => webhook.text())}`,
         });
       }
-      yield* settled(ownerId, event.text);
+      yield* client.settled(ownerId, event.text);
       return {
         ownerText: event.text,
         ...(event.forwardedFrom === undefined
@@ -188,16 +130,12 @@ export const startLocalEvalAgent = Effect.fnUntraced(
         telegramUserId: userId,
       });
       if (evalCase.seed !== undefined) {
-        yield* postEval(
-          evalRoutes.seed,
-          {
-            ownerId,
-            conversationId: String(userId),
-            notes: evalCase.seed.notes ?? [],
-            profile: evalCase.seed.profile ?? [],
-          },
-          SeedResponseSchema
-        );
+        yield* client.seed({
+          ownerId,
+          conversationId: String(userId),
+          notes: evalCase.seed.notes ?? [],
+          profile: evalCase.seed.profile ?? [],
+        });
       }
       const exchanges: Exchange[] = [];
       for (const event of evalCase.events) {
@@ -206,7 +144,7 @@ export const startLocalEvalAgent = Effect.fnUntraced(
       return {
         ownerId,
         exchanges,
-        observation: yield* observe(ownerId),
+        observation: yield* client.observe(ownerId),
       } satisfies EvalRun;
     });
 
@@ -214,11 +152,7 @@ export const startLocalEvalAgent = Effect.fnUntraced(
       run: EvalRun,
       rubric: string
     ): Effect.Effect<JudgeResult, EvalWorkerFailed> =>
-      postEval(
-        evalRoutes.judge,
-        { ownerId: run.ownerId, rubric, exchanges: run.exchanges },
-        JudgeResultSchema
-      );
+      client.judge({ ownerId: run.ownerId, rubric, exchanges: run.exchanges });
 
     return { runCase, judge };
   }

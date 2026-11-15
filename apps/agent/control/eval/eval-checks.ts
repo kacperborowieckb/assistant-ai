@@ -5,7 +5,11 @@ import type {
   AgentObservation,
   ObservedNote,
 } from "../../eval/eval-contract.ts";
-import { trustLevels } from "../../src/personal-agent/storage-schema.ts";
+import {
+  profileEntryKinds,
+  trustLevels,
+} from "../../src/personal-agent/storage-schema.ts";
+import { counted } from "./wording.ts";
 
 const Count = Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
 
@@ -14,14 +18,33 @@ const NoteCountCheckSchema = Schema.Struct({
   equals: Count,
 });
 
+const TextIncludesSchema = Schema.Array(NonEmptyString).pipe(
+  Schema.check(Schema.isMinLength(1))
+);
+
 const NoteMatchesCheckSchema = Schema.Struct({
   check: Schema.Literal("note_matches"),
-  textIncludes: Schema.Array(NonEmptyString).pipe(
-    Schema.check(Schema.isMinLength(1))
-  ),
+  textIncludes: TextIncludesSchema,
   url: Schema.optionalKey(NonEmptyString),
   trustLevel: Schema.optionalKey(Schema.Literals(trustLevels)),
   forwardOrigin: Schema.optionalKey(NonEmptyString),
+});
+
+const LinkCountCheckSchema = Schema.Struct({
+  check: Schema.Literal("link_count"),
+  equals: Count,
+});
+
+const NotesLinkedCheckSchema = Schema.Struct({
+  check: Schema.Literal("notes_linked"),
+  noteIncludes: TextIncludesSchema,
+  linkedNoteIncludes: TextIncludesSchema,
+});
+
+const ProfileEntryMatchesCheckSchema = Schema.Struct({
+  check: Schema.Literal("profile_entry_matches"),
+  textIncludes: TextIncludesSchema,
+  kind: Schema.optionalKey(Schema.Literals(profileEntryKinds)),
 });
 
 const ProfileEntryCountCheckSchema = Schema.Struct({
@@ -44,7 +67,10 @@ const ReplyJudgedCheckSchema = Schema.Struct({
 export const CodeCheckSchema = Schema.Union([
   NoteCountCheckSchema,
   NoteMatchesCheckSchema,
+  LinkCountCheckSchema,
+  NotesLinkedCheckSchema,
   ProfileEntryCountCheckSchema,
+  ProfileEntryMatchesCheckSchema,
   ToolCallsCheckSchema,
 ]);
 
@@ -63,21 +89,28 @@ export interface CheckOutcome {
   readonly detail: string;
 }
 
-const counted = (count: number, word: string) =>
-  `${count} ${word}${count === 1 ? "" : "s"}`;
-
-const listed = (word: string, values: readonly string[]) =>
+const listed = (
+  word: string,
+  values: readonly string[],
+  pluralWord = `${word}s`
+) =>
   values.length === 0
-    ? `no ${word}s`
-    : `${counted(values.length, word)}: ${values.map((value) => `"${value}"`).join(", ")}`;
+    ? `no ${pluralWord}`
+    : `${counted(values.length, word, pluralWord)}: ${values.map((value) => `"${value}"`).join(", ")}`;
 
 const includesIgnoringCase = (text: string, part: string) =>
   text.toLowerCase().includes(part.toLowerCase());
 
 type NoteMatchesCheck = typeof NoteMatchesCheckSchema.Type;
 
+const includesAll = (text: string, parts: readonly string[]) =>
+  parts.every((part) => includesIgnoringCase(text, part));
+
+const quotedParts = (parts: readonly string[]) =>
+  parts.map((part) => `"${part}"`).join(", ");
+
 const noteMatches = (check: NoteMatchesCheck) => (note: ObservedNote) =>
-  check.textIncludes.every((part) => includesIgnoringCase(note.text, part)) &&
+  includesAll(note.text, check.textIncludes) &&
   (check.url === undefined || note.url === check.url) &&
   (check.trustLevel === undefined || note.trustLevel === check.trustLevel) &&
   (check.forwardOrigin === undefined ||
@@ -85,7 +118,7 @@ const noteMatches = (check: NoteMatchesCheck) => (note: ObservedNote) =>
 
 const noteMatchesLabel = (check: NoteMatchesCheck) =>
   [
-    `a Note includes ${check.textIncludes.map((part) => `"${part}"`).join(", ")}`,
+    `a Note includes ${quotedParts(check.textIncludes)}`,
     check.url === undefined ? [] : `with URL ${check.url}`,
     check.trustLevel === undefined
       ? []
@@ -100,6 +133,36 @@ const noteTexts = (notes: readonly ObservedNote[]) =>
     "Note",
     notes.map((note) => note.text)
   );
+
+type NotesLinkedCheck = typeof NotesLinkedCheckSchema.Type;
+
+const linkCountOf = (notes: readonly ObservedNote[]) =>
+  notes.reduce((total, note) => total + note.linkedNoteIds.length, 0) / 2;
+
+const notesAreLinked = (
+  check: NotesLinkedCheck,
+  notes: readonly ObservedNote[]
+) => {
+  const linkedNoteIds = new Set(
+    notes
+      .filter((note) => includesAll(note.text, check.linkedNoteIncludes))
+      .map((note) => note.noteId)
+  );
+  return notes.some(
+    (note) =>
+      includesAll(note.text, check.noteIncludes) &&
+      note.linkedNoteIds.some((noteId) => linkedNoteIds.has(noteId))
+  );
+};
+
+const linkedPairs = (notes: readonly ObservedNote[]) => {
+  const textOf = new Map(notes.map((note) => [note.noteId, note.text]));
+  return notes.flatMap((note) =>
+    note.linkedNoteIds
+      .filter((noteId) => note.noteId < noteId)
+      .map((noteId) => `${note.text} <-> ${textOf.get(noteId) ?? noteId}`)
+  );
+};
 
 type ToolCallsCheck = typeof ToolCallsCheckSchema.Type;
 
@@ -137,13 +200,43 @@ export const evaluateCodeCheck = (
         detail: noteTexts(observation.notes),
       };
     }
+    case "link_count": {
+      return {
+        label: `link_count: ${counted(check.equals, "link")}`,
+        passed: linkCountOf(observation.notes) === check.equals,
+        detail: listed("link", linkedPairs(observation.notes)),
+      };
+    }
+    case "notes_linked": {
+      return {
+        label: `notes_linked: a Note that includes ${quotedParts(check.noteIncludes)} links to a Note that includes ${quotedParts(check.linkedNoteIncludes)}`,
+        passed: notesAreLinked(check, observation.notes),
+        detail: listed("link", linkedPairs(observation.notes)),
+      };
+    }
+    case "profile_entry_matches": {
+      return {
+        label: `profile_entry_matches: a Profile entry${check.kind === undefined ? "" : ` of kind ${check.kind}`} includes ${quotedParts(check.textIncludes)}`,
+        passed: observation.profile.some(
+          (entry) =>
+            (check.kind === undefined || entry.kind === check.kind) &&
+            includesAll(entry.text, check.textIncludes)
+        ),
+        detail: listed(
+          "Profile entry",
+          observation.profile.map((entry) => `${entry.kind}: ${entry.text}`),
+          "Profile entries"
+        ),
+      };
+    }
     case "profile_entry_count": {
       return {
-        label: `profile_entry_count: ${counted(check.equals, "Profile entry")}`,
+        label: `profile_entry_count: ${counted(check.equals, "Profile entry", "Profile entries")}`,
         passed: observation.profile.length === check.equals,
         detail: listed(
           "Profile entry",
-          observation.profile.map((entry) => entry.text)
+          observation.profile.map((entry) => entry.text),
+          "Profile entries"
         ),
       };
     }

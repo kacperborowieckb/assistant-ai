@@ -53,19 +53,18 @@ export const runEval = ({
     )
   );
 
-export const runEvalCommand = ({
+export const runEvalCommand = Effect.fnUntraced(function* runEvalCommand({
   k,
   names,
 }: {
   readonly k: number;
   readonly names: readonly string[];
-}) =>
-  Effect.gen(function* runEvalCommandEffect() {
-    const cases = yield* loadEvalCases({ names });
-    const model = yield* realModelAccess;
-    yield* Console.log(renderEvalPlan(cases, k));
-    const telegram = yield* startLocalFakes();
-    const results = yield* runEval({ cases, k, telegram, model });
-    yield* Console.log(renderEvalReport(results, k));
-    return results.every(casePassed);
-  }).pipe(Effect.scoped);
+}) {
+  const cases = yield* loadEvalCases({ names });
+  const model = yield* realModelAccess;
+  yield* Console.log(renderEvalPlan(cases, k));
+  const telegram = yield* startLocalFakes();
+  const results = yield* runEval({ cases, k, telegram, model });
+  yield* Console.log(renderEvalReport(results, k));
+  return results.every(casePassed);
+}, Effect.scoped);

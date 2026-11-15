@@ -106,7 +106,7 @@ describe("Eval runner with a fake model", () => {
   );
 
   it(
-    "passes a case when all k runs pass, with seeded Notes and Profile in their own storage",
+    "passes a case when all k runs pass, with seeded Notes and Profile in their own storage, and checks links and Profile text",
     async () => {
       const seededCase: EvalCase = {
         ...captureCase,
@@ -118,8 +118,20 @@ describe("Eval runner with a fake model", () => {
           ],
           profile: [{ kind: "fact", text: "The Owner is vegetarian" }],
         },
+        events: [{ text: "link: likes red => Ana birthday is on Friday" }],
         checks: [
           { check: "note_count", equals: 3 },
+          { check: "link_count", equals: 1 },
+          {
+            check: "notes_linked",
+            noteIncludes: ["birthday"],
+            linkedNoteIncludes: ["likes red"],
+          },
+          {
+            check: "profile_entry_matches",
+            kind: "fact",
+            textIncludes: ["vegetarian"],
+          },
           {
             check: "note_matches",
             textIncludes: ["red"],
@@ -140,10 +152,37 @@ describe("Eval runner with a fake model", () => {
         ],
       };
 
-      const { results } = await runFakeEval([seededCase], 2, []);
+      const unlinkedCase: EvalCase = {
+        ...seededCase,
+        name: "fake-unlinked-capture",
+        events: [{ text: "keep: Ana birthday is on Friday" }],
+        checks: [
+          { check: "link_count", equals: 1 },
+          {
+            check: "notes_linked",
+            noteIncludes: ["birthday"],
+            linkedNoteIncludes: ["likes red"],
+          },
+          {
+            check: "profile_entry_matches",
+            kind: "style_rule",
+            textIncludes: ["vegetarian"],
+          },
+        ],
+      };
 
-      expect(results.map(casePassed)).toStrictEqual([true]);
-      expect(renderEvalReport(results, 2)).toContain(
+      const { results } = await runFakeEval([seededCase, unlinkedCase], 2, []);
+      const report = renderEvalReport(results, 2);
+
+      expect(results.map(casePassed)).toStrictEqual([true, false]);
+      expect(report).toContain("Run 1: link_count: 1 link. Found: no links");
+      expect(report).toContain(
+        'Run 1: notes_linked: a Note that includes "birthday" links to a Note that includes "likes red". Found: no links'
+      );
+      expect(report).toContain(
+        'Run 1: profile_entry_matches: a Profile entry of kind style_rule includes "vegetarian". Found: 1 Profile entry: "fact: The Owner is vegetarian"'
+      );
+      expect(report).toContain(
         "fake-seeded-capture: PASS, 2 of 2 runs passed (pass^2)"
       );
     },

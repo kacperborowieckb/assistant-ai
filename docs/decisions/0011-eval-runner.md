@@ -23,13 +23,13 @@ Extends [0002](0002-agent-authority.md) and [0009](0009-agent-loop-and-client-bo
 ### Cases and checks
 
 - An Eval Case is one TypeScript file in `apps/agent/control/eval/cases`. Its name is the file name. Its default export has a description, optional seeded Notes and Profile entries, the Owner Events (text, or text forwarded from a named sender), and checks. `satisfies EvalCaseFile` types it in the editor, and an Effect Schema decodes it at load time, so an invalid file fails with the file name and the path of the bad field.
-- Checks are data, not functions, so the report can name them and the schema can check them. Code checks read storage and the Trace: `note_count`, `note_matches`, `profile_entry_count`, and `tool_calls`. A new kind of check is a new schema member and a new branch of `evaluateCodeCheck`.
+- Checks are data, not functions, so the report can name them and the schema can check them. Code checks read storage and the Trace: `note_count`, `note_matches`, `link_count`, `notes_linked`, `profile_entry_count`, `profile_entry_matches`, and `tool_calls`. A new kind of check is a new schema member and a new branch of `evaluateCodeCheck`.
 - `reply_judged` asks a judge model if the replies meet a fixed rubric written in the case. The judge is the `eval_judge` Model Task of the Model Gateway, with its own route (`EVAL_JUDGE_MODEL`, `EVAL_JUDGE_REASONING_EFFORT`). It sees the whole conversation of the run and answers with a JSON verdict. A judge answer that is not a verdict, or a judge model failure, fails the check. Judge Usage is collected for the report and is not written to the Owner's Usage.
 
 ### Report
 
 - For each case: pass or fail, the number of passed runs of k, each failed check with its run and what the runner found, and the input, cached, and output tokens of the agent and of the judge. Cost shows as unknown until Usage records cost (#27).
-- A Turn that does not finish within the worst case of the step limit and the model retries fails its run, not the command. A failure of the local Worker itself stops the command.
+- A Turn that does not finish within the worst case of the step limit and the model retries fails its run, not the command, and the report keeps the Usage that the run recorded. A failure of the local Worker itself stops the command.
 
 ## Why
 
