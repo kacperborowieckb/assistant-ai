@@ -5,6 +5,8 @@ import { defaultBehaviorConfig } from "../behavior/behavior-config.ts";
 import type { Channel } from "../channels/channel.ts";
 import type { OwnerMessage } from "../event.ts";
 import { Journal } from "../journal/journal.ts";
+import { noTools } from "../model-gateway/agent-tool.ts";
+import type { AgentTools } from "../model-gateway/agent-tool.ts";
 import type { ModelGateway } from "../model-gateway/model-gateway.ts";
 import { UsageLedger } from "../model-gateway/usage-ledger.ts";
 import { OwnerIdSchema } from "../owner-id.ts";
@@ -48,6 +50,8 @@ export class PersonalAgent extends Agent<Env> {
     ownerId: OwnerId
   ) => TurnServices = liveTurnServices;
 
+  protected readonly turnTools: AgentTools = noTools;
+
   readonly runtime = ManagedRuntime.make(
     personalAgentLayer(this.ctx.storage, this.ownerId)
   );
@@ -72,7 +76,7 @@ export class PersonalAgent extends Agent<Env> {
 
   async runTurn(): Promise<void> {
     await this.runtime.runPromise(
-      takeTurn(this.ownerId, defaultBehaviorConfig).pipe(
+      takeTurn(this.ownerId, defaultBehaviorConfig, this.turnTools).pipe(
         Effect.provide(this.turnServices(this.env, this.ownerId))
       )
     );

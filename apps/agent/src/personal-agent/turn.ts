@@ -1,15 +1,16 @@
+import type { ModelMessage } from "ai";
 import { Clock, Effect } from "effect";
 
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { Channel } from "../channels/channel.ts";
 import { Journal } from "../journal/journal.ts";
+import { noTools } from "../model-gateway/agent-tool.ts";
+import type { AgentTools } from "../model-gateway/agent-tool.ts";
 import { ModelGateway } from "../model-gateway/model-gateway.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
-import type { PromptMessage } from "../tracing/turn-trace.ts";
 import { Conversation } from "./conversation.ts";
-import type { ConversationMessage } from "./conversation.ts";
 import { Inbox } from "./inbox.ts";
 import type { InboxEvent } from "./inbox.ts";
 import {
@@ -26,14 +27,9 @@ export const systemPrompt = (behavior: BehaviorConfig) =>
     behavior.textingStyle,
   ].join("\n");
 
-const toPromptMessage = (message: ConversationMessage): PromptMessage =>
-  message.role === "owner"
-    ? { role: "user", content: message.text }
-    : { role: "assistant", content: message.text };
-
-const ownerMessage = (event: InboxEvent): ConversationMessage => ({
-  role: "owner",
-  text: event.text,
+const ownerMessage = (event: InboxEvent): ModelMessage => ({
+  role: "user",
+  content: event.text,
 });
 
 export const honestFailureText =
@@ -107,9 +103,14 @@ const failTurnWithHonestMessage = (event: InboxEvent, reason: string) =>
     yield* sendHonestFailure(event);
   });
 
+interface TurnSettings {
+  readonly behavior: BehaviorConfig;
+  readonly tools: AgentTools;
+}
+
 const answer = (
   ownerId: OwnerId,
-  behavior: BehaviorConfig,
+  { behavior, tools }: TurnSettings,
   event: InboxEvent
 ) =>
   Effect.gen(function* answerEffect() {
@@ -122,14 +123,23 @@ const answer = (
     const startedAt = yield* Clock.currentTimeMillis;
     const history = yield* conversation.recent;
     const system = systemPrompt(behavior);
-    const messages = [...history, ownerMessage(event)].map(toPromptMessage);
+    const messages = [...history, ownerMessage(event)];
     const outcome: ModelOutcome = yield* modelGateway
-      .generate({ task: "reply", system, messages })
+      .generate({
+        task: "reply",
+        system,
+        messages,
+        tools,
+        stepLimit: behavior.maxToolSteps,
+      })
       .pipe(
         Effect.map((reply): ModelOutcome => ({ _tag: "Replied", reply })),
-        Effect.catchTag("ModelUnavailable", (error) =>
-          Effect.succeed<ModelOutcome>({ _tag: "ModelFailed", error })
-        )
+        Effect.catchTags({
+          ModelUnavailable: (error) =>
+            Effect.succeed<ModelOutcome>({ _tag: "ModelFailed", error }),
+          StepLimitReached: (error) =>
+            Effect.succeed<ModelOutcome>({ _tag: "ModelFailed", error }),
+        })
       );
     const modelLatencyMillis = (yield* Clock.currentTimeMillis) - startedAt;
     yield* traces.record(
@@ -170,7 +180,9 @@ const answer = (
     }
     yield* conversation.append([
       ownerMessage(event),
-      { role: "agent", text: replyText },
+      ...outcome.reply.responseMessages.map((message) =>
+        redactor.redactMessage(message)
+      ),
     ]);
     yield* inbox.markDone([event]);
     yield* recordTurnMetric({ ownerId, outcome, result: "replied", startedAt });
@@ -224,14 +236,18 @@ const settleFromJournal = (event: InboxEvent) =>
     return "unanswered" as const;
   });
 
-export const takeTurn = (ownerId: OwnerId, behavior: BehaviorConfig) =>
+export const takeTurn = (
+  ownerId: OwnerId,
+  behavior: BehaviorConfig,
+  tools: AgentTools = noTools
+) =>
   Effect.gen(function* takeTurnEffect() {
     const inbox = yield* Inbox;
     const events = yield* inbox.pending;
     for (const event of events) {
       const outcome = yield* settleFromJournal(event);
       if (outcome === "unanswered") {
-        yield* answer(ownerId, behavior, event);
+        yield* answer(ownerId, { behavior, tools }, event);
       }
     }
   });

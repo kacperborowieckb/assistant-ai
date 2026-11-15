@@ -81,6 +81,31 @@ const lastOwnerText = (
   return part?.type === "text" ? part.text : "";
 };
 
+export type ScriptedModelStep =
+  | { readonly say: string }
+  | {
+      readonly callTool: string;
+      readonly input: Record<string, unknown>;
+    };
+
+const modelScript: ScriptedModelStep[] = [];
+
+export const scriptModel = (steps: readonly ScriptedModelStep[]) => {
+  modelScript.splice(0, modelScript.length, ...steps);
+};
+
+const scriptedContent = (step: ScriptedModelStep) =>
+  "say" in step
+    ? ([{ type: "text", text: step.say }] as const)
+    : ([
+        {
+          type: "tool-call",
+          toolCallId: `call-${modelScript.length}`,
+          toolName: step.callTool,
+          input: JSON.stringify(step.input),
+        },
+      ] as const);
+
 const defaultModelFailureMessage = "The model provider is down";
 
 const modelFailure = { remaining: 0, message: defaultModelFailureMessage };
@@ -96,14 +121,21 @@ export const fakeModel = new MockLanguageModelV4({
       modelFailure.remaining -= 1;
       throw new Error(modelFailure.message);
     }
+    const scripted = modelScript.shift();
+    const callsTool = scripted !== undefined && "callTool" in scripted;
     return {
-      content: [
-        {
-          type: "text",
-          text: `${fakeReplyPrefix}${lastOwnerText(options.prompt)}`,
-        },
-      ],
-      finishReason: { unified: "stop", raw: "stop" },
+      content:
+        scripted === undefined
+          ? [
+              {
+                type: "text",
+                text: `${fakeReplyPrefix}${lastOwnerText(options.prompt)}`,
+              },
+            ]
+          : [...scriptedContent(scripted)],
+      finishReason: callsTool
+        ? { unified: "tool-calls", raw: "tool_calls" }
+        : { unified: "stop", raw: "stop" },
       usage: {
         inputTokens: { total: 42, noCache: 30, cacheRead: 12, cacheWrite: 0 },
         outputTokens: { total: 7, text: 7, reasoning: 0 },
@@ -127,7 +159,16 @@ export const failModel = (
   modelFailure.message = message;
 };
 
+export const fakeTool = {
+  name: "keep_note",
+  kept: [] as string[],
+  failWith: undefined as string | undefined,
+};
+
 export const resetFakes = () => {
+  modelScript.length = 0;
+  fakeTool.kept = [];
+  fakeTool.failWith = undefined;
   modelFailure.remaining = 0;
   modelFailure.message = defaultModelFailureMessage;
   recordedDataPoints.length = 0;

@@ -13,7 +13,10 @@ export const ReasoningEffortSchema = Schema.Literals([
 export type ReasoningEffort = typeof ReasoningEffortSchema.Type;
 
 export interface ResolvedRoute {
-  readonly model: LanguageModel;
+  readonly model: Extract<
+    LanguageModel,
+    { readonly specificationVersion: "v4" }
+  >;
   readonly reasoningEffort: ReasoningEffort;
 }
 

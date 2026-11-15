@@ -131,6 +131,7 @@ describe("Model Gateway transport", () => {
             task: "reply",
             system: "Be brief.",
             messages: [{ role: "user", content: "Hi" }],
+            stepLimit: 4,
           })
         ),
         Effect.provide(gateway)
