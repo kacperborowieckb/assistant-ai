@@ -1,4 +1,4 @@
-import { generateText, isStepCount, wrapLanguageModel } from "ai";
+import { isStepCount, ToolLoopAgent, wrapLanguageModel } from "ai";
 import type { LanguageModelUsage, ModelMessage, StepResult, ToolSet } from "ai";
 import { Context, Effect, Layer, Schedule } from "effect";
 
@@ -92,6 +92,19 @@ const aiSdkToolsOf = (tools: AgentTools, runTool: RunToolEffect) =>
     ])
   );
 
+const toolLoopAgentOf = (
+  route: ResolvedRoute,
+  request: ModelRequest,
+  runTool: RunToolEffect
+) =>
+  new ToolLoopAgent({
+    model: retryingModelCalls(route.model),
+    instructions: request.system,
+    tools: aiSdkToolsOf(request.tools ?? noTools, runTool),
+    stopWhen: isStepCount(request.stepLimit),
+    maxRetries: 0,
+  });
+
 const retryingModelCalls = (
   model: ResolvedRoute["model"]
 ): ResolvedRoute["model"] =>
@@ -162,18 +175,13 @@ const makeModelGateway = Effect.gen(function* makeModelGatewayEffect() {
       const { reasoningEffort } = route;
       const runPromise = Effect.runPromiseWith(yield* Effect.context<never>());
       const runTool = runToolEffect(runPromise);
-      const tools = aiSdkToolsOf(request.tools ?? noTools, runTool);
+      const agent = toolLoopAgentOf(route, request, runTool);
       const finishedSteps: StepResult<ToolSet>[] = [];
 
       const result = yield* Effect.tryPromise({
         try: (abortSignal) =>
-          generateText({
-            model: retryingModelCalls(route.model),
-            system: request.system,
+          agent.generate({
             messages: [...request.messages],
-            tools,
-            stopWhen: isStepCount(request.stepLimit),
-            maxRetries: 0,
             abortSignal,
             onStepFinish: (step) => {
               finishedSteps.push(step);
