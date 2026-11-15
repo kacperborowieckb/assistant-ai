@@ -37,7 +37,8 @@
         "docs/decisions/0003-runtime-and-model-stack.md",
         "docs/decisions/0004-owners-and-channels.md",
         "docs/decisions/0007-typed-queries-and-migrations.md",
-        "docs/decisions/0008-workers-paid-plan.md"
+        "docs/decisions/0008-workers-paid-plan.md",
+        "docs/decisions/0009-agent-loop-and-client-boundaries.md"
       ]
     },
     {
@@ -63,7 +64,8 @@
         "docs/decisions/0003-runtime-and-model-stack.md",
         "docs/decisions/0004-owners-and-channels.md",
         "docs/decisions/0005-model-transport-and-billing.md",
-        "docs/decisions/0007-typed-queries-and-migrations.md"
+        "docs/decisions/0007-typed-queries-and-migrations.md",
+        "docs/decisions/0009-agent-loop-and-client-boundaries.md"
       ]
     },
     {
@@ -79,7 +81,10 @@
       "id": "channel",
       "purpose": "The Channel send action and the Telegram Channel: it decodes private text messages from Telegram updates and sends a plain-text reply that links to the Owner's message, split into parts within the Telegram limit of 4,096 characters. A send is confirmed only with a Telegram message id.",
       "roots": ["apps/agent/src/channels"],
-      "adrs": ["docs/decisions/0004-owners-and-channels.md"]
+      "adrs": [
+        "docs/decisions/0004-owners-and-channels.md",
+        "docs/decisions/0009-agent-loop-and-client-boundaries.md"
+      ]
     },
     {
       "id": "behavior-config",
