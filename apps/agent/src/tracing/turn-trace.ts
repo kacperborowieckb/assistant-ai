@@ -16,6 +16,7 @@ const TraceUsageSchema = Schema.Struct({
 });
 
 const ToolCallSchema = Schema.Struct({
+  callId: Schema.String,
   name: Schema.String,
   input: Schema.String,
   output: Schema.String,

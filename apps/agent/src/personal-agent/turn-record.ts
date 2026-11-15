@@ -9,6 +9,7 @@ import type { ModelReply } from "../model-gateway/model-gateway.ts";
 import type { ModelStep } from "../model-gateway/model-step.ts";
 import type { ModelUnavailable } from "../model-gateway/model-unavailable.ts";
 import type { StepLimitReached } from "../model-gateway/step-limit-reached.ts";
+import type { Usage } from "../model-gateway/usage-ledger.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { OperatorMetrics } from "../tracing/operator-metrics.ts";
 import type { OperatorMetric } from "../tracing/operator-metrics.ts";
@@ -32,8 +33,15 @@ export type ModelOutcome =
   | { readonly _tag: "Replied"; readonly reply: ModelReply }
   | { readonly _tag: "ModelFailed"; readonly error: ModelFailure };
 
-const stepsOf = (outcome: ModelOutcome): readonly ModelStep[] =>
+export const stepsOf = (outcome: ModelOutcome): readonly ModelStep[] =>
   outcome._tag === "Replied" ? outcome.reply.steps : outcome.error.steps;
+
+const traceUsageOf = (usage: Usage): TurnTrace["usage"] => ({
+  inputTokens: usage.inputTokens ?? null,
+  outputTokens: usage.outputTokens ?? null,
+  cachedInputTokens: usage.cachedInputTokens ?? null,
+  costUsd: usage.costUsd ?? null,
+});
 
 const traceStepsOf = (
   outcome: ModelOutcome,
@@ -41,17 +49,13 @@ const traceStepsOf = (
 ): TurnTrace["steps"] =>
   stepsOf(outcome).map((step) => ({
     toolCalls: step.toolCalls.map((call) => ({
+      callId: call.callId,
       name: call.name,
       input: redactor.redact(call.input),
       output: redactor.redact(call.output),
       failed: call.failed,
     })),
-    usage: {
-      inputTokens: step.usage.inputTokens ?? null,
-      outputTokens: step.usage.outputTokens ?? null,
-      cachedInputTokens: step.usage.cachedInputTokens ?? null,
-      costUsd: step.usage.costUsd ?? null,
-    },
+    usage: traceUsageOf(step.usage),
   }));
 
 interface TraceInput {
@@ -95,12 +99,7 @@ export const traceOf = ({
       modelId: outcome.reply.modelId,
       reply: redactor.redact(outcome.reply.text),
       error: null,
-      usage: {
-        inputTokens: outcome.reply.usage.inputTokens ?? null,
-        outputTokens: outcome.reply.usage.outputTokens ?? null,
-        cachedInputTokens: outcome.reply.usage.cachedInputTokens ?? null,
-        costUsd: outcome.reply.usage.costUsd ?? null,
-      },
+      usage: traceUsageOf(outcome.reply.usage),
     };
   }
   return {
@@ -148,3 +147,6 @@ export const recordTurnMetric = ({
       toolCallCount: stepsOf(outcome).flatMap((step) => step.toolCalls).length,
     });
   });
+
+export const responseMessagesOf = (outcome: ModelOutcome) =>
+  stepsOf(outcome).flatMap((step) => step.responseMessages);

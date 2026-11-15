@@ -3,7 +3,7 @@ import type { LanguageModelUsage, ModelMessage, StepResult, ToolSet } from "ai";
 import { Context, Effect, Layer, Schedule } from "effect";
 
 import { noTools, runToolEffect } from "./agent-tool.ts";
-import type { AgentTools } from "./agent-tool.ts";
+import type { AgentTools, RunToolEffect } from "./agent-tool.ts";
 import { ModelCallFailed } from "./model-call-failed.ts";
 import { ModelProvider } from "./model-provider.ts";
 import type {
@@ -31,7 +31,6 @@ export interface ModelReply {
   readonly text: string;
   readonly usage: Usage;
   readonly steps: readonly ModelStep[];
-  readonly responseMessages: readonly ModelMessage[];
 }
 
 export const modelAttempts = 3;
@@ -71,6 +70,7 @@ const toolCallsOf = (step: StepResult<ToolSet>): readonly ModelToolCall[] =>
     if (part.type === "tool-result") {
       return [
         {
+          callId: part.toolCallId,
           name: part.toolName,
           input: stringify(part.input),
           output: stringify(part.output),
@@ -81,6 +81,7 @@ const toolCallsOf = (step: StepResult<ToolSet>): readonly ModelToolCall[] =>
     if (part.type === "tool-error") {
       return [
         {
+          callId: part.toolCallId,
           name: part.toolName,
           input: stringify(part.input),
           output: errorMessageOf(part.error),
@@ -94,7 +95,16 @@ const toolCallsOf = (step: StepResult<ToolSet>): readonly ModelToolCall[] =>
 const modelStepOf = (step: StepResult<ToolSet>): ModelStep => ({
   usage: usageOf(step.usage),
   toolCalls: toolCallsOf(step),
+  responseMessages: step.response.messages,
 });
+
+const aiSdkToolsOf = (tools: AgentTools, runTool: RunToolEffect) =>
+  Object.fromEntries(
+    Object.entries(tools).map(([name, agentTool]) => [
+      name,
+      agentTool.toAiSdkTool(runTool),
+    ])
+  );
 
 const retryingModelCalls = (
   model: ResolvedRoute["model"]
@@ -134,6 +144,18 @@ const retryingModelCalls = (
     },
   });
 
+const replyOf = (
+  route: ResolvedRoute,
+  text: string,
+  steps: readonly ModelStep[]
+): ModelReply => ({
+  modelId: route.model.modelId,
+  reasoningEffort: route.reasoningEffort,
+  text,
+  usage: sumUsage(steps.map((step) => step.usage)),
+  steps,
+});
+
 const makeModelGateway = Effect.gen(function* makeModelGatewayEffect() {
   const provider = yield* ModelProvider;
   const ledger = yield* UsageLedger;
@@ -154,12 +176,7 @@ const makeModelGateway = Effect.gen(function* makeModelGatewayEffect() {
       const { reasoningEffort } = route;
       const runPromise = Effect.runPromiseWith(yield* Effect.context<never>());
       const runTool = runToolEffect(runPromise);
-      const tools = Object.fromEntries(
-        Object.entries(request.tools ?? noTools).map(([name, agentTool]) => [
-          name,
-          agentTool.toAiSdkTool(runTool),
-        ])
-      );
+      const tools = aiSdkToolsOf(request.tools ?? noTools, runTool);
       const finishedSteps: StepResult<ToolSet>[] = [];
 
       const result = yield* Effect.tryPromise({
@@ -200,16 +217,7 @@ const makeModelGateway = Effect.gen(function* makeModelGatewayEffect() {
           steps,
         });
       }
-      return {
-        modelId,
-        reasoningEffort,
-        text: result.text,
-        usage: sumUsage(steps.map((step) => step.usage)),
-        steps,
-        responseMessages: result.steps.flatMap(
-          (step) => step.response.messages
-        ),
-      } satisfies ModelReply;
+      return replyOf(route, result.text, steps);
     });
 
   return { generate };

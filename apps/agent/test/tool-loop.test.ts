@@ -80,6 +80,7 @@ describe("Tool loop", () => {
     expect(stored?.trace.steps).toHaveLength(2);
     expect(stored?.trace.steps[0]?.toolCalls).toEqual([
       {
+        callId: expect.any(String),
         name: fakeTool.name,
         input: JSON.stringify({ word: "red" }),
         output: JSON.stringify({ kept: "red" }),
@@ -104,6 +105,48 @@ describe("Tool loop", () => {
 
     expect(promptPartTypes(2)).toEqual(
       expect.arrayContaining(["tool-call", "tool-result"])
+    );
+  });
+
+  it("does not run a tool again when the model call after it is retried", async () => {
+    await addOwner(9007);
+    scriptModel([
+      keepWord("red"),
+      { error: "The model provider is down" },
+      { say: "Kept red" },
+    ]);
+
+    await telegramWebhook(textUpdate({ fromUserId: 9007, text: "keep red" }));
+    await waitForReplies(1);
+
+    expect(fakeTool.kept).toEqual(["red"]);
+    expect(fakeTelegram.sent[0]?.body.text).toBe("Kept red");
+  });
+
+  it("remembers in the next Turn a tool that ran in a Turn that failed", async () => {
+    const ownerId = await addOwner(9008);
+    scriptModel(
+      Array.from({ length: defaultBehaviorConfig.maxToolSteps + 4 }, () =>
+        keepWord("loop")
+      )
+    );
+    await telegramWebhook(
+      textUpdate({ fromUserId: 9008, text: "keep", messageId: 1 })
+    );
+    await waitForReplies(1);
+    resetFakes();
+
+    await telegramWebhook(
+      textUpdate({ fromUserId: 9008, text: "again", messageId: 2 })
+    );
+    await waitForReplies(1);
+
+    expect(promptPartTypes(0)).toEqual(
+      expect.arrayContaining(["tool-call", "tool-result"])
+    );
+    const [first] = await tracesOf(ownerId);
+    expect(first?.trace.steps[0]?.toolCalls[0]?.callId).toEqual(
+      expect.any(String)
     );
   });
 

@@ -15,6 +15,7 @@ import { Inbox } from "./inbox.ts";
 import type { InboxEvent } from "./inbox.ts";
 import {
   modelFailureReason,
+  responseMessagesOf,
   recordTurnMetric,
   traceOf,
 } from "./turn-record.ts";
@@ -103,6 +104,20 @@ const failTurnWithHonestMessage = (event: InboxEvent, reason: string) =>
     yield* sendHonestFailure(event);
   });
 
+const rememberCompletedSteps = (event: InboxEvent, outcome: ModelOutcome) =>
+  Effect.gen(function* rememberCompletedStepsEffect() {
+    const conversation = yield* Conversation;
+    const redactor = yield* Redactor;
+    const completed = responseMessagesOf(outcome);
+
+    if (completed.length > 0) {
+      yield* conversation.append([
+        ownerMessage(event),
+        ...completed.map((message) => redactor.redactMessage(message)),
+      ]);
+    }
+  });
+
 interface TurnSettings {
   readonly behavior: BehaviorConfig;
   readonly tools: AgentTools;
@@ -154,6 +169,7 @@ const answer = (
     );
 
     if (outcome._tag === "ModelFailed") {
+      yield* rememberCompletedSteps(event, outcome);
       yield* failTurnWithHonestMessage(
         event,
         modelFailureReason(outcome.error, redactor)
@@ -180,7 +196,7 @@ const answer = (
     }
     yield* conversation.append([
       ownerMessage(event),
-      ...outcome.reply.responseMessages.map((message) =>
+      ...responseMessagesOf(outcome).map((message) =>
         redactor.redactMessage(message)
       ),
     ]);

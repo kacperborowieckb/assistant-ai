@@ -83,6 +83,7 @@ const lastOwnerText = (
 
 export type ScriptedModelStep =
   | { readonly say: string }
+  | { readonly error: string }
   | {
       readonly callTool: string;
       readonly input: Record<string, unknown>;
@@ -94,7 +95,9 @@ export const scriptModel = (steps: readonly ScriptedModelStep[]) => {
   modelScript.splice(0, modelScript.length, ...steps);
 };
 
-const scriptedContent = (step: ScriptedModelStep) =>
+const scriptedContent = (
+  step: Exclude<ScriptedModelStep, { readonly error: string }>
+) =>
   "say" in step
     ? ([{ type: "text", text: step.say }] as const)
     : ([
@@ -122,6 +125,9 @@ export const fakeModel = new MockLanguageModelV4({
       throw new Error(modelFailure.message);
     }
     const scripted = modelScript.shift();
+    if (scripted !== undefined && "error" in scripted) {
+      throw new Error(scripted.error);
+    }
     const callsTool = scripted !== undefined && "callTool" in scripted;
     return {
       content:
