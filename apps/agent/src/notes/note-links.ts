@@ -48,7 +48,15 @@ export const makeNoteLinks = Effect.fnUntraced(function* makeNoteLinks(
       )
       .pipe(
         Effect.map((links) =>
-          links.map((link) => linkedNoteIdOf(noteId, link)).toSorted()
+          links
+            .toSorted(
+              (left, right) =>
+                right.createdAt.localeCompare(left.createdAt) ||
+                linkedNoteIdOf(noteId, left).localeCompare(
+                  linkedNoteIdOf(noteId, right)
+                )
+            )
+            .map((link) => linkedNoteIdOf(noteId, link))
         )
       );
 

@@ -55,6 +55,13 @@ export const updateNoteTool = (
       { toolCallId, modelStepKey }
     ) =>
       Effect.gen(function* updateNoteEffect() {
+        yield* progress
+          .markModelStep(eventId, modelStepKey)
+          .pipe(
+            Effect.catchCause(() =>
+              Effect.fail(new ToolFailed({ message: noteNotUpdatedMessage }))
+            )
+          );
         if (
           text === undefined &&
           (linkedNoteIds ?? []).length === 0 &&
@@ -63,7 +70,6 @@ export const updateNoteTool = (
           return yield* new ToolFailed({ message: nothingToUpdateMessage });
         }
         return yield* Effect.gen(function* recordUpdateEffect() {
-          yield* progress.markModelStep(eventId, modelStepKey);
           return yield* progress.recordingToolCall(
             {
               eventId,

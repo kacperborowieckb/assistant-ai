@@ -45,9 +45,10 @@ export const fakeNoteEditMessage = (
 ) => {
   const isChange = ownerText.startsWith(fakeChangePrefix);
   const prefix = isChange ? fakeChangePrefix : fakeLinkPrefix;
-  const [searched = "", newText = ""] = ownerText
+  const [searched = "", ...textParts] = ownerText
     .slice(prefix.length)
     .split(separator);
+  const newText = textParts.join(separator);
   if (toolResult === undefined) {
     return toolCall("search_notes", { query: searched });
   }

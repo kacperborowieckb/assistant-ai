@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Journal } from "../src/journal/journal.ts";
 import type { JournalRecord } from "../src/journal/journal.ts";
 import { captureNoteToolName } from "../src/notes/capture-note-tool.ts";
-import { Notes } from "../src/notes/notes.ts";
+import { maxLinkedNotesPerMatch, Notes } from "../src/notes/notes.ts";
 import { searchNotesToolName } from "../src/notes/search-notes-tool.ts";
 import { updateNoteToolName } from "../src/notes/update-note-tool.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
@@ -27,6 +27,15 @@ interface LinkRow extends Record<string, SqlStorageValue> {
   from_note_id: string;
   to_note_id: string;
 }
+
+const sourceOfEvent = (eventId: string) =>
+  ({
+    eventId,
+    channel: "telegram",
+    conversationId: "7213",
+    channelMessageId: eventId,
+    trustLevel: "owner",
+  }) as const;
 
 const agentOf = (ownerId: string) =>
   personalAgentFor(env.PERSONAL_AGENT, OwnerIdSchema.make(ownerId));
@@ -292,6 +301,16 @@ describe("Edit and link Notes", () => {
     expect(JSON.stringify(fakeModel.doGenerateCalls.at(-1)?.prompt)).toContain(
       "Give new text, Notes to link, or Notes to unlink"
     );
+    const markedSteps = await runInDurableObject(
+      await agentOf(ownerId),
+      (_, state) =>
+        state.storage.sql
+          .exec<{ steps: number }>(
+            "SELECT COUNT(DISTINCT event_id) AS steps FROM turn_model_steps"
+          )
+          .one().steps
+    );
+    expect(markedSteps).toBe(2);
     expect(await notesOf(ownerId)).toEqual([original]);
   });
 
@@ -483,5 +502,32 @@ describe("Edit and link Notes", () => {
     );
     expect(resultPrompt).toContain("https://example.com/gifts");
     expect(resultPrompt).toContain("channelMessageId");
+  });
+
+  it("returns at most the newest linked Notes of a match and their total count", async () => {
+    const ownerId = await addOwner(7213);
+    const total = maxLinkedNotesPerMatch + 2;
+    const found = await runInDurableObject(await agentOf(ownerId), (instance) =>
+      instance.runtime.runPromise(
+        Effect.gen(function* hubEffect() {
+          const notes = yield* Notes;
+          const hub = yield* notes.capture({
+            text: "hub topic",
+            source: sourceOfEvent("hub"),
+          });
+          for (let index = 0; index < total; index += 1) {
+            yield* notes.capture({
+              text: `spoke ${index}`,
+              source: sourceOfEvent(`spoke-${index}`),
+              linkedNoteIds: [hub.note.noteId],
+            });
+          }
+          return yield* notes.search({ query: "hub", limit: 1 });
+        })
+      )
+    );
+
+    expect(found[0]?.linkedNoteCount).toBe(total);
+    expect(found[0]?.linkedNotes).toHaveLength(maxLinkedNotesPerMatch);
   });
 });

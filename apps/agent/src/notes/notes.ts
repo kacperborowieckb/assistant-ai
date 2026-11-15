@@ -42,8 +42,11 @@ export interface UpdateRequest {
   readonly unlinkedNoteIds?: readonly string[] | undefined;
 }
 
+export const maxLinkedNotesPerMatch = 5;
+
 export interface RecalledNote extends Note {
   readonly linkedNotes: readonly Note[];
+  readonly linkedNoteCount: number;
 }
 
 export interface SearchRequest {
@@ -186,16 +189,25 @@ const makeNotes = (ownerId: OwnerId) =>
       noteId: string
     ) {
       const linkedNoteIds = yield* linkedNoteIdsOf(noteId);
-      if (linkedNoteIds.length === 0) {
-        return [];
+      const shownNoteIds = linkedNoteIds.slice(0, maxLinkedNotesPerMatch);
+      if (shownNoteIds.length === 0) {
+        return { linkedNotes: [], linkedNoteCount: 0 };
       }
       const rows = yield* database
         .select()
         .from(notes)
         .where(
-          and(eq(notes.ownerId, ownerId), inArray(notes.noteId, linkedNoteIds))
+          and(eq(notes.ownerId, ownerId), inArray(notes.noteId, shownNoteIds))
         );
-      return rows.map((row) => toNote(row));
+      return {
+        linkedNotes: shownNoteIds.flatMap((shownNoteId) => {
+          const row = rows.find(
+            (candidate) => candidate.noteId === shownNoteId
+          );
+          return row === undefined ? [] : [toNote(row)];
+        }),
+        linkedNoteCount: linkedNoteIds.length,
+      };
     });
 
     const search = Effect.fnUntraced(function* search({
@@ -227,7 +239,7 @@ const makeNotes = (ownerId: OwnerId) =>
       return yield* Effect.all(
         recalled.map((note) =>
           linkedNotesOf(note.noteId).pipe(
-            Effect.map((linkedNotes) => ({ ...note, linkedNotes }))
+            Effect.map((linked) => ({ ...note, ...linked }))
           )
         )
       );
