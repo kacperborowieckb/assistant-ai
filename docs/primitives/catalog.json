@@ -58,11 +58,12 @@
     },
     {
       "id": "notes",
-      "purpose": "The Document primitive (Notes). A Note has a Note id, Owner Id, text, optional URL, source (Event and Channel message), trust level (owner or untrusted), captured date, and last-checked date. It lives in the Personal Agent SQLite. The capture_note tool writes a Note; code sets the source and the trust level from the Event, not the model. A unique constraint on the source Event id and the hash of the normalized text makes a repeated write return the existing Note. Each Note write appends a Journal Entry with the Note id. The agent does not fetch links.",
+      "purpose": "The Document primitive (Notes). A Note has a Note id, Owner Id, text, optional URL, source (Event and Channel message), trust level (owner or untrusted), captured date, and last-checked date. It lives in the Personal Agent SQLite. The capture_note tool writes a Note; code sets the source and the trust level from the Event, not the model. A unique constraint on the source Event id and the hash of the normalized text makes a repeated write return the existing Note. Each Note write appends a Journal Entry with the Note id. An FTS5 table over the Note text and URL (versioned migration, triggers keep it in step with the notes table in the same transaction) ranks matches by bm25. The search_notes tool takes a query and a limit and returns Note id, text, URL, source, trust level, and captured date; text of an untrusted Note is marked as Untrusted Content. The system prompt asks for the source and the date in each answer and for an honest \"I do not know\" when no Note matches. The agent does not fetch links.",
       "roots": ["apps/agent/src/notes"],
       "adrs": [
         "docs/decisions/0007-typed-queries-and-migrations.md",
-        "docs/decisions/0009-agent-loop-and-client-boundaries.md"
+        "docs/decisions/0009-agent-loop-and-client-boundaries.md",
+        "docs/decisions/0010-full-text-search-of-notes.md"
       ]
     },
     {

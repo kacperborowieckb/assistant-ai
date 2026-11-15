@@ -5,12 +5,8 @@ import {
   effectInputSchema,
   ToolFailed,
 } from "../model-gateway/agent-tool.ts";
-import type { InboxEvent } from "../personal-agent/inbox.ts";
-import type { TurnProgress } from "../personal-agent/turn-progress.ts";
-import type { Redactor } from "../tracing/redactor.ts";
-import { noteSourceOfOwnerEvent } from "./note.ts";
+import type { NoteToolServices } from "./note-tool-services.ts";
 import type { NoteSource } from "./note.ts";
-import type { Notes } from "./notes.ts";
 
 export const captureNoteToolName = "capture_note";
 
@@ -35,13 +31,7 @@ const CaptureNoteInput = Schema.Struct({
   ),
 });
 
-interface NoteToolServices {
-  readonly notes: Notes["Service"];
-  readonly progress: TurnProgress["Service"];
-  readonly redactor: Redactor["Service"];
-}
-
-const captureNoteTool = (
+export const captureNoteTool = (
   { notes, progress, redactor }: NoteToolServices,
   source: NoteSource
 ) =>
@@ -75,13 +65,3 @@ const captureNoteTool = (
         )
       ),
   });
-
-export const noteToolsFor = (
-  services: NoteToolServices,
-  event: InboxEvent
-) => ({
-  [captureNoteToolName]: captureNoteTool(
-    services,
-    noteSourceOfOwnerEvent(event)
-  ),
-});
