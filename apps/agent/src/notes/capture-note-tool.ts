@@ -50,12 +50,12 @@ const captureNoteTool = (
       "Keep a Note for the Owner: a text, a link, or a text with a link. Does not open the link.",
     inputSchema: effectInputSchema(CaptureNoteInput),
     execute: ({ text, url }, { toolCallId, modelStepKey }) =>
-      progress
-        .recordingToolCall(
+      Effect.gen(function* captureNoteEffect() {
+        yield* progress.markModelStep(source.eventId, modelStepKey);
+        return yield* progress.recordingToolCall(
           {
             eventId: source.eventId,
             toolCallId,
-            modelStepKey,
             toolName: captureNoteToolName,
             input: url === undefined ? { text } : { text, url },
             redactor,
@@ -68,12 +68,12 @@ const captureNoteTool = (
               alreadyKept,
             }))
           )
+        );
+      }).pipe(
+        Effect.catchCause(() =>
+          Effect.fail(new ToolFailed({ message: noteNotKeptMessage }))
         )
-        .pipe(
-          Effect.catchCause(() =>
-            Effect.fail(new ToolFailed({ message: noteNotKeptMessage }))
-          )
-        ),
+      ),
   });
 
 export const noteToolsFor = (

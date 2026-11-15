@@ -2,6 +2,7 @@ import {
   check,
   index,
   integer,
+  primaryKey,
   real,
   sqliteTable,
   text,
@@ -50,11 +51,19 @@ export const turnProgress = sqliteTable(
   {
     sequence: integer("sequence").primaryKey({ autoIncrement: true }),
     eventId: text("event_id").notNull(),
-    modelStepKey: integer("model_step_key").notNull(),
     message: text("message").notNull(),
     recordedAt: text("recorded_at").notNull(),
   },
   (table) => [index("turn_progress_event").on(table.eventId)]
+);
+
+export const turnModelSteps = sqliteTable(
+  "turn_model_steps",
+  {
+    eventId: text("event_id").notNull(),
+    modelStepKey: integer("model_step_key").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.eventId, table.modelStepKey] })]
 );
 
 export const conversationRecordedEvents = sqliteTable(

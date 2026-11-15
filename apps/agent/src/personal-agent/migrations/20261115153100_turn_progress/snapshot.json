@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "a6c5e13a-1fe3-4847-bc64-c0a268de2637",
+  "id": "fbfdd93f-d7d8-4b95-8115-46aac55bc787",
   "prevIds": ["40846691-f8b3-41aa-a633-a2deac28b160"],
   "ddl": [
     {
@@ -26,6 +26,10 @@
     },
     {
       "name": "notes",
+      "entityType": "tables"
+    },
+    {
+      "name": "turn_model_steps",
       "entityType": "tables"
     },
     {
@@ -447,6 +451,26 @@
       "entityType": "columns"
     },
     {
+      "table": "turn_model_steps",
+      "name": "event_id",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "turn_model_steps",
+      "name": "model_step_key",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
       "table": "turn_progress",
       "name": "sequence",
       "type": "integer",
@@ -460,16 +484,6 @@
       "table": "turn_progress",
       "name": "event_id",
       "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "turn_progress",
-      "name": "model_step_key",
-      "type": "integer",
       "notNull": true,
       "autoincrement": false,
       "default": null,
@@ -601,6 +615,13 @@
       "where": null,
       "origin": "manual",
       "entityType": "indexes"
+    },
+    {
+      "table": "turn_model_steps",
+      "name": "turn_model_steps_pk",
+      "columns": ["event_id", "model_step_key"],
+      "nameExplicit": false,
+      "entityType": "pks"
     },
     {
       "table": "conversation_messages",

@@ -1,5 +1,5 @@
 import type { JSONValue, ModelMessage } from "ai";
-import { asc, countDistinct, eq } from "drizzle-orm";
+import { asc, count, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import {
@@ -8,7 +8,7 @@ import {
 } from "../model-gateway/model-message-schema.ts";
 import type { Redactor } from "../tracing/redactor.ts";
 import { AgentStorage } from "./agent-storage.ts";
-import { turnProgress } from "./storage-schema.ts";
+import { turnModelSteps, turnProgress } from "./storage-schema.ts";
 
 const encodeMessage = Schema.encodeSync(ModelMessageJsonSchema);
 const decodeMessage = Schema.decodeUnknownEffect(ModelMessageJsonSchema);
@@ -17,7 +17,6 @@ const checkMessage = Schema.decodeUnknownEffect(ModelMessageSchema);
 export interface ToolCallProgress {
   readonly eventId: string;
   readonly toolCallId: string;
-  readonly modelStepKey: number;
   readonly toolName: string;
   readonly input: JSONValue;
   readonly redactor: Redactor["Service"];
@@ -61,11 +60,17 @@ const makeTurnProgress = Effect.gen(function* makeTurnProgressEffect() {
         )
       );
 
-  const finishedStepCount = (eventId: string) =>
+  const markModelStep = (eventId: string, modelStepKey: number) =>
     database
-      .select({ steps: countDistinct(turnProgress.modelStepKey) })
-      .from(turnProgress)
-      .where(eq(turnProgress.eventId, eventId))
+      .insert(turnModelSteps)
+      .values({ eventId, modelStepKey })
+      .onConflictDoNothing();
+
+  const usedStepCount = (eventId: string) =>
+    database
+      .select({ steps: count() })
+      .from(turnModelSteps)
+      .where(eq(turnModelSteps.eventId, eventId))
       .pipe(Effect.map(([row]) => row?.steps ?? 0));
 
   const record = (call: ToolCallProgress, messages: readonly ModelMessage[]) =>
@@ -77,7 +82,6 @@ const makeTurnProgress = Effect.gen(function* makeTurnProgressEffect() {
         ).pipe(Effect.orDie);
         yield* database.insert(turnProgress).values({
           eventId: call.eventId,
-          modelStepKey: call.modelStepKey,
           message: encodeMessage(checked),
           recordedAt,
         });
@@ -94,7 +98,7 @@ const makeTurnProgress = Effect.gen(function* makeTurnProgressEffect() {
       )
     );
 
-  return { completedFor, finishedStepCount, recordingToolCall };
+  return { completedFor, markModelStep, usedStepCount, recordingToolCall };
 });
 
 export class TurnProgress extends Context.Service<

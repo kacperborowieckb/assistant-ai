@@ -75,8 +75,7 @@ const answer = (
     const system = systemPrompt(behavior);
     const earlier = yield* progress.completedFor(event.eventId);
     const stepsLeft =
-      behavior.maxToolSteps -
-      (yield* progress.finishedStepCount(event.eventId));
+      behavior.maxToolSteps - (yield* progress.usedStepCount(event.eventId));
     if (stepsLeft <= 0) {
       yield* conversation.append(event.eventId, [
         ownerMessage(event),
