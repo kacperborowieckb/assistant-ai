@@ -16,6 +16,7 @@ import {
 import { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
 import { Conversation } from "./conversation.ts";
+import { trustLevelOfEvent } from "./event-trust.ts";
 import { Inbox } from "./inbox.ts";
 import type { InboxEvent } from "./inbox.ts";
 import { ownerMessage } from "./owner-message.ts";
@@ -102,15 +103,19 @@ const answer = (
         tools: {
           ...tools,
           ...noteToolsFor({ notes, progress, redactor }, event),
-          [updateProfileToolName]: updateProfileTool(
-            {
-              profile,
-              progress,
-              redactor,
-              characterLimit: behavior.maxProfileCharacters,
-            },
-            event.eventId
-          ),
+          ...(trustLevelOfEvent(event) === "owner"
+            ? {
+                [updateProfileToolName]: updateProfileTool(
+                  {
+                    profile,
+                    progress,
+                    redactor,
+                    characterLimit: behavior.maxProfileCharacters,
+                  },
+                  event.eventId
+                ),
+              }
+            : {}),
         },
         stepLimit: stepsLeft,
       })

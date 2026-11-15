@@ -24,6 +24,7 @@ const toInboxEvent = (row: typeof inboxEvents.$inferSelect): InboxEvent => ({
   conversationId: row.conversationId,
   channelMessageId: row.channelMessageId,
   text: row.text,
+  ...(row.forwardOrigin === null ? {} : { forwardOrigin: row.forwardOrigin }),
   sentAt: row.sentAt,
   state: row.state,
 });

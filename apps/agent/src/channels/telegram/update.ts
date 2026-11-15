@@ -2,6 +2,51 @@ import { Option, Schema } from "effect";
 
 import type { OwnerMessage } from "../../event.ts";
 
+const ForwardOriginSchema = Schema.Union([
+  Schema.Struct({
+    type: Schema.Literal("user"),
+    sender_user: Schema.Struct({
+      first_name: Schema.String,
+      last_name: Schema.optionalKey(Schema.String),
+    }),
+  }),
+  Schema.Struct({
+    type: Schema.Literal("hidden_user"),
+    sender_user_name: Schema.String,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("chat"),
+    sender_chat: Schema.Struct({ title: Schema.optionalKey(Schema.String) }),
+  }),
+  Schema.Struct({
+    type: Schema.Literal("channel"),
+    chat: Schema.Struct({ title: Schema.optionalKey(Schema.String) }),
+  }),
+  Schema.Struct({ type: Schema.String }),
+]);
+
+type ForwardOrigin = typeof ForwardOriginSchema.Type;
+
+const unknownForwardOrigin = "an unknown sender";
+
+const forwardOriginName = (origin: ForwardOrigin): string => {
+  if ("sender_user" in origin) {
+    return [origin.sender_user.first_name, origin.sender_user.last_name]
+      .filter((part) => part !== undefined && part !== "")
+      .join(" ");
+  }
+  if ("sender_user_name" in origin) {
+    return origin.sender_user_name;
+  }
+  if ("sender_chat" in origin) {
+    return origin.sender_chat.title ?? unknownForwardOrigin;
+  }
+  if ("chat" in origin) {
+    return origin.chat.title ?? unknownForwardOrigin;
+  }
+  return unknownForwardOrigin;
+};
+
 const TelegramUpdateSchema = Schema.Struct({
   update_id: Schema.Int,
   message: Schema.optionalKey(
@@ -13,6 +58,7 @@ const TelegramUpdateSchema = Schema.Struct({
         Schema.Struct({ id: Schema.Int, is_bot: Schema.Boolean })
       ),
       text: Schema.optionalKey(Schema.String),
+      forward_origin: Schema.optionalKey(ForwardOriginSchema),
     })
   ),
 });
@@ -46,6 +92,9 @@ export const textMessageFrom = (
           channelMessageId: String(message.message_id),
           text: message.text,
           sentAt: new Date(message.date * millisecondsPerSecond).toISOString(),
+          ...(message.forward_origin === undefined
+            ? {}
+            : { forwardOrigin: forwardOriginName(message.forward_origin) }),
         },
       });
     })

@@ -1,4 +1,5 @@
 import type { OwnerMessage } from "../event.ts";
+import { trustLevelOfEvent } from "../personal-agent/event-trust.ts";
 import type { InboxEvent } from "../personal-agent/inbox.ts";
 import type { trustLevels } from "../personal-agent/storage-schema.ts";
 
@@ -8,6 +9,7 @@ export interface NoteSourceLocation {
   readonly channel: OwnerMessage["channel"];
   readonly conversationId: string;
   readonly channelMessageId: string;
+  readonly forwardOrigin?: string | undefined;
 }
 
 export interface NoteSource {
@@ -15,15 +17,19 @@ export interface NoteSource {
   readonly channel: OwnerMessage["channel"];
   readonly conversationId: string;
   readonly channelMessageId: string;
+  readonly forwardOrigin?: string | undefined;
   readonly trustLevel: TrustLevel;
 }
 
-export const noteSourceOfOwnerEvent = (event: InboxEvent): NoteSource => ({
+export const noteSourceOfEvent = (event: InboxEvent): NoteSource => ({
   eventId: event.eventId,
   channel: event.channel,
   conversationId: event.conversationId,
   channelMessageId: event.channelMessageId,
-  trustLevel: "owner",
+  ...(event.forwardOrigin === undefined
+    ? {}
+    : { forwardOrigin: event.forwardOrigin }),
+  trustLevel: trustLevelOfEvent(event),
 });
 
 export const normalizeNoteText = (text: string) =>

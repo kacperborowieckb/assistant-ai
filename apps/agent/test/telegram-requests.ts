@@ -9,10 +9,12 @@ export const textUpdate = ({
   fromUserId,
   text,
   messageId = 77,
+  forwardOrigin,
 }: {
   readonly fromUserId: number;
   readonly text: string;
   readonly messageId?: number;
+  readonly forwardOrigin?: object;
 }) => {
   nextUpdateId += 1;
   return {
@@ -23,6 +25,7 @@ export const textUpdate = ({
       chat: { id: fromUserId, type: "private" },
       from: { id: fromUserId, is_bot: false, first_name: "Owner" },
       text,
+      ...(forwardOrigin === undefined ? {} : { forward_origin: forwardOrigin }),
     },
   };
 };

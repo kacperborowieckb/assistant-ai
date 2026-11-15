@@ -105,6 +105,7 @@ const makeNotes = (ownerId: OwnerId) =>
             sourceChannel: source.channel,
             sourceConversationId: source.conversationId,
             sourceChannelMessageId: source.channelMessageId,
+            sourceForwardOrigin: source.forwardOrigin ?? null,
             trustLevel: source.trustLevel,
             textHash,
             capturedAt: now,

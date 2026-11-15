@@ -12,6 +12,7 @@ export const recalledNote = (note: Note) => ({
     channel: note.source.channel,
     conversationId: note.source.conversationId,
     channelMessageId: note.source.channelMessageId,
+    forwardOrigin: note.source.forwardOrigin ?? null,
   },
   trustLevel: note.trustLevel,
   capturedAt: note.capturedAt,
