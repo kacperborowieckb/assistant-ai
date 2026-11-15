@@ -12,6 +12,15 @@ const sampleTelegramUserId = 424_242;
 const sampleMessageId = 7;
 const replyTimeout = "30 seconds";
 const nextPartTimeout = "1 second";
+const partJoiner = "\n";
+
+const collapseWhitespace = (text: string) => text.replaceAll(/\s+/gu, " ");
+
+const replyContains = (reply: string, contains: string) =>
+  collapseWhitespace(reply).includes(collapseWhitespace(contains)) ||
+  collapseWhitespace(reply.replaceAll(partJoiner, "")).includes(
+    collapseWhitespace(contains)
+  );
 
 export class ReplyMissing extends Data.TaggedError("ReplyMissing")<{
   readonly contains: string;
@@ -114,7 +123,7 @@ export const requestReply = ({
         sentParts.push(nextPart.value);
       }
       const [sent] = sentParts;
-      reply = sentParts.map((part) => part.text).join("");
+      reply = sentParts.map((part) => part.text).join(partJoiner);
       lines.push(
         `Telegram sendMessage to chat ${sent?.chatId ?? "none"}, reply to message ${sent?.replyToMessageId ?? "none"}: "${reply}"`
       );
@@ -124,7 +133,7 @@ export const requestReply = ({
         `AI Gateway call: gateway ${call.gatewayId ?? "missing"}, metadata ${call.metadata ?? "missing"}, collect log payload ${call.collectLogPayload ?? "missing"}`
       );
     }
-    if (!reply.includes(contains)) {
+    if (!replyContains(reply, contains)) {
       return yield* new ReplyMissing({ contains, reply });
     }
     lines.push(`Result: the reply contains "${contains}"`);
