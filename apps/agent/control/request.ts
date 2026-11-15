@@ -1,12 +1,10 @@
-import { randomUUID } from "node:crypto";
-
 import { Data, Effect, Option } from "effect";
-import { createTestHarness } from "wrangler";
 
 import { startLocalFakes } from "./local-fakes.ts";
 import type { FakeTelegramMessage } from "./local-fakes.ts";
+import { startLocalWorker, temporarySecrets } from "./local-worker.ts";
 import { addOwner, renderAddedOwner } from "./operator.ts";
-import { agentRoot, wranglerConfigPath } from "./workspace.ts";
+import { sendTelegramUpdate } from "./telegram-update.ts";
 
 const sampleTelegramUserId = 424_242;
 const sampleMessageId = 7;
@@ -31,34 +29,6 @@ export class ReplyMissing extends Data.TaggedError("ReplyMissing")<{
   }
 }
 
-const sampleUpdate = (text: string, position: number) => ({
-  update_id: position,
-  message: {
-    message_id: sampleMessageId + position,
-    date: Math.floor(Date.now() / 1000),
-    chat: { id: sampleTelegramUserId, type: "private" },
-    from: { id: sampleTelegramUserId, is_bot: false, first_name: "Owner" },
-    text,
-  },
-});
-
-const startLocalWorker = (
-  vars: Record<string, string>,
-  secrets: Record<string, string>
-) =>
-  Effect.acquireRelease(
-    Effect.promise(async () => {
-      const harness = createTestHarness({
-        root: agentRoot,
-        workers: [{ configPath: wranglerConfigPath, vars, secrets }],
-      });
-      const { url } = await harness.listen();
-      await harness.getWorker().applyD1Migrations("DIRECTORY");
-      return { harness, url };
-    }),
-    ({ harness }) => Effect.promise(() => harness.close())
-  );
-
 export const requestReply = ({
   messages,
   contains,
@@ -67,20 +37,15 @@ export const requestReply = ({
   readonly contains: string;
 }) =>
   Effect.gen(function* requestReplyEffect() {
-    const fakes = yield* startLocalFakes;
-    const secrets = {
-      TELEGRAM_BOT_TOKEN: `local-${randomUUID()}`,
-      TELEGRAM_WEBHOOK_SECRET: randomUUID(),
-      AI_GATEWAY_TOKEN: `local-${randomUUID()}`,
-      OPERATOR_TOKEN: randomUUID(),
-    };
-    const { url } = yield* startLocalWorker(
-      {
+    const fakes = yield* startLocalFakes();
+    const secrets = temporarySecrets();
+    const url = yield* startLocalWorker({
+      vars: {
         TELEGRAM_API_URL: fakes.telegramApiUrl,
         AI_GATEWAY_URL: fakes.aiGatewayUrl,
       },
-      secrets
-    );
+      secrets,
+    });
     const lines: string[] = [
       `Local Worker: ${url.origin} (temporary storage, fake Telegram, fake model)`,
     ];
@@ -94,16 +59,16 @@ export const requestReply = ({
 
     let replyParts: readonly string[] = [];
     for (const [index, message] of messages.entries()) {
-      const webhook = yield* Effect.promise(() =>
-        fetch(new URL("/telegram/webhook", url), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Telegram-Bot-Api-Secret-Token": secrets.TELEGRAM_WEBHOOK_SECRET,
-          },
-          body: JSON.stringify(sampleUpdate(message, index + 1)),
-        })
-      );
+      const webhook = yield* sendTelegramUpdate({
+        workerUrl: url,
+        webhookSecret: secrets.TELEGRAM_WEBHOOK_SECRET,
+        update: {
+          updateId: index + 1,
+          messageId: sampleMessageId + index + 1,
+          userId: sampleTelegramUserId,
+          text: message,
+        },
+      });
       lines.push(
         `Webhook answered ${webhook.status} for the message "${message}"`
       );

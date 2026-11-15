@@ -4,7 +4,7 @@ import { Clock, Effect } from "effect";
 import {
   attemptTimeoutMillis,
   modelAttempts,
-} from "../model-gateway/model-gateway.ts";
+} from "../model-gateway/model-call-policy.ts";
 import type { ModelReply } from "../model-gateway/model-gateway.ts";
 import type { ModelStep } from "../model-gateway/model-step.ts";
 import type { ModelUnavailable } from "../model-gateway/model-unavailable.ts";

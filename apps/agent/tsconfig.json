@@ -16,5 +16,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src", "test", "worker-configuration.d.ts"]
+  "include": ["src", "test", "eval", "worker-configuration.d.ts"]
 }

@@ -4,7 +4,7 @@ import { Context, Effect, Layer, Schema } from "effect";
 import { OwnerIdSchema } from "../owner-id.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
-import { modelUsage } from "../personal-agent/storage-schema.ts";
+import { modelTasks, modelUsage } from "../personal-agent/storage-schema.ts";
 import type { ModelTask } from "./model-provider.ts";
 
 export interface Usage {
@@ -30,7 +30,7 @@ export const sumUsage = (usages: readonly Usage[]): Usage => ({
 
 export const UsageRecordSchema = Schema.Struct({
   ownerId: OwnerIdSchema,
-  task: Schema.Literal("reply"),
+  task: Schema.Literals(modelTasks),
   modelId: Schema.String,
   inputTokens: Schema.NullOr(Schema.Number),
   outputTokens: Schema.NullOr(Schema.Number),

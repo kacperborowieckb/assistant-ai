@@ -58,7 +58,7 @@
     },
     {
       "id": "notes",
-      "purpose": "The Document primitive (Notes). A Note has a Note id, Owner Id, text, optional URL, source (Event and Channel message), trust level (owner or untrusted), captured date, and last-checked date. It lives in the Personal Agent SQLite. The capture_note tool writes a Note; code sets the source and the trust level from the Event, not the model; an Event with a forward origin gives an untrusted Note whose source holds the forward origin and whose text is the forwarded text, whatever text the model passes, and the tool result shows that text inside the Untrusted Content markers. A Turn for an untrusted Event gets no update_note tool and no update_profile tool. Code escapes the markers inside marked text. A unique constraint on the source Event id and the hash of the normalized text at capture (an edit keeps it) makes a repeated write return the existing Note. Each Note write appends a Journal Entry with the Note id. An FTS5 table over the Note text and URL (versioned migration, triggers keep it in step with the notes table in the same transaction) ranks matches by bm25. A note_links table (from Note, to Note, created date; the pair is stored in id order, so a link is undirected) links related Notes. The capture_note tool takes optional Note ids to link; code rejects an id that is not a Note of the Owner, and the tool returns an error and writes nothing. The update_note tool changes the text or the links of one Note, sets its last-checked date, and appends a NoteUpdated Journal Entry with the Note id and the kind of change (text, links, or text_and_links); the FTS5 table stays in step through its triggers. The search_notes tool takes a query and a limit and returns Note id, text, URL, source, trust level, captured date, last-checked date, and, for each match, its five newest linked Notes (ordered by the date of the link, each with Note id, text, URL, source, trust level, and captured date) and the total count of its links. The list_linked_notes tool takes a Note id and an offset and returns the next five linked Notes of that Note, newest link first, with the total count, so older context stays reachable; text of an untrusted Note is marked as Untrusted Content. The system prompt asks for the source and the date in each answer and for an honest \"I do not know\" when no Note matches. The agent does not fetch links.",
+      "purpose": "The Document primitive (Notes). A Note has a Note id, Owner Id, text, optional URL, source (Event and Channel message), trust level (owner or untrusted), captured date, and last-checked date. It lives in the Personal Agent SQLite. The capture_note tool writes a Note; code sets the source and the trust level from the Event, not the model; an Event with a forward origin gives an untrusted Note whose source holds the forward origin and whose text is the forwarded text, whatever text the model passes, and the tool result shows that text inside the Untrusted Content markers. A Turn for an untrusted Event gets no update_note tool and no update_profile tool. Code escapes the markers inside marked text. A unique constraint on the source Event id and the hash of the normalized text at capture (an edit keeps it) makes a repeated write return the existing Note. Each Note write appends a Journal Entry with the Note id. An FTS5 table over the Note text and URL (versioned migration, triggers keep it in step with the notes table in the same transaction) ranks matches by bm25. A note_links table (from Note, to Note, created date; the pair is stored in id order, so a link is undirected) links related Notes. The capture_note tool takes optional Note ids to link; code rejects an id that is not a Note of the Owner, and the tool returns an error and writes nothing. The update_note tool changes the text or the links of one Note, sets its last-checked date, and appends a NoteUpdated Journal Entry with the Note id and the kind of change (text, links, or text_and_links); the FTS5 table stays in step through its triggers. The search_notes tool takes a query and a limit and returns Note id, text, URL, source, trust level, captured date, last-checked date, and, for each match, its five newest linked Notes (ordered by the date of the link, each with Note id, text, URL, source, trust level, and captured date) and the total count of its links. The list_linked_notes tool takes a Note id and an offset and returns the next five linked Notes of that Note, newest link first, with the total count, so older context stays reachable; text of an untrusted Note is marked as Untrusted Content. The system prompt asks for the source and the date in each answer and for an honest \"I do not know\" when no Note matches. The agent does not fetch links. A list read returns every Note of the Owner with its linked Note ids, for the Eval runner.",
       "roots": ["apps/agent/src/notes"],
       "adrs": [
         "docs/decisions/0007-typed-queries-and-migrations.md",
@@ -77,14 +77,15 @@
     },
     {
       "id": "model-gateway",
-      "purpose": "The one interface to models. It selects the model for a task, resolves the Model Credentials (token and billing mode), calls it with the AI SDK through Cloudflare AI Gateway with the Owner Id as metadata and no stored bodies, retries with a timeout for each try, and records Usage for each model call in the Personal Agent SQLite.",
+      "purpose": "The one interface to models. It selects the model for a Model Task (reply, or eval_judge for the Eval judge), each with its own route of model and thinking level, resolves the Model Credentials (token and billing mode), calls it with the AI SDK through Cloudflare AI Gateway with the Owner Id as metadata and no stored bodies, retries with a timeout for each try, and records Usage for each model call in the Personal Agent SQLite.",
       "roots": ["apps/agent/src/model-gateway"],
       "adrs": [
         "docs/decisions/0003-runtime-and-model-stack.md",
         "docs/decisions/0004-owners-and-channels.md",
         "docs/decisions/0005-model-transport-and-billing.md",
         "docs/decisions/0007-typed-queries-and-migrations.md",
-        "docs/decisions/0009-agent-loop-and-client-boundaries.md"
+        "docs/decisions/0009-agent-loop-and-client-boundaries.md",
+        "docs/decisions/0011-eval-runner.md"
       ]
     },
     {
@@ -119,11 +120,22 @@
     },
     {
       "id": "agent-control-cli",
-      "purpose": "The control CLI of apps/agent: doctor checks configuration and secret names, dev runs the Worker locally with local fakes, owner add adds the Owner through the Operator route, request --contains proves a reply locally with no network, map writes and checks the Feature Map of the Edge routes, and bundle measures bundle size and local startup CPU.",
+      "purpose": "The control CLI of apps/agent: doctor checks configuration and secret names, dev runs the Worker locally with local fakes, owner add adds the Owner through the Operator route, request --contains proves a reply locally with no network, eval runs the Eval Cases against the real model (decision 0011), map writes and checks the Feature Map of the Edge routes, and bundle measures bundle size and local startup CPU.",
       "roots": ["apps/agent/control"],
       "adrs": [
         "docs/decisions/0001-repository-foundation.md",
-        "docs/decisions/0002-agent-authority.md"
+        "docs/decisions/0002-agent-authority.md",
+        "docs/decisions/0011-eval-runner.md"
+      ]
+    },
+    {
+      "id": "eval-runner",
+      "purpose": "The Eval runner. pnpm control eval runs each Eval Case k times against the real model through AI Gateway and reports pass^k, the failed checks, and the tokens of the agent and the judge. Each run uses a new Owner in the real Worker under the wrangler test harness, with temporary storage and a fake Telegram API. The eval Worker entry (apps/agent/eval) is the real Edge and Personal Agent plus seed, observation, and judge routes behind the Operator token; the deployed Worker does not include it. A case is a typed file in control/eval/cases, decoded by a schema before any model call: optional seeded Notes and Profile entries, Owner Events (text or forwarded), and checks. Code checks read Notes, links, the Profile, and the tool calls of the Trace; reply_judged uses the eval_judge Model Task with a fixed rubric.",
+      "roots": ["apps/agent/eval", "apps/agent/control/eval"],
+      "adrs": [
+        "docs/decisions/0002-agent-authority.md",
+        "docs/decisions/0009-agent-loop-and-client-boundaries.md",
+        "docs/decisions/0011-eval-runner.md"
       ]
     }
   ]

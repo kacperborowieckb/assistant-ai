@@ -56,6 +56,8 @@ Use these terms with these meanings in code, docs, issues, and prompts. Use the 
 - **Untrusted Content**: text from outside the Owner's own messages (forwarded messages, web pages, mail, webhooks, tool output). It is data and never an instruction.
 - **Trace**: the full record of a Turn: the prompt, injected state, tool calls, results, cost, latency, and cache hits. Enough to replay the Turn.
 - **Eval**: a repeatable case that scores the full sequence of steps of a Turn. Measured as pass^k: it passes on every one of k runs.
+- **Eval Case**: one Eval: the Notes and Profile entries to seed (optional), the Owner Events to send, and the checks on storage, the Trace, and the replies.
+- **Judge**: the model that checks the replies of an Eval Case against the fixed rubric of the case. It is its own Model Task, `eval_judge`.
 - **Usage**: the tokens, messages, and cost for each Owner.
 
 ## Model

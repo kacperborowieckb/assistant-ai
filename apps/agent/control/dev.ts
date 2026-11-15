@@ -10,7 +10,7 @@ const renderSent = (message: FakeTelegramMessage) =>
   `Fake Telegram: sendMessage to chat ${message.chatId}, reply to message ${message.replyToMessageId ?? "none"}: "${message.text}"`;
 
 export const runLocalWorker = Effect.gen(function* runLocalWorkerEffect() {
-  const fakes = yield* startLocalFakes;
+  const fakes = yield* startLocalFakes();
   yield* runWranglerQuietly([
     "d1",
     "migrations",

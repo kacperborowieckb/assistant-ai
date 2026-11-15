@@ -36,7 +36,7 @@ A fired Schedule enters the same Inbox as an Event. Proactive work and Owner mes
 | Behavior | Typed Behavior Config and Owner Preferences. | MVP |
 | Model Gateway | Provider choice, model per task, Model Credentials per Owner, Usage. | MVP |
 | Tracing | A replayable Trace for every Turn. | MVP |
-| Evals | Eval cases for full Turn sequences, run as pass^k. | MVP |
+| Evals | Eval Cases for full Turn sequences, run as pass^k. | MVP |
 | Helpers | Durable workflows for long work. | Later |
 | Approval | Pending actions, Owner approval in the Channel, Auto-review. | Later |
 | Integrations | MCP client and OAuth tokens per Owner. | Later |

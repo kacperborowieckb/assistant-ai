@@ -1,5 +1,5 @@
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
-import { Console, Effect } from "effect";
+import { Console, Effect, Schema } from "effect";
 import { Command, Flag } from "effect/cli";
 
 import {
@@ -10,6 +10,7 @@ import {
 } from "./bundle.ts";
 import { runLocalWorker } from "./dev.ts";
 import { diagnose, isHealthy, renderDiagnosis } from "./doctor.ts";
+import { runEvalCommand } from "./eval/eval-command.ts";
 import {
   featureMapIsCurrent,
   featureMapPath,
@@ -105,6 +106,33 @@ const request = Command.make(
   )
 );
 
+const evalCommand = Command.make(
+  "eval",
+  {
+    k: Flag.Int("k").pipe(
+      Flag.withSchema(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))),
+      Flag.withDescription(
+        "Runs of each case. A case passes only when all k runs pass (pass^k)."
+      )
+    ),
+    caseName: Flag.String("case").pipe(
+      Flag.withDescription(
+        "The name of an Eval Case file in control/eval/cases, without .ts. Repeat the flag for several cases. Without it, all cases run."
+      ),
+      Flag.atLeast(0)
+    ),
+  },
+  ({ k, caseName }) =>
+    Effect.gen(function* evalCommandEffect() {
+      const passed = yield* runEvalCommand({ k, names: caseName });
+      yield* exitWithFailureWhen(!passed);
+    })
+).pipe(
+  Command.withDescription(
+    "Run the Eval Cases k times each against the real model through AI Gateway, with a fake Telegram API and temporary local storage, and report pass^k, failed checks, and tokens. It costs money: run it only with the repository owner's approval. Reads AI_GATEWAY_URL and AI_GATEWAY_TOKEN from the environment or .dev.vars."
+  )
+);
+
 const bundle = Command.make("bundle", {}, () =>
   Effect.gen(function* bundleCommand() {
     const measurements = yield* Effect.all(
@@ -152,7 +180,15 @@ const map = Command.make(
 
 const control = Command.make("control").pipe(
   Command.withDescription("Control CLI for apps/agent"),
-  Command.withSubcommands([doctor, dev, owner, request, map, bundle])
+  Command.withSubcommands([
+    doctor,
+    dev,
+    owner,
+    request,
+    evalCommand,
+    map,
+    bundle,
+  ])
 );
 
 Command.run(control, { version: "0.0.0" }).pipe(
