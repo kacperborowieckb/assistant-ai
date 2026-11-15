@@ -1,13 +1,21 @@
 import { and, eq, inArray } from "drizzle-orm";
-import { Context, Effect, Layer } from "effect";
+import { Context, DateTime, Effect, Layer } from "effect";
 
 import { Journal } from "../journal/journal.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { notes } from "../personal-agent/storage-schema.ts";
-import { normalizeNoteText } from "./note.ts";
+import { changeOfUpdate } from "./change-of-update.ts";
+import { makeNoteLinks, uniqueNoteIds } from "./note-links.ts";
+import { toNote } from "./note-row.ts";
+import { hashOfNoteText } from "./note-text-hash.ts";
 import type { NoteSource, NoteSourceLocation, TrustLevel } from "./note.ts";
-import { bestMatchFirst, matchesQuery, notesFts } from "./notes-fts.ts";
+import {
+  bestMatchFirst,
+  ftsMatchOf,
+  matchesQuery,
+  notesFts,
+} from "./notes-fts.ts";
 
 export interface Note {
   readonly noteId: string;
@@ -23,6 +31,20 @@ export interface CaptureRequest {
   readonly text: string;
   readonly url?: string | undefined;
   readonly source: NoteSource;
+  readonly linkedNoteIds?: readonly string[] | undefined;
+}
+
+export interface UpdateRequest {
+  readonly noteId: string;
+  readonly eventId: string;
+  readonly text?: string | undefined;
+  readonly linkedNoteIds?: readonly string[] | undefined;
+  readonly unlinkedNoteIds?: readonly string[] | undefined;
+}
+
+export interface RecalledNote extends Note {
+  readonly linkedNotes: readonly Note[];
+  readonly linkedNoteCount: number;
 }
 
 export interface SearchRequest {
@@ -33,44 +55,25 @@ export interface SearchRequest {
 export interface Capture {
   readonly note: Note;
   readonly alreadyKept: boolean;
+  readonly linkedNoteIds: readonly string[];
 }
 
-const toNote = (row: typeof notes.$inferSelect): Note => ({
-  noteId: row.noteId,
-  text: row.text,
-  url: row.url ?? undefined,
-  source: {
-    channel: row.sourceChannel,
-    conversationId: row.sourceConversationId,
-    channelMessageId: row.sourceChannelMessageId,
-  },
-  trustLevel: row.trustLevel,
-  capturedAt: row.capturedAt,
-  lastCheckedAt: row.lastCheckedAt,
-});
-
-const ftsMatchOf = (query: string) => {
-  const words = query.match(/[\p{L}\p{N}]+/gu);
-  return words === null
-    ? undefined
-    : words.map((word) => `"${word}"`).join(" OR ");
-};
-
-const hashOf = (text: string) =>
-  Effect.promise(async () => {
-    const digest = await crypto.subtle.digest(
-      "SHA-256",
-      new TextEncoder().encode(normalizeNoteText(text))
-    );
-    return Array.from(new Uint8Array(digest), (byte) =>
-      byte.toString(16).padStart(2, "0")
-    ).join("");
-  });
+export interface Update {
+  readonly note: Note;
+  readonly linkedNoteIds: readonly string[];
+}
 
 const makeNotes = (ownerId: OwnerId) =>
   Effect.gen(function* makeNotesEffect() {
     const { database } = yield* AgentStorage;
     const journal = yield* Journal;
+    const {
+      requireOwnNotes,
+      linkedNoteIdsOf,
+      linkedNotesOf,
+      addLinks,
+      removeLinks,
+    } = yield* makeNoteLinks(ownerId);
 
     const journalCapture = (eventId: string, noteId: string) =>
       Effect.gen(function* journalCaptureEffect() {
@@ -86,7 +89,7 @@ const makeNotes = (ownerId: OwnerId) =>
       });
 
     const writeNote = (
-      { text, url, source }: CaptureRequest,
+      { text, url, source, linkedNoteIds }: CaptureRequest,
       textHash: string
     ) =>
       Effect.gen(function* writeNoteEffect() {
@@ -127,18 +130,71 @@ const makeNotes = (ownerId: OwnerId) =>
           return yield* Effect.die("The Note is neither written nor found");
         }
         yield* journalCapture(source.eventId, row.noteId);
+        if (inserted !== undefined) {
+          yield* addLinks(row.noteId, uniqueNoteIds(linkedNoteIds));
+        }
         return {
           note: toNote(row),
           alreadyKept: inserted === undefined,
+          linkedNoteIds: yield* linkedNoteIdsOf(row.noteId),
         } satisfies Capture;
       });
 
     const capture = (request: CaptureRequest) =>
-      hashOf(request.text).pipe(
+      hashOfNoteText(request.text).pipe(
         Effect.flatMap((textHash) =>
-          database.transaction(() => writeNote(request, textHash))
+          database.transaction(() =>
+            requireOwnNotes(uniqueNoteIds(request.linkedNoteIds)).pipe(
+              Effect.andThen(writeNote(request, textHash))
+            )
+          )
         )
       );
+
+    const writeUpdate = Effect.fnUntraced(function* writeUpdate(
+      request: UpdateRequest
+    ) {
+      const { noteId, eventId, text } = request;
+      yield* requireOwnNotes([
+        noteId,
+        ...uniqueNoteIds(request.linkedNoteIds),
+        ...uniqueNoteIds(request.unlinkedNoteIds),
+      ]);
+      const [row] = yield* database
+        .update(notes)
+        .set({
+          lastCheckedAt: DateTime.formatIso(yield* DateTime.now),
+          ...(text === undefined ? {} : { text }),
+        })
+        .where(and(eq(notes.ownerId, ownerId), eq(notes.noteId, noteId)))
+        .returning();
+      if (row === undefined) {
+        return yield* Effect.die("The Note is not found after the check");
+      }
+      yield* addLinks(noteId, uniqueNoteIds(request.linkedNoteIds));
+      yield* removeLinks(noteId, uniqueNoteIds(request.unlinkedNoteIds));
+      yield* journal.append({
+        _tag: "NoteUpdated",
+        eventId,
+        noteId,
+        change: changeOfUpdate(request),
+      });
+      return {
+        note: toNote(row),
+        linkedNoteIds: yield* linkedNoteIdsOf(noteId),
+      } satisfies Update;
+    });
+
+    const update = (request: UpdateRequest) =>
+      database.transaction(() => writeUpdate(request));
+
+    const listLinked = Effect.fnUntraced(function* listLinked(
+      noteId: string,
+      offset: number
+    ) {
+      yield* requireOwnNotes([noteId]);
+      return yield* linkedNotesOf(noteId, offset);
+    });
 
     const search = Effect.fnUntraced(function* search({
       query,
@@ -162,13 +218,20 @@ const makeNotes = (ownerId: OwnerId) =>
         .select()
         .from(notes)
         .where(and(eq(notes.ownerId, ownerId), inArray(notes.noteId, noteIds)));
-      return noteIds.flatMap((noteId) => {
+      const recalled = noteIds.flatMap((noteId) => {
         const row = rows.find((candidate) => candidate.noteId === noteId);
         return row === undefined ? [] : [toNote(row)];
       });
+      return yield* Effect.all(
+        recalled.map((note) =>
+          linkedNotesOf(note.noteId, 0).pipe(
+            Effect.map((linked) => ({ ...note, ...linked }))
+          )
+        )
+      );
     });
 
-    return { capture, search };
+    return { capture, update, search, listLinked };
   });
 
 export class Notes extends Context.Service<

@@ -5,9 +5,10 @@ import {
   effectInputSchema,
   ToolFailed,
 } from "../model-gateway/agent-tool.ts";
+import { maxLinkedNotesPerMatch } from "./note-links.ts";
 import type { NoteToolServices } from "./note-tool-services.ts";
-import { markUntrustedContent } from "./note.ts";
-import type { Note } from "./notes.ts";
+import type { RecalledNote } from "./notes.ts";
+import { recalledNote } from "./recalled-note.ts";
 
 export const searchNotesToolName = "search_notes";
 
@@ -35,20 +36,11 @@ const SearchNotesInput = Schema.Struct({
   ),
 });
 
-const foundNote = (note: Note) => ({
-  noteId: note.noteId,
-  text:
-    note.trustLevel === "untrusted"
-      ? markUntrustedContent(note.text)
-      : note.text,
-  url: note.url ?? null,
-  source: {
-    channel: note.source.channel,
-    conversationId: note.source.conversationId,
-    channelMessageId: note.source.channelMessageId,
-  },
-  trustLevel: note.trustLevel,
-  capturedAt: note.capturedAt,
+const foundNote = (note: RecalledNote) => ({
+  ...recalledNote(note),
+  lastCheckedAt: note.lastCheckedAt,
+  linkedNotes: note.linkedNotes.map((linked) => recalledNote(linked)),
+  linkedNoteCount: note.linkedNoteCount,
 });
 
 export const searchNotesTool = (
@@ -56,8 +48,7 @@ export const searchNotesTool = (
   eventId: string
 ) =>
   agentTool({
-    description:
-      "Search the Owner's Notes by keywords. Returns the best matches first, each with its source and captured date. An empty list means that no Note matches.",
+    description: `Search the Owner's Notes by keywords. Returns the best matches first, each with its source, captured date, and the newest linked Notes (at most ${maxLinkedNotesPerMatch}, with the total count). An empty list means that no Note matches.`,
     inputSchema: effectInputSchema(SearchNotesInput),
     execute: ({ query, limit }, { toolCallId, modelStepKey }) =>
       Effect.gen(function* searchNotesEffect() {

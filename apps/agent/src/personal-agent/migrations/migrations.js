@@ -6,6 +6,7 @@ import m0004 from "./20261115141734_conversation_model_messages/migration.sql";
 import m0005 from "./20261115145059_notes/migration.sql";
 import m0006 from "./20261115153100_turn_progress/migration.sql";
 import m0007 from "./20261115172013_notes_search/migration.sql";
+import m0008 from "./20261115175723_note_links/migration.sql";
 
 export default {
   migrations: {
@@ -17,5 +18,6 @@ export default {
     "20261115145059_notes": m0005,
     "20261115153100_turn_progress": m0006,
     "20261115172013_notes_search": m0007,
+    "20261115175723_note_links": m0008,
   },
 };

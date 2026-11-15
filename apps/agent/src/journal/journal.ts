@@ -3,7 +3,10 @@ import { Context, Effect, Layer, Schema } from "effect";
 
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
-import { journalEntries } from "../personal-agent/storage-schema.ts";
+import {
+  journalEntries,
+  noteChanges,
+} from "../personal-agent/storage-schema.ts";
 
 export const JournalRecordSchema = Schema.TaggedUnion({
   EventReceived: { eventId: Schema.String },
@@ -13,6 +16,11 @@ export const JournalRecordSchema = Schema.TaggedUnion({
   ReplySent: { eventId: Schema.String, channelMessageId: Schema.String },
   ReplyFailed: { eventId: Schema.String, reason: Schema.String },
   NoteCaptured: { eventId: Schema.String, noteId: Schema.String },
+  NoteUpdated: {
+    eventId: Schema.String,
+    noteId: Schema.String,
+    change: Schema.Literals(noteChanges),
+  },
 });
 
 export type JournalRecord = typeof JournalRecordSchema.Type;
