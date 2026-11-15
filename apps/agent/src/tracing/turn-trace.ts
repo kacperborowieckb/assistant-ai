@@ -1,18 +1,12 @@
 import { asc } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
+import { ModelMessageSchema } from "../model-gateway/model-message-schema.ts";
 import { ReasoningEffortSchema } from "../model-gateway/model-provider.ts";
 import { OwnerIdSchema } from "../owner-id.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { turnResults, turnTraces } from "../personal-agent/storage-schema.ts";
-
-export const PromptMessageSchema = Schema.Struct({
-  role: Schema.Literals(["user", "assistant"]),
-  content: Schema.String,
-});
-
-export type PromptMessage = typeof PromptMessageSchema.Type;
 
 const TraceUsageSchema = Schema.Struct({
   inputTokens: Schema.NullOr(Schema.Number),
@@ -22,9 +16,16 @@ const TraceUsageSchema = Schema.Struct({
 });
 
 const ToolCallSchema = Schema.Struct({
+  callId: Schema.String,
   name: Schema.String,
   input: Schema.String,
   output: Schema.String,
+  failed: Schema.Boolean,
+});
+
+const TraceStepSchema = Schema.Struct({
+  toolCalls: Schema.Array(ToolCallSchema),
+  usage: TraceUsageSchema,
 });
 
 const TraceBodySchema = Schema.Struct({
@@ -36,8 +37,10 @@ const TraceBodySchema = Schema.Struct({
     reasoningEffort: Schema.optionalKey(ReasoningEffortSchema),
   }),
   system: Schema.String,
-  messages: Schema.Array(PromptMessageSchema),
-  toolCalls: Schema.Array(ToolCallSchema),
+  messages: Schema.Array(ModelMessageSchema),
+  steps: Schema.Array(TraceStepSchema).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed([]))
+  ),
   reply: Schema.NullOr(Schema.String),
   error: Schema.NullOr(Schema.String),
   usage: TraceUsageSchema,

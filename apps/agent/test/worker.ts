@@ -1,7 +1,10 @@
 import { env } from "cloudflare:workers";
-import { Layer } from "effect";
+import { Effect, Layer } from "effect";
+import { z } from "zod";
 
 import { telegramChannel } from "../src/channels/telegram/telegram-channel.ts";
+import { agentTool, ToolFailed } from "../src/model-gateway/agent-tool.ts";
+import type { AgentTools } from "../src/model-gateway/agent-tool.ts";
 import { ModelGateway } from "../src/model-gateway/model-gateway.ts";
 import { ModelProvider } from "../src/model-gateway/model-provider.ts";
 import { PersonalAgent as LivePersonalAgent } from "../src/personal-agent/personal-agent.ts";
@@ -13,6 +16,7 @@ import {
   fakeModel,
   fakeTelegram,
   fakeTelegramApiUrl,
+  fakeTool,
 } from "./fakes.ts";
 
 export { default } from "../src/index.ts";
@@ -39,8 +43,23 @@ const fakeTurnServices: TurnServices = Layer.mergeAll(
   )
 );
 
+const fakeTools: AgentTools = {
+  [fakeTool.name]: agentTool({
+    description: "Keep a word",
+    inputSchema: z.object({ word: z.string() }),
+    execute: ({ word }) =>
+      fakeTool.failWith === undefined
+        ? Effect.sync(() => {
+            fakeTool.kept.push(word);
+            return { kept: word };
+          })
+        : Effect.fail(new ToolFailed({ message: fakeTool.failWith })),
+  }),
+};
+
 const useFakeTurnServices = () => fakeTurnServices;
 
 export class PersonalAgent extends LivePersonalAgent {
   protected override readonly turnServices = useFakeTurnServices;
+  protected override readonly turnTools = fakeTools;
 }

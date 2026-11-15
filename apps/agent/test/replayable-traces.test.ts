@@ -26,6 +26,13 @@ const inPersonalAgent = async <A, E>(
     (instance) => instance.runtime.runPromise(effect)
   );
 
+const textOf = (
+  content: string | readonly { readonly type: string; readonly text?: string }[]
+) =>
+  typeof content === "string"
+    ? content
+    : content.map((part) => (part.type === "text" ? part.text : "")).join("");
+
 const tracesOf = (ownerId: string) =>
   inPersonalAgent(
     ownerId,
@@ -79,7 +86,17 @@ describe("Replayable Traces", () => {
         reasoningEffort: "none",
       },
       messages: [{ role: "user", content: "Hello" }],
-      toolCalls: [],
+      steps: [
+        {
+          toolCalls: [],
+          usage: {
+            inputTokens: 42,
+            outputTokens: 7,
+            cachedInputTokens: 12,
+            costUsd: null,
+          },
+        },
+      ],
       reply: `${fakeReplyPrefix}Hello`,
       error: null,
       usage: {
@@ -107,25 +124,18 @@ describe("Replayable Traces", () => {
     const [, second] = await tracesOf(ownerId);
     const received = fakeModel.doGenerateCalls[1]?.prompt.map((message) => ({
       role: message.role,
-      text:
-        typeof message.content === "string"
-          ? message.content
-          : message.content
-              .map((part) => (part.type === "text" ? part.text : ""))
-              .join(""),
+      text: textOf(message.content),
     }));
     expect(received).toEqual([
       { role: "system", text: second?.trace.system },
       ...(second?.trace.messages.map((message) => ({
         role: message.role,
-        text: message.content,
+        text: textOf(message.content),
       })) ?? []),
     ]);
-    expect(second?.trace.messages.map((message) => message.content)).toEqual([
-      "First",
-      `${fakeReplyPrefix}First`,
-      "Second",
-    ]);
+    expect(
+      second?.trace.messages.map((message) => textOf(message.content))
+    ).toEqual(["First", `${fakeReplyPrefix}First`, "Second"]);
   });
 
   it("records a failed Turn with its error and no secret", async () => {

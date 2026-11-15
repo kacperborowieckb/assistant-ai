@@ -31,7 +31,7 @@ const columnsOf = (table: string) =>
 
 const appendOwnerMessage = Effect.gen(function* appendEffect() {
   const conversation = yield* Conversation;
-  yield* conversation.append([{ role: "owner", text: "kept" }]);
+  yield* conversation.append([{ role: "user", content: "kept" }]);
 });
 
 const readMessages = Effect.gen(function* readEffect() {
@@ -77,8 +77,8 @@ describe("Personal Agent migrations", () => {
 
       expect(afterUpgrade).toEqual(
         Exit.succeed([
-          [{ role: "owner", text: "kept" }],
-          expect.arrayContaining(["edited_at", "text"]),
+          [{ role: "user", content: "kept" }],
+          expect.arrayContaining(["edited_at", "message"]),
         ])
       );
       expect(Exit.isSuccess(afterSecondStart)).toBe(true);
@@ -113,7 +113,7 @@ describe("Personal Agent migrations", () => {
       expect(Exit.isSuccess(restart)).toBe(true);
       if (Exit.isSuccess(restart)) {
         const [messages, columns] = restart.value;
-        expect(messages).toEqual([{ role: "owner", text: "kept" }]);
+        expect(messages).toEqual([{ role: "user", content: "kept" }]);
         expect(columns).not.toContain("half_done");
       }
     });

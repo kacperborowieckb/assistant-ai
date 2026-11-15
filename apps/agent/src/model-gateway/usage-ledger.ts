@@ -14,6 +14,20 @@ export interface Usage {
   readonly costUsd: number | undefined;
 }
 
+const sumDefined = (values: readonly (number | undefined)[]) => {
+  const defined = values.filter((value) => value !== undefined);
+  return defined.length === 0
+    ? undefined
+    : defined.reduce((total, value) => total + value, 0);
+};
+
+export const sumUsage = (usages: readonly Usage[]): Usage => ({
+  inputTokens: sumDefined(usages.map((usage) => usage.inputTokens)),
+  outputTokens: sumDefined(usages.map((usage) => usage.outputTokens)),
+  cachedInputTokens: sumDefined(usages.map((usage) => usage.cachedInputTokens)),
+  costUsd: sumDefined(usages.map((usage) => usage.costUsd)),
+});
+
 export const UsageRecordSchema = Schema.Struct({
   ownerId: OwnerIdSchema,
   task: Schema.Literal("reply"),

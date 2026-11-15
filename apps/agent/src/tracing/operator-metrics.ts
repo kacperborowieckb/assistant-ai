@@ -23,6 +23,8 @@ export type OperatorMetric =
       readonly latencyMillis: number;
       readonly modelId: string;
       readonly usage: Usage | undefined;
+      readonly stepCount: number;
+      readonly toolCallCount: number;
     }
   | {
       readonly kind: "refused";
@@ -56,6 +58,8 @@ const dataPointOf = (metric: OperatorMetric): AnalyticsEngineDataPoint => {
       usage?.outputTokens ?? 0,
       usage?.costUsd ?? 0,
       usage?.cachedInputTokens ?? 0,
+      metric.kind === "turn" ? metric.stepCount : 0,
+      metric.kind === "turn" ? metric.toolCallCount : 0,
     ],
   };
 };

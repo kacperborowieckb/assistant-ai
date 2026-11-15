@@ -16,8 +16,6 @@ export const inboxStates = ["pending", "done", "failed"] as const;
 
 export const turnResults = ["model_replied", "model_failed"] as const;
 
-export const conversationRoles = ["owner", "agent"] as const;
-
 export const inboxEvents = sqliteTable(
   "inbox_events",
   {
@@ -39,21 +37,11 @@ export const inboxEvents = sqliteTable(
   ]
 );
 
-export const conversationMessages = sqliteTable(
-  "conversation_messages",
-  {
-    sequence: integer("sequence").primaryKey({ autoIncrement: true }),
-    role: text("role", { enum: conversationRoles }).notNull(),
-    text: text("text").notNull(),
-    recordedAt: text("recorded_at").notNull(),
-  },
-  (table) => [
-    check(
-      "conversation_messages_role_check",
-      valueIn(table.role, conversationRoles)
-    ),
-  ]
-);
+export const conversationMessages = sqliteTable("conversation_messages", {
+  sequence: integer("sequence").primaryKey({ autoIncrement: true }),
+  message: text("message").notNull(),
+  recordedAt: text("recorded_at").notNull(),
+});
 
 export const journalEntries = sqliteTable("journal_entries", {
   sequence: integer("sequence").primaryKey({ autoIncrement: true }),
