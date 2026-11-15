@@ -33,20 +33,28 @@ const loadCaseFile = (directory: string, fileName: string) =>
       )
     ),
     Effect.map((module): EvalCase => ({
-      name: nodePath.basename(fileName, caseFileExtension),
+      name: caseNameOf(fileName),
       ...module.default,
     }))
   );
 
-const selected = (cases: readonly EvalCase[], names: readonly string[]) => {
+const caseNameOf = (fileName: string) =>
+  nodePath.basename(fileName, caseFileExtension);
+
+const selectedFileNames = (
+  fileNames: readonly string[],
+  names: readonly string[]
+): Effect.Effect<readonly string[], EvalCaseUnknown> => {
   if (names.length === 0) {
-    return Effect.succeed(cases);
+    return Effect.succeed(fileNames);
   }
-  const known = cases.map((evalCase) => evalCase.name);
+  const known = fileNames.map(caseNameOf);
   const unknown = names.filter((name) => !known.includes(name));
   return unknown.length > 0
     ? Effect.fail(new EvalCaseUnknown({ names: unknown, known }))
-    : Effect.succeed(cases.filter((evalCase) => names.includes(evalCase.name)));
+    : Effect.succeed(
+        fileNames.filter((fileName) => names.includes(caseNameOf(fileName)))
+      );
 };
 
 export const loadEvalCases = ({
@@ -56,9 +64,13 @@ export const loadEvalCases = ({
   readonly directory?: string;
   readonly names?: readonly string[];
 } = {}) =>
-  Effect.all(
+  selectedFileNames(
     readdirSync(directory)
       .filter((fileName) => fileName.endsWith(caseFileExtension))
-      .toSorted()
-      .map((fileName) => loadCaseFile(directory, fileName))
-  ).pipe(Effect.flatMap((cases) => selected(cases, names)));
+      .toSorted(),
+    names
+  ).pipe(
+    Effect.flatMap((fileNames) =>
+      Effect.all(fileNames.map((fileName) => loadCaseFile(directory, fileName)))
+    )
+  );

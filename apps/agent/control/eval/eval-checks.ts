@@ -134,6 +134,19 @@ const noteTexts = (notes: readonly ObservedNote[]) =>
     notes.map((note) => note.text)
   );
 
+const noteFields = (note: ObservedNote) =>
+  [
+    note.text,
+    `trust level ${note.trustLevel}`,
+    note.url === undefined ? [] : `URL ${note.url}`,
+    note.forwardOrigin === undefined ? [] : `from ${note.forwardOrigin}`,
+  ]
+    .flat()
+    .join(", ");
+
+const noteDescriptions = (notes: readonly ObservedNote[]) =>
+  listed("Note", notes.map(noteFields));
+
 type NotesLinkedCheck = typeof NotesLinkedCheckSchema.Type;
 
 const linkCountOf = (notes: readonly ObservedNote[]) =>
@@ -197,7 +210,7 @@ export const evaluateCodeCheck = (
       return {
         label: `note_matches: ${noteMatchesLabel(check)}`,
         passed: observation.notes.some(noteMatches(check)),
-        detail: noteTexts(observation.notes),
+        detail: noteDescriptions(observation.notes),
       };
     }
     case "link_count": {

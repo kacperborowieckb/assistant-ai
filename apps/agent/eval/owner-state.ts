@@ -27,7 +27,7 @@ const seedNoteSource = (
   note: SeedNote,
   position: number
 ): NoteSource => ({
-  eventId: seedEventId,
+  eventId: `${seedEventId}-${position}`,
   channel: "telegram",
   conversationId,
   channelMessageId: `${seedEventId}-${position}`,

@@ -76,6 +76,19 @@ describe("Eval Case files", () => {
     expect(message).toContain('["events"]');
   });
 
+  it("loads only the selected case, so an invalid other case does not block it", async () => {
+    const directory = casesDirectoryWith({
+      "broken.ts": "export default { description: 1 };\n",
+      "valid.ts": validCase,
+    });
+
+    const selected = await Effect.runPromise(
+      loadEvalCases({ directory, names: ["valid"] })
+    );
+
+    expect(selected.map((evalCase) => evalCase.name)).toStrictEqual(["valid"]);
+  });
+
   it("selects cases by name and refuses an unknown name", async () => {
     const directory = casesDirectoryWith({
       "first.ts": validCase,
