@@ -13,6 +13,7 @@ import { OwnerIdSchema } from "../src/owner-id.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 import {
   fakeModel,
+  failModel,
   fakeTelegram,
   holdModel,
   resetFakes,
@@ -284,5 +285,48 @@ describe("Capture a Note", () => {
     expect(JSON.stringify(fakeModel.doGenerateCalls[1]?.prompt)).toContain(
       "The Note was not kept"
     );
+  });
+
+  it("keeps no Note when the tool step of the write cannot be saved", async () => {
+    const ownerId = await addOwner(7009);
+    await runInDurableObject(
+      await agentOf(ownerId),
+      async (instance, state) => {
+        await instance.runtime.runPromise(Effect.void);
+        state.storage.sql.exec(
+          "CREATE TRIGGER progress_fail BEFORE INSERT ON turn_progress BEGIN SELECT RAISE(ABORT, 'disk full'); END"
+        );
+      }
+    );
+    scriptModel([
+      captureNote({ text: "buy salt" }),
+      { say: "Sorry, I could not keep that" },
+    ]);
+
+    await telegramWebhook(textUpdate({ fromUserId: 7009, text: "buy salt" }));
+    await waitForReplies(1);
+
+    expect(await notesOf(ownerId)).toEqual([]);
+  });
+
+  it("keeps the saved tool steps in the conversation when the restarted Turn fails", async () => {
+    const ownerId = await addOwner(7010);
+    scriptModel([captureNote({ text: "buy oil" }), { say: "Kept: buy oil" }]);
+    const releaseModel = holdModel(1);
+
+    await telegramWebhook(textUpdate({ fromUserId: 7010, text: "buy oil" }));
+    await vi.waitFor(() => expect(fakeModel.doGenerateCalls).toHaveLength(2));
+    await abortAllDurableObjects();
+    failModel(3);
+    releaseModel();
+    await runDurableObjectAlarm(await agentOf(ownerId));
+    await waitForReplies(1);
+
+    expect(await notesOf(ownerId)).toHaveLength(1);
+    expect(await conversationRolesOf(ownerId)).toEqual([
+      "user",
+      "assistant",
+      "tool",
+    ]);
   });
 });

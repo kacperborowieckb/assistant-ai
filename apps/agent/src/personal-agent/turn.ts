@@ -36,6 +36,16 @@ const ownerMessage = (event: InboxEvent): ModelMessage => ({
   content: event.text,
 });
 
+const remainingStepLimit = (
+  maxToolSteps: number,
+  earlier: readonly ModelMessage[]
+) =>
+  Math.max(
+    1,
+    maxToolSteps -
+      earlier.filter((message) => message.role === "assistant").length
+  );
+
 const rememberCompletedSteps = (
   event: InboxEvent,
   earlier: readonly ModelMessage[],
@@ -46,7 +56,7 @@ const rememberCompletedSteps = (
     const redactor = yield* Redactor;
     const completed = toolMessagesOf(outcome);
 
-    if (completed.length > 0) {
+    if (earlier.length + completed.length > 0) {
       yield* conversation.append([
         ownerMessage(event),
         ...earlier,
@@ -84,15 +94,11 @@ const answer = (
         task: "reply",
         system,
         messages,
-        tools: { ...tools, ...noteToolsFor(notes, event) },
-        stepLimit: behavior.maxToolSteps,
-        onToolStepFinished: (step) =>
-          progress.recordToolStep(
-            event.eventId,
-            step.responseMessages.map((message) =>
-              redactor.redactMessage(message)
-            )
-          ),
+        tools: {
+          ...tools,
+          ...noteToolsFor({ notes, progress, redactor }, event),
+        },
+        stepLimit: remainingStepLimit(behavior.maxToolSteps, earlier),
       })
       .pipe(
         Effect.map((reply): ModelOutcome => ({ _tag: "Replied", reply })),

@@ -23,9 +23,6 @@ export interface ModelRequest {
   readonly messages: readonly ModelMessage[];
   readonly tools?: AgentTools;
   readonly stepLimit: number;
-  readonly onToolStepFinished?: (
-    step: ModelStep
-  ) => Effect.Effect<void> | undefined;
 }
 
 export interface ModelReply {
@@ -186,14 +183,8 @@ const makeModelGateway = Effect.gen(function* makeModelGatewayEffect() {
           agent.generate({
             messages: [...request.messages],
             abortSignal,
-            onStepFinish: async (step) => {
+            onStepFinish: (step) => {
               finishedSteps.push(step);
-              const modelStep = modelStepOf(step);
-              if (modelStep.toolCalls.length > 0) {
-                await runPromise(
-                  request.onToolStepFinished?.(modelStep) ?? Effect.void
-                );
-              }
             },
           }),
         catch: (cause) =>

@@ -6,6 +6,8 @@ import {
   ToolFailed,
 } from "../model-gateway/agent-tool.ts";
 import type { InboxEvent } from "../personal-agent/inbox.ts";
+import type { TurnProgress } from "../personal-agent/turn-progress.ts";
+import type { Redactor } from "../tracing/redactor.ts";
 import { noteSourceOfOwnerEvent } from "./note.ts";
 import type { NoteSource } from "./note.ts";
 import type { Notes } from "./notes.ts";
@@ -33,25 +35,52 @@ const CaptureNoteInput = Schema.Struct({
   ),
 });
 
-const captureNoteTool = (notes: Notes["Service"], source: NoteSource) =>
+interface NoteToolServices {
+  readonly notes: Notes["Service"];
+  readonly progress: TurnProgress["Service"];
+  readonly redactor: Redactor["Service"];
+}
+
+const captureNoteTool = (
+  { notes, progress, redactor }: NoteToolServices,
+  source: NoteSource
+) =>
   agentTool({
     description:
       "Keep a Note for the Owner: a text, a link, or a text with a link. Does not open the link.",
     inputSchema: effectInputSchema(CaptureNoteInput),
-    execute: ({ text, url }) =>
-      notes.capture({ text, url, source }).pipe(
-        Effect.map(({ note, alreadyKept }) => ({
-          noteId: note.noteId,
-          text: note.text,
-          url: note.url ?? null,
-          alreadyKept,
-        })),
-        Effect.catchCause(() =>
-          Effect.fail(new ToolFailed({ message: noteNotKeptMessage }))
+    execute: ({ text, url }, { toolCallId }) =>
+      progress
+        .recordingToolCall(
+          {
+            eventId: source.eventId,
+            toolCallId,
+            toolName: captureNoteToolName,
+            input: url === undefined ? { text } : { text, url },
+            redactor,
+          },
+          notes.capture({ text, url, source }).pipe(
+            Effect.map(({ note, alreadyKept }) => ({
+              noteId: note.noteId,
+              text: note.text,
+              url: note.url ?? null,
+              alreadyKept,
+            }))
+          )
         )
-      ),
+        .pipe(
+          Effect.catchCause(() =>
+            Effect.fail(new ToolFailed({ message: noteNotKeptMessage }))
+          )
+        ),
   });
 
-export const noteToolsFor = (notes: Notes["Service"], event: InboxEvent) => ({
-  [captureNoteToolName]: captureNoteTool(notes, noteSourceOfOwnerEvent(event)),
+export const noteToolsFor = (
+  services: NoteToolServices,
+  event: InboxEvent
+) => ({
+  [captureNoteToolName]: captureNoteTool(
+    services,
+    noteSourceOfOwnerEvent(event)
+  ),
 });
