@@ -6,6 +6,7 @@ import { Journal } from "../src/journal/journal.ts";
 import type { JournalRecord } from "../src/journal/journal.ts";
 import { captureNoteToolName } from "../src/notes/capture-note-tool.ts";
 import { Notes } from "../src/notes/notes.ts";
+import { searchNotesToolName } from "../src/notes/search-notes-tool.ts";
 import { updateNoteToolName } from "../src/notes/update-note-tool.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
@@ -16,6 +17,8 @@ import { addOwner, telegramWebhook, textUpdate } from "./telegram-requests.ts";
 interface NoteRow extends Record<string, SqlStorageValue> {
   note_id: string;
   text: string;
+  source_event_id: string;
+  source_channel_message_id: string;
   captured_at: string;
   last_checked_at: string;
 }
@@ -328,5 +331,103 @@ describe("Edit and link Notes", () => {
     const updates = await recordsTagged(ownerId, "NoteUpdated");
     const changes = updates.map((record) => record.change);
     expect(changes).toEqual(["links", "text_and_links"]);
+  });
+
+  it("lets two Notes of one Event take the same edited text", async () => {
+    const ownerId = await addOwner(7209);
+    scriptModel([
+      { callTool: captureNoteToolName, input: { text: "buy a gift for Ana" } },
+      { callTool: captureNoteToolName, input: { text: "buy a book for Tom" } },
+      { say: "Kept" },
+    ]);
+    await ownerSays(7209, "two gifts", 1);
+    const [gift, book] = await notesOf(ownerId);
+    scriptModel([
+      {
+        callTool: updateNoteToolName,
+        input: { noteId: gift?.note_id, text: "buy a scarf" },
+      },
+      {
+        callTool: updateNoteToolName,
+        input: { noteId: book?.note_id, text: "buy a scarf" },
+      },
+      { say: "Changed both" },
+    ]);
+    await ownerSays(7209, "make both a scarf", 2);
+
+    const rows = await notesOf(ownerId);
+    expect(rows.map((row) => row.text)).toEqual(["buy a scarf", "buy a scarf"]);
+  });
+
+  it("returns the existing Note when the original capture repeats after an edit of the same Event", async () => {
+    const ownerId = await addOwner(7211);
+    scriptModel([
+      { callTool: captureNoteToolName, input: { text: "buy a gift for Ana" } },
+      { say: "Kept" },
+    ]);
+    await ownerSays(7211, "buy a gift for Ana", 1);
+    const [original] = await notesOf(ownerId);
+    const eventSource = {
+      eventId: original?.source_event_id ?? "",
+      channel: "telegram",
+      conversationId: "7211",
+      channelMessageId: original?.source_channel_message_id ?? "",
+      trustLevel: "owner",
+    } as const;
+
+    const second = await runInDurableObject(
+      await agentOf(ownerId),
+      (instance) =>
+        instance.runtime.runPromise(
+          Effect.gen(function* repeatEffect() {
+            const notes = yield* Notes;
+            yield* notes.update({
+              noteId: original?.note_id ?? "",
+              eventId: eventSource.eventId,
+              text: "buy a red scarf for Ana",
+            });
+            return yield* notes.capture({
+              text: "buy a gift for Ana",
+              source: eventSource,
+            });
+          })
+        )
+    );
+
+    expect(second.alreadyKept).toBe(true);
+    expect(await notesOf(ownerId)).toHaveLength(1);
+  });
+
+  it("returns the source and the URL of linked Notes in a search result", async () => {
+    const ownerId = await addOwner(7210);
+    scriptModel([
+      {
+        callTool: captureNoteToolName,
+        input: { text: "read later", url: "https://example.com/gifts" },
+      },
+      { say: "Kept" },
+    ]);
+    await ownerSays(7210, "read later", 1);
+    const [first] = await notesOf(ownerId);
+    scriptModel([
+      {
+        callTool: captureNoteToolName,
+        input: { text: "gift ideas", linkedNoteIds: [first?.note_id] },
+      },
+      { say: "Kept" },
+    ]);
+    await ownerSays(7210, "gift ideas", 2);
+    scriptModel([
+      { callTool: searchNotesToolName, input: { query: "ideas" } },
+      { say: "Found" },
+    ]);
+
+    await ownerSays(7210, "what are my gift ideas?", 3);
+
+    const resultPrompt = JSON.stringify(
+      fakeModel.doGenerateCalls.at(-1)?.prompt
+    );
+    expect(resultPrompt).toContain("https://example.com/gifts");
+    expect(resultPrompt).toContain("channelMessageId");
   });
 });

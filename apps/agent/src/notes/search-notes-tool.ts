@@ -38,14 +38,7 @@ const SearchNotesInput = Schema.Struct({
 const textOf = (note: Note) =>
   note.trustLevel === "untrusted" ? markUntrustedContent(note.text) : note.text;
 
-const linkedNote = (note: Note) => ({
-  noteId: note.noteId,
-  text: textOf(note),
-  trustLevel: note.trustLevel,
-  capturedAt: note.capturedAt,
-});
-
-const foundNote = (note: RecalledNote) => ({
+const recalledNote = (note: Note) => ({
   noteId: note.noteId,
   text: textOf(note),
   url: note.url ?? null,
@@ -56,8 +49,12 @@ const foundNote = (note: RecalledNote) => ({
   },
   trustLevel: note.trustLevel,
   capturedAt: note.capturedAt,
+});
+
+const foundNote = (note: RecalledNote) => ({
+  ...recalledNote(note),
   lastCheckedAt: note.lastCheckedAt,
-  linkedNotes: note.linkedNotes.map(linkedNote),
+  linkedNotes: note.linkedNotes.map((linked) => recalledNote(linked)),
 });
 
 export const searchNotesTool = (
