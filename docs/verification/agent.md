@@ -147,7 +147,7 @@ pnpm control request --message "keep: Ana likes red" --message "link: likes red 
 
 ## Eval
 
-`pnpm control eval --k <n> [--case <name>]...` measures the agent with the real model (decision [0011](../decisions/0011-eval-runner.md)). It costs money. It is not part of `pnpm verify`, and an agent runs it only with the repository owner's approval (decision 0002). Set `AI_GATEWAY_URL` and `AI_GATEWAY_TOKEN` in the environment or in `.dev.vars`.
+`pnpm control eval --k <n> [--case <name>]...` measures the agent with the real model (decisions [0011](../decisions/0011-eval-runner.md) and [0012](../decisions/0012-eval-owners-and-judge-evidence.md)). It costs money. It is not part of `pnpm verify`, and an agent runs it only with the repository owner's approval (decision 0002). Set `AI_GATEWAY_URL` and `AI_GATEWAY_TOKEN` in the environment or in `.dev.vars`.
 
 1. It loads every case in `control/eval/cases` (or only the `--case` names) and decodes it with the case schema. An invalid file stops the command with the file name and the path of the bad field, before any model call.
 2. It prints the range of expected model calls: for each run, 1 to `maxToolSteps` model steps for each Owner Event, and 1 judge call for each `reply_judged` check. Each call can have up to 3 attempts.
