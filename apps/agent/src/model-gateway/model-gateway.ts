@@ -14,7 +14,7 @@ import type {
 import type { ModelStep, ModelToolCall } from "./model-step.ts";
 import { ModelUnavailable } from "./model-unavailable.ts";
 import { StepLimitReached } from "./step-limit-reached.ts";
-import { UsageLedger } from "./usage-ledger.ts";
+import { sumUsage, UsageLedger } from "./usage-ledger.ts";
 import type { Usage } from "./usage-ledger.ts";
 
 export interface ModelRequest {
@@ -43,20 +43,6 @@ const usageOf = (usage: LanguageModelUsage): Usage => ({
   outputTokens: usage.outputTokens,
   cachedInputTokens: usage.inputTokenDetails.cacheReadTokens,
   costUsd: undefined,
-});
-
-const sumDefined = (values: readonly (number | undefined)[]) => {
-  const defined = values.filter((value) => value !== undefined);
-  return defined.length === 0
-    ? undefined
-    : defined.reduce((total, value) => total + value, 0);
-};
-
-const sumUsage = (usages: readonly Usage[]): Usage => ({
-  inputTokens: sumDefined(usages.map((usage) => usage.inputTokens)),
-  outputTokens: sumDefined(usages.map((usage) => usage.outputTokens)),
-  cachedInputTokens: sumDefined(usages.map((usage) => usage.cachedInputTokens)),
-  costUsd: sumDefined(usages.map((usage) => usage.costUsd)),
 });
 
 const stringify = (value: unknown) =>

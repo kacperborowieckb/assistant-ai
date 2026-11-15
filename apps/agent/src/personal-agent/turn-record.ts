@@ -9,6 +9,7 @@ import type { ModelReply } from "../model-gateway/model-gateway.ts";
 import type { ModelStep } from "../model-gateway/model-step.ts";
 import type { ModelUnavailable } from "../model-gateway/model-unavailable.ts";
 import type { StepLimitReached } from "../model-gateway/step-limit-reached.ts";
+import { sumUsage } from "../model-gateway/usage-ledger.ts";
 import type { Usage } from "../model-gateway/usage-ledger.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { OperatorMetrics } from "../tracing/operator-metrics.ts";
@@ -35,6 +36,22 @@ export type ModelOutcome =
 
 export const stepsOf = (outcome: ModelOutcome): readonly ModelStep[] =>
   outcome._tag === "Replied" ? outcome.reply.steps : outcome.error.steps;
+
+const unknownUsage: Usage = {
+  inputTokens: undefined,
+  outputTokens: undefined,
+  cachedInputTokens: undefined,
+  costUsd: undefined,
+};
+
+const usageOfOutcome = (outcome: ModelOutcome): Usage | undefined => {
+  if (outcome._tag === "Replied") {
+    return outcome.reply.usage;
+  }
+  return outcome.error.steps.length === 0
+    ? undefined
+    : sumUsage(outcome.error.steps.map((step) => step.usage));
+};
 
 const traceUsageOf = (usage: Usage): TurnTrace["usage"] => ({
   inputTokens: usage.inputTokens ?? null,
@@ -108,12 +125,7 @@ export const traceOf = ({
     modelId: outcome.error.modelId,
     reply: null,
     error: modelFailureReason(outcome.error, redactor),
-    usage: {
-      inputTokens: null,
-      outputTokens: null,
-      cachedInputTokens: null,
-      costUsd: null,
-    },
+    usage: traceUsageOf(usageOfOutcome(outcome) ?? unknownUsage),
   };
 };
 
@@ -142,7 +154,7 @@ export const recordTurnMetric = ({
         outcome._tag === "Replied"
           ? outcome.reply.modelId
           : outcome.error.modelId,
-      usage: outcome._tag === "Replied" ? outcome.reply.usage : undefined,
+      usage: usageOfOutcome(outcome),
       stepCount: stepsOf(outcome).length,
       toolCallCount: stepsOf(outcome).flatMap((step) => step.toolCalls).length,
     });

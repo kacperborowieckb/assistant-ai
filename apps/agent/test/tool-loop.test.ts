@@ -208,6 +208,16 @@ describe("Tool loop", () => {
     const [stored] = await tracesOf(ownerId);
     expect(stored?.trace.result).toBe("model_failed");
     expect(stored?.trace.error).toContain("did not give a final answer");
+    expect(stored?.trace.usage.inputTokens).toBe(
+      42 * defaultBehaviorConfig.maxToolSteps
+    );
+    const metric = fakeMetrics.dataPoints.find((candidate) =>
+      candidate.blobs?.includes("model_failed")
+    );
+    expect(metric?.doubles?.slice(1, 3)).toEqual([
+      42 * defaultBehaviorConfig.maxToolSteps,
+      7 * defaultBehaviorConfig.maxToolSteps,
+    ]);
     expect(stored?.trace.steps).toHaveLength(
       defaultBehaviorConfig.maxToolSteps
     );
