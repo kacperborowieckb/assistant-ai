@@ -1,15 +1,17 @@
 import { randomUUID } from "node:crypto";
 
-import { Data, Effect } from "effect";
+import { Data, Effect, Option } from "effect";
 import { createTestHarness } from "wrangler";
 
 import { startLocalFakes } from "./local-fakes.ts";
+import type { FakeTelegramMessage } from "./local-fakes.ts";
 import { addOwner, renderAddedOwner } from "./operator.ts";
 import { agentRoot, wranglerConfigPath } from "./workspace.ts";
 
 const sampleTelegramUserId = 424_242;
 const sampleMessageId = 7;
 const replyTimeout = "30 seconds";
+const nextPartTimeout = "1 second";
 
 export class ReplyMissing extends Data.TaggedError("ReplyMissing")<{
   readonly contains: string;
@@ -96,13 +98,26 @@ export const requestReply = ({
       lines.push(
         `Webhook answered ${webhook.status} for the message "${message}"`
       );
-      const sent = yield* fakes.nextTelegramMessage.pipe(
-        Effect.timeout(replyTimeout)
-      );
+      const sentParts: FakeTelegramMessage[] = [
+        yield* fakes.nextTelegramMessage.pipe(Effect.timeout(replyTimeout)),
+      ];
+      for (;;) {
+        const nextPart = yield* fakes.nextTelegramMessage.pipe(
+          Effect.timeoutOption(nextPartTimeout)
+        );
+        if (
+          Option.isNone(nextPart) ||
+          nextPart.value.replyToMessageId !== sentParts[0]?.replyToMessageId
+        ) {
+          break;
+        }
+        sentParts.push(nextPart.value);
+      }
+      const [sent] = sentParts;
+      reply = sentParts.map((part) => part.text).join("");
       lines.push(
-        `Telegram sendMessage to chat ${sent.chatId}, reply to message ${sent.replyToMessageId ?? "none"}: "${sent.text}"`
+        `Telegram sendMessage to chat ${sent?.chatId ?? "none"}, reply to message ${sent?.replyToMessageId ?? "none"}: "${reply}"`
       );
-      reply = sent.text;
     }
     for (const call of fakes.modelCalls()) {
       lines.push(
