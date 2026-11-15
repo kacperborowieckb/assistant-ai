@@ -2,7 +2,6 @@ import { env, runInDurableObject } from "cloudflare:test";
 import { Effect } from "effect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { noteSourceOfOwnerEvent } from "../src/notes/note.ts";
 import type { NoteSource } from "../src/notes/note.ts";
 import { Notes } from "../src/notes/notes.ts";
 import { searchNotesToolName } from "../src/notes/search-notes-tool.ts";
@@ -14,13 +13,14 @@ import { addOwner, telegramWebhook, textUpdate } from "./telegram-requests.ts";
 const agentOf = (ownerId: string) =>
   personalAgentFor(env.PERSONAL_AGENT, OwnerIdSchema.make(ownerId));
 
-const sourceOf = (eventId: string, trustLevel: NoteSource["trustLevel"]) => ({
-  ...noteSourceOfOwnerEvent({
-    eventId,
-    channel: "telegram",
-    conversationId: "1",
-    channelMessageId: eventId,
-  } as Parameters<typeof noteSourceOfOwnerEvent>[0]),
+const sourceOf = (
+  eventId: string,
+  trustLevel: NoteSource["trustLevel"]
+): NoteSource => ({
+  eventId,
+  channel: "telegram",
+  conversationId: "1",
+  channelMessageId: eventId,
   trustLevel,
 });
 

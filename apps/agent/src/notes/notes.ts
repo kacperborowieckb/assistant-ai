@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { Journal } from "../journal/journal.ts";
@@ -7,6 +7,7 @@ import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { notes } from "../personal-agent/storage-schema.ts";
 import { normalizeNoteText } from "./note.ts";
 import type { NoteSource, NoteSourceLocation, TrustLevel } from "./note.ts";
+import { bestMatchFirst, matchesQuery, notesFts } from "./notes-fts.ts";
 
 export interface Note {
   readonly noteId: string;
@@ -139,30 +140,33 @@ const makeNotes = (ownerId: OwnerId) =>
         )
       );
 
-    const search = ({ query, limit }: SearchRequest) =>
-      Effect.gen(function* searchEffect() {
-        const match = ftsMatchOf(query);
-        if (match === undefined) {
-          return [];
-        }
-        const ranked = yield* database.all<{ note_id: string }>(
-          sql`SELECT note_id FROM notes_fts WHERE notes_fts MATCH ${match} ORDER BY bm25(notes_fts) LIMIT ${limit}`
-        );
-        const noteIds = ranked.map((row) => row.note_id);
-        if (noteIds.length === 0) {
-          return [];
-        }
-        const rows = yield* database
-          .select()
-          .from(notes)
-          .where(
-            and(eq(notes.ownerId, ownerId), inArray(notes.noteId, noteIds))
-          );
-        return noteIds.flatMap((noteId) => {
-          const row = rows.find((candidate) => candidate.noteId === noteId);
-          return row === undefined ? [] : [toNote(row)];
-        });
+    const search = Effect.fnUntraced(function* search({
+      query,
+      limit,
+    }: SearchRequest) {
+      const match = ftsMatchOf(query);
+      if (match === undefined) {
+        return [];
+      }
+      const ranked = yield* database
+        .select({ noteId: notesFts.noteId })
+        .from(notesFts)
+        .where(matchesQuery(match))
+        .orderBy(bestMatchFirst)
+        .limit(limit);
+      const noteIds = ranked.map((row) => row.noteId);
+      if (noteIds.length === 0) {
+        return [];
+      }
+      const rows = yield* database
+        .select()
+        .from(notes)
+        .where(and(eq(notes.ownerId, ownerId), inArray(notes.noteId, noteIds)));
+      return noteIds.flatMap((noteId) => {
+        const row = rows.find((candidate) => candidate.noteId === noteId);
+        return row === undefined ? [] : [toNote(row)];
       });
+    });
 
     return { capture, search };
   });
