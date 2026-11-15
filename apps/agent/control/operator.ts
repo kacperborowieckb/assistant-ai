@@ -1,10 +1,9 @@
 import { Data, Effect, Option, Schema } from "effect";
-import { unstable_getVarsForDev } from "wrangler";
 
 import { AddOwnerResponseSchema } from "../src/edge/operator-contract.ts";
 import type { AddOwnerResponse } from "../src/edge/operator-contract.ts";
+import { localValue } from "./local-values.ts";
 import { OperatorTokenMissing } from "./operator-token-missing.ts";
-import { wranglerConfigPath } from "./workspace.ts";
 
 export const localWorkerUrl = "http://localhost:8787";
 
@@ -17,23 +16,8 @@ export class OwnerNotAdded extends Data.TaggedError("OwnerNotAdded")<{
   }
 }
 
-const isNonEmpty = (value: string) => value.length > 0;
-
-const DevVarSchema = Schema.Struct({ value: Schema.String });
-
-const operatorTokenFromDevVars = () =>
-  Schema.decodeUnknownOption(DevVarSchema)(
-    unstable_getVarsForDev(wranglerConfigPath, undefined, {}, undefined, true, {
-      required: ["OPERATOR_TOKEN"],
-    }).OPERATOR_TOKEN
-  ).pipe(Option.map((devVar) => devVar.value));
-
 export const operatorToken = Effect.suspend(() => {
-  const token = Option.fromNullishOr(process.env.OPERATOR_TOKEN).pipe(
-    Option.filter(isNonEmpty),
-    Option.orElse(operatorTokenFromDevVars),
-    Option.filter(isNonEmpty)
-  );
+  const token = localValue("OPERATOR_TOKEN");
   return Option.isSome(token)
     ? Effect.succeed(token.value)
     : Effect.fail(

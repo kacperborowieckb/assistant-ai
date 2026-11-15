@@ -89,7 +89,7 @@ export class PersonalAgent extends Agent<Env> {
   }
 }
 
-export const personalAgentFor = (
-  namespace: DurableObjectNamespace<PersonalAgent>,
+export const personalAgentFor = <Kind extends PersonalAgent>(
+  namespace: DurableObjectNamespace<Kind>,
   ownerId: OwnerId
-) => getAgentByName(namespace, ownerId);
+) => getAgentByName<Env, Kind>(namespace, ownerId);

@@ -32,8 +32,12 @@ const TurnEnvSchema = Schema.Struct({
   AI_GATEWAY_TOKEN: NonEmpty,
   REPLY_MODEL: NonEmpty,
   REPLY_REASONING_EFFORT: ReasoningEffortSchema,
+  EVAL_JUDGE_MODEL: NonEmpty,
+  EVAL_JUDGE_REASONING_EFFORT: ReasoningEffortSchema,
   MODEL_BILLING: BillingModeSchema,
 });
+
+export type TurnEnv = typeof TurnEnvSchema.Type;
 
 const invalidNames = (env: Env) => {
   const values: Record<string, unknown> = { ...env };
@@ -48,6 +52,33 @@ export const decodeTurnEnv = (env: Env) =>
   Schema.decodeUnknownEffect(TurnEnvSchema)(env).pipe(
     Effect.mapError(
       () => new TurnConfigurationInvalid({ names: invalidNames(env) })
+    )
+  );
+
+export const liveModelGateway = (config: TurnEnv, ownerId: OwnerId) =>
+  ModelGateway.layer.pipe(
+    Layer.provide(
+      aiGatewayModelProvider(
+        {
+          url: config.AI_GATEWAY_URL,
+          gatewayId: config.AI_GATEWAY_ID,
+          routes: {
+            reply: {
+              model: config.REPLY_MODEL,
+              reasoningEffort: config.REPLY_REASONING_EFFORT,
+            },
+            eval_judge: {
+              model: config.EVAL_JUDGE_MODEL,
+              reasoningEffort: config.EVAL_JUDGE_REASONING_EFFORT,
+            },
+          },
+        },
+        {
+          token: config.AI_GATEWAY_TOKEN,
+          billing: config.MODEL_BILLING,
+        },
+        ownerId
+      )
     )
   );
 
@@ -66,27 +97,7 @@ export const liveTurnServices = (env: Env, ownerId: OwnerId) =>
           apiUrl: config.TELEGRAM_API_URL,
           botToken: config.TELEGRAM_BOT_TOKEN,
         }),
-        ModelGateway.layer.pipe(
-          Layer.provide(
-            aiGatewayModelProvider(
-              {
-                url: config.AI_GATEWAY_URL,
-                gatewayId: config.AI_GATEWAY_ID,
-                routes: {
-                  reply: {
-                    model: config.REPLY_MODEL,
-                    reasoningEffort: config.REPLY_REASONING_EFFORT,
-                  },
-                },
-              },
-              {
-                token: config.AI_GATEWAY_TOKEN,
-                billing: config.MODEL_BILLING,
-              },
-              ownerId
-            )
-          )
-        )
+        liveModelGateway(config, ownerId)
       )
     )
   );

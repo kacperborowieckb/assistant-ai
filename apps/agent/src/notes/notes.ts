@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
 import { Journal } from "../journal/journal.ts";
@@ -55,6 +55,10 @@ export interface SearchRequest {
 export interface Capture {
   readonly note: Note;
   readonly alreadyKept: boolean;
+  readonly linkedNoteIds: readonly string[];
+}
+
+export interface ListedNote extends Note {
   readonly linkedNoteIds: readonly string[];
 }
 
@@ -232,7 +236,27 @@ const makeNotes = (ownerId: OwnerId) =>
       );
     });
 
-    return { capture, update, search, listLinked };
+    const list = database
+      .select()
+      .from(notes)
+      .where(eq(notes.ownerId, ownerId))
+      .orderBy(asc(notes.capturedAt), asc(notes.noteId))
+      .pipe(
+        Effect.flatMap((rows) =>
+          Effect.all(
+            rows.map((row) =>
+              linkedNoteIdsOf(row.noteId).pipe(
+                Effect.map((linkedNoteIds): ListedNote => ({
+                  ...toNote(row),
+                  linkedNoteIds,
+                }))
+              )
+            )
+          )
+        )
+      );
+
+    return { capture, update, search, listLinked, list };
   });
 
 export class Notes extends Context.Service<

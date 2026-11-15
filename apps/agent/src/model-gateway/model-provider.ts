@@ -1,7 +1,9 @@
 import type { LanguageModel } from "ai";
 import { Context, Schema } from "effect";
 
-export type ModelTask = "reply";
+import type { modelTasks } from "../personal-agent/storage-schema.ts";
+
+export type ModelTask = (typeof modelTasks)[number];
 
 export const ReasoningEffortSchema = Schema.Literals([
   "none",

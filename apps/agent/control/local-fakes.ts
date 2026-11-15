@@ -4,7 +4,10 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { Effect, Option, Queue, Schema } from "effect";
 
+import { fakeJudgeMessage, fakeJudgeModel } from "./fake-judge.ts";
+import type { FakeJudgeVerdict } from "./fake-judge.ts";
 import { fakeNoteEditMessage, isFakeNoteEdit } from "./fake-note-edits.ts";
+import { fakeRecallMessage, fakeRecallPrefix } from "./fake-recall.ts";
 
 export const fakeReplyPrefix = "You said: ";
 
@@ -15,6 +18,7 @@ export interface FakeTelegramMessage {
 }
 
 export interface FakeModelCall {
+  readonly model: string;
   readonly gatewayId: string | undefined;
   readonly metadata: string | undefined;
   readonly collectLogPayload: string | undefined;
@@ -42,61 +46,6 @@ const KeptNoteSchema = Schema.fromJsonString(
 );
 
 const decodeKeptNote = Schema.decodeUnknownOption(KeptNoteSchema);
-
-export const fakeRecallPrefix = "recall: ";
-
-const RecalledNotesSchema = Schema.fromJsonString(
-  Schema.Struct({
-    notes: Schema.Array(
-      Schema.Struct({
-        text: Schema.String,
-        capturedAt: Schema.String,
-        source: Schema.Struct({ channelMessageId: Schema.String }),
-      })
-    ),
-  })
-);
-
-const decodeRecalledNotes = Schema.decodeUnknownOption(RecalledNotesSchema);
-
-const fakeRecallMessage = (
-  ownerText: string,
-  toolResult: string | undefined
-) => {
-  if (toolResult === undefined) {
-    return {
-      role: "assistant",
-      content: null,
-      tool_calls: [
-        {
-          id: "call-recall-1",
-          type: "function",
-          function: {
-            name: "search_notes",
-            arguments: JSON.stringify({
-              query: ownerText.slice(fakeRecallPrefix.length),
-            }),
-          },
-        },
-      ],
-    };
-  }
-  const recalled = decodeRecalledNotes(toolResult);
-  if (Option.isNone(recalled)) {
-    return {
-      role: "assistant",
-      content: "Sorry, I could not look in my Notes.",
-    };
-  }
-  const [best] = recalled.value.notes;
-  return {
-    role: "assistant",
-    content:
-      best === undefined
-        ? "I do not know."
-        : `Recalled: ${best.text} (Telegram message ${best.source.channelMessageId}, ${best.capturedAt.slice(0, 10)})`,
-  };
-};
 
 const readBody = async (request: IncomingMessage) => {
   const chunks: Buffer[] = [];
@@ -177,18 +126,28 @@ const headerValue = (request: IncomingMessage, name: string) => {
 const sendMessagePath = /^\/telegram\/bot[^/]+\/sendMessage$/u;
 const chatCompletionsPath = "/ai-gateway/chat/completions";
 
-export const startLocalFakes = Effect.gen(function* startLocalFakesEffect() {
+export interface LocalFakesOptions {
+  readonly judgeVerdicts?: readonly FakeJudgeVerdict[];
+}
+
+export const startLocalFakes = Effect.fnUntraced(function* startLocalFakes({
+  judgeVerdicts = [],
+}: LocalFakesOptions = {}) {
   const telegramMessages = yield* Queue.unbounded<FakeTelegramMessage>();
+  const sentTelegramMessages: FakeTelegramMessage[] = [];
   const modelCalls: FakeModelCall[] = [];
+  const pendingJudgeVerdicts = [...judgeVerdicts];
   let nextMessageId = 1;
 
   const answerSendMessage = (body: unknown, response: ServerResponse) => {
     const message = Schema.decodeUnknownSync(SendMessageBodySchema)(body);
-    Queue.offerUnsafe(telegramMessages, {
+    const sent = {
       chatId: message.chat_id,
       text: message.text,
       replyToMessageId: message.reply_parameters?.message_id,
-    });
+    };
+    sentTelegramMessages.push(sent);
+    Queue.offerUnsafe(telegramMessages, sent);
     nextMessageId += 1;
     sendJson(response, 200, {
       ok: true,
@@ -203,13 +162,18 @@ export const startLocalFakes = Effect.gen(function* startLocalFakesEffect() {
   ) => {
     const completion = Schema.decodeUnknownSync(ChatCompletionBodySchema)(body);
     modelCalls.push({
+      model: completion.model,
       gatewayId: headerValue(request, "cf-aig-gateway-id"),
       metadata: headerValue(request, "cf-aig-metadata"),
       collectLogPayload: headerValue(request, "cf-aig-collect-log-payload"),
     });
-    const ownerText = lastOwnerText(completion.messages);
-    const toolResult = toolResultOf(completion.messages);
-    const message = fakeAssistantMessage(ownerText, toolResult);
+    const message =
+      completion.model === fakeJudgeModel
+        ? fakeJudgeMessage(pendingJudgeVerdicts.shift() ?? "pass")
+        : fakeAssistantMessage(
+            lastOwnerText(completion.messages),
+            toolResultOf(completion.messages)
+          );
     sendJson(response, 200, {
       id: `fake-completion-${modelCalls.length}`,
       object: "chat.completion",
@@ -265,6 +229,7 @@ export const startLocalFakes = Effect.gen(function* startLocalFakesEffect() {
     telegramApiUrl: `${origin}/telegram`,
     aiGatewayUrl: `${origin}/ai-gateway`,
     nextTelegramMessage: Queue.take(telegramMessages),
+    sentTelegramMessages: () => [...sentTelegramMessages],
     modelCalls: () => [...modelCalls],
   };
 });

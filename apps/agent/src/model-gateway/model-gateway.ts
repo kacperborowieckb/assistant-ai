@@ -5,6 +5,7 @@ import { Context, Effect, Layer, Schedule } from "effect";
 import { noTools, runToolEffect } from "./agent-tool.ts";
 import type { AgentTools, RunToolEffect } from "./agent-tool.ts";
 import { ModelCallFailed } from "./model-call-failed.ts";
+import { attemptTimeoutMillis, modelAttempts } from "./model-call-policy.ts";
 import { ModelProvider } from "./model-provider.ts";
 import type {
   ModelTask,
@@ -33,8 +34,6 @@ export interface ModelReply {
   readonly steps: readonly ModelStep[];
 }
 
-export const modelAttempts = 3;
-export const attemptTimeoutMillis = 30_000;
 const attemptTimeout = `${attemptTimeoutMillis} millis` as const;
 const firstRetryDelay = "1 second";
 

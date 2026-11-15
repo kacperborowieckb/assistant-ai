@@ -24,6 +24,8 @@ export const profileEntryKinds = ["fact", "style_rule"] as const;
 
 export const turnResults = ["model_replied", "model_failed"] as const;
 
+export const modelTasks = ["reply", "eval_judge"] as const;
+
 export const inboxEvents = sqliteTable(
   "inbox_events",
   {
@@ -90,7 +92,7 @@ export const modelUsage = sqliteTable("model_usage", {
   sequence: integer("sequence").primaryKey({ autoIncrement: true }),
   ownerId: text("owner_id").$type<OwnerId>().notNull(),
   recordedAt: text("recorded_at").notNull(),
-  task: text("task", { enum: ["reply"] }).notNull(),
+  task: text("task", { enum: modelTasks }).notNull(),
   modelId: text("model_id").notNull(),
   inputTokens: integer("input_tokens"),
   outputTokens: integer("output_tokens"),
