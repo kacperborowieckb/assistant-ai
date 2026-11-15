@@ -470,7 +470,7 @@
     {
       "table": "turn_traces",
       "name": "turn_traces_result_check",
-      "value": "\"result\" IN ('replied', 'model_failed')",
+      "value": "\"result\" IN ('model_replied', 'model_failed')",
       "entityType": "checks"
     }
   ],

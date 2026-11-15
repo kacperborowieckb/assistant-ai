@@ -46,17 +46,20 @@ export const traceOf = ({
     eventId: event.eventId,
     task: "reply",
     modelSettings: { attempts: modelAttempts, attemptTimeoutMillis },
-    system,
-    messages,
+    system: redactor.redact(system),
+    messages: messages.map((message) => ({
+      role: message.role,
+      content: redactor.redact(message.content),
+    })),
     toolCalls: [],
     modelLatencyMillis,
   } as const;
   if (outcome._tag === "Replied") {
     return {
       ...base,
-      result: "replied",
+      result: "model_replied",
       modelId: outcome.reply.modelId,
-      reply: outcome.reply.text,
+      reply: redactor.redact(outcome.reply.text),
       error: null,
       usage: {
         inputTokens: outcome.reply.usage.inputTokens ?? null,

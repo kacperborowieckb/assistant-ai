@@ -63,7 +63,7 @@ describe("Replayable Traces", () => {
     const [stored] = await tracesOf(ownerId);
     expect(stored?.ownerId).toBe(ownerId);
     expect(stored?.trace).toMatchObject({
-      result: "replied",
+      result: "model_replied",
       task: "reply",
       modelId: "fake-reply-model",
       modelSettings: { attempts: 3, attemptTimeoutMillis: 30_000 },
@@ -146,6 +146,21 @@ describe("Replayable Traces", () => {
     }
   });
 
+  it("replaces a secret that the Owner sends or the model repeats", async () => {
+    const ownerId = await addOwner(8005);
+
+    await telegramWebhook(
+      textUpdate({ fromUserId: 8005, text: `Key ${env.AI_GATEWAY_TOKEN}` })
+    );
+    await waitForTraces(ownerId, 1);
+
+    const storedText = await everythingStoredFor(ownerId);
+    expect(storedText).not.toContain(env.AI_GATEWAY_TOKEN);
+    const [stored] = await tracesOf(ownerId);
+    expect(stored?.trace.messages[0]?.content).toBe(`Key ${redactedMark}`);
+    expect(stored?.trace.reply).toBe(`${fakeReplyPrefix}Key ${redactedMark}`);
+  });
+
   it("refuses updates and deletes of a Trace", async () => {
     const ownerId = await addOwner(8004);
     await telegramWebhook(textUpdate({ fromUserId: 8004, text: "Hello" }));
@@ -157,7 +172,9 @@ describe("Replayable Traces", () => {
     );
     await runInDurableObject(agent, (_, state) => {
       expect(() =>
-        state.storage.sql.exec("UPDATE turn_traces SET result = 'replied'")
+        state.storage.sql.exec(
+          "UPDATE turn_traces SET result = 'model_replied'"
+        )
       ).toThrow("append-only");
       expect(() => state.storage.sql.exec("DELETE FROM turn_traces")).toThrow(
         "append-only"

@@ -14,7 +14,7 @@ import type { OwnerId } from "../owner-id.ts";
 
 export const inboxStates = ["pending", "done", "failed"] as const;
 
-export const turnResults = ["replied", "model_failed"] as const;
+export const turnResults = ["model_replied", "model_failed"] as const;
 
 export const conversationRoles = ["owner", "agent"] as const;
 

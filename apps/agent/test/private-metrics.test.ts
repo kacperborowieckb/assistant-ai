@@ -24,7 +24,12 @@ describe("Private metrics", () => {
 
     const [point] = fakeMetrics.dataPoints;
     expect(point?.indexes).toEqual([ownerId]);
-    expect(point?.blobs).toEqual(["turn", "replied", "fake-reply-model"]);
+    expect(point?.blobs).toEqual([
+      "turn",
+      "replied",
+      "fake-reply-model",
+      "cost_unknown",
+    ]);
     expect(point?.doubles?.slice(1)).toEqual([42, 7, 0, 12]);
     expect(point?.doubles?.[0]).toBeGreaterThanOrEqual(0);
     const everything = JSON.stringify(fakeMetrics.dataPoints);

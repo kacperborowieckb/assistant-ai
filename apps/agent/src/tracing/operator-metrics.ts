@@ -33,6 +33,13 @@ export type OperatorMetric =
 
 export const noOwnerIndex = "none";
 
+const costBlob = (usage: Usage | undefined) => {
+  if (usage === undefined) {
+    return "";
+  }
+  return usage.costUsd === undefined ? "cost_unknown" : "cost_known";
+};
+
 const dataPointOf = (metric: OperatorMetric): AnalyticsEngineDataPoint => {
   const usage = metric.kind === "turn" ? metric.usage : undefined;
   return {
@@ -41,6 +48,7 @@ const dataPointOf = (metric: OperatorMetric): AnalyticsEngineDataPoint => {
       metric.kind,
       metric.result,
       metric.kind === "turn" ? metric.modelId : "",
+      costBlob(usage),
     ],
     doubles: [
       metric.latencyMillis,

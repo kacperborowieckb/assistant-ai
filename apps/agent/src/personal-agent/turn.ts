@@ -156,7 +156,8 @@ const answer = (
       });
       return;
     }
-    const delivery = yield* deliver(event, outcome.reply.text);
+    const replyText = redactor.redact(outcome.reply.text);
+    const delivery = yield* deliver(event, replyText);
     if (delivery._tag === "Failed") {
       yield* recordTurnFailed(event, delivery.reason);
       yield* recordTurnMetric({
@@ -169,7 +170,7 @@ const answer = (
     }
     yield* conversation.append([
       ownerMessage(event),
-      { role: "agent", text: outcome.reply.text },
+      { role: "agent", text: replyText },
     ]);
     yield* inbox.markDone([event]);
     yield* recordTurnMetric({ ownerId, outcome, result: "replied", startedAt });

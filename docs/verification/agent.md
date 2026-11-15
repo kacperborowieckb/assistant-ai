@@ -15,7 +15,7 @@
 
 ## Traces and Operator metrics
 
-A Trace is a row of `turn_traces` in the Personal Agent SQLite. The row has the Owner Id, the Event id, the result (`replied` or `model_failed`), and a JSON record with the task, the model id, the model settings (attempts and timeout of each attempt), the system prompt, the messages that the model received, tool calls (none yet), the reply or the error, Usage, and the model latency. Replay a Turn by giving the system prompt and the messages of its Trace to the Model Gateway. The table refuses updates and deletes with storage triggers, and the interface has only record and read. The Trace has private content and never leaves the Personal Agent.
+A Trace is a row of `turn_traces` in the Personal Agent SQLite. The row has the Owner Id, the Event id, the result of the model call (`model_replied` or `model_failed`), and a JSON record with the task, the model id, the model settings (attempts and timeout of each attempt), the system prompt, the messages that the model received, tool calls (none yet), the reply or the error, Usage, and the model latency. Replay a Turn by giving the system prompt and the messages of its Trace to the Model Gateway. The table refuses updates and deletes with storage triggers, and the interface has only record and read. The Trace records the model call only. The send result of the same Event is in the Journal (`ReplySent` or `ReplyFailed`), found by the Event id, so a Turn whose send failed has a `model_replied` Trace and a `ReplyFailed` Journal Entry. The Trace has private content and never leaves the Personal Agent.
 
 The Operator metrics go to the Analytics Engine dataset `assistant_operator_metrics` (binding `OPERATOR_METRICS`). Each data point has:
 
@@ -25,12 +25,13 @@ The Operator metrics go to the Analytics Engine dataset `assistant_operator_metr
 | `blob1` | `turn` or `refused` |
 | `blob2` | The result: `replied`, `model_failed`, or `send_failed` for a Turn; `bad_secret_token`, `unknown_sender`, or `owner_not_active` for a refused request |
 | `blob3` | The model id for a Turn, empty for a refused request |
+| `blob4` | `cost_known` or `cost_unknown` for a Turn, empty for a refused request |
 | `double1` | Latency in milliseconds. For a Turn: from the start of the Turn for the Event to the end of the send. For a refused request: the time in the Edge. |
 | `double2` to `double5` | Input tokens, output tokens, cost in USD, cached input tokens. The value is 0 when the provider gave none. |
 
-The metric type allows only these fields, so message content cannot enter a data point. The cost is always 0 now, because the AI SDK does not report the cost. Reading the cost from AI Gateway is a known gap.
+The metric type allows only these fields, so message content cannot enter a data point. The cost is always 0 and `blob4` is `cost_unknown` now, because the AI SDK does not report the cost. Reading the cost from AI Gateway is a known gap. A data point is written after the send, so a Turn that stops between a confirmed send and the data point has none. The data points are best-effort; the Journal and the Trace are the record.
 
-Secrets: the Redactor replaces the values of `TELEGRAM_BOT_TOKEN`, `AI_GATEWAY_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, and `OPERATOR_TOKEN` in the model error and in the Telegram failure reason before they enter a Trace or the Journal.
+Secrets: the Redactor replaces the values of `TELEGRAM_BOT_TOKEN`, `AI_GATEWAY_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, and `OPERATOR_TOKEN` in the model error, in the Telegram failure reason, in the reply, and in the system prompt and the messages of the Trace, before they enter a Trace or the Journal. The Inbox keeps the Owner message as sent.
 
 AI Gateway keeps no prompt or reply text because each request sends `cf-aig-collect-log-payload: false`. A test checks the header. The gateway-level logging setting in the Cloudflare account is not checked here. Check it on the deployed account (it needs the repository owner's approval) and record the result in the PR.
 
@@ -90,7 +91,7 @@ What the tests prove now:
 - A Personal Agent on an older schema keeps its rows when a later migration changes a table, and applies each migration once. A migration that fails leaves no partial schema and fails the storage layer with `MigrationFailed`.
 - The Journal storage refuses updates and deletes, and entries stay the same after a later Turn.
 - The Model Gateway calls `<AI Gateway URL>/chat/completions` with `cf-aig-gateway-id`, the Owner Id in `cf-aig-metadata`, and `cf-aig-collect-log-payload: false`.
-- Each Turn writes one Trace with the exact prompt that the model received (a test compares it with the call that the fake model recorded), the model settings, the reply, and Usage. A Turn whose model failed 3 times writes a `model_failed` Trace with the error. A secret in the model error is replaced and appears in no Trace, no Journal Entry, and no Usage row. The Trace storage refuses updates and deletes.
+- Each Turn writes one Trace with the exact prompt that the model received (a test compares it with the call that the fake model recorded), the model settings, the reply, and Usage. A Turn whose model failed 3 times writes a `model_failed` Trace with the error. A secret in the model error, in the Owner message, or in the reply is replaced and appears in no Trace, no Journal Entry, and no Usage row. The Trace storage refuses updates and deletes.
 - Each Turn writes one Analytics Engine data point with the Owner Id, the result, latency, tokens, and cache hits. A refused request (missing or wrong secret token, unknown sender, or an Owner who is not active) writes one data point with the reason. A non-text update writes none. No data point holds message text.
 - With two Owners, each Personal Agent holds only its own Inbox Events, Journal Entries, Traces, and Usage rows. No row of one Owner has the other Owner's Owner Id or text.
 - A missing Turn configuration names the missing value and does not show a secret value.
