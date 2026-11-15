@@ -72,6 +72,40 @@ const toolResultOf = (
     : undefined;
 };
 
+const fakeAssistantMessage = (
+  ownerText: string,
+  toolResult: string | undefined
+) => {
+  if (!ownerText.startsWith(fakeKeepPrefix)) {
+    return { role: "assistant", content: `${fakeReplyPrefix}${ownerText}` };
+  }
+  if (toolResult === undefined) {
+    return {
+      role: "assistant",
+      content: null,
+      tool_calls: [
+        {
+          id: "call-keep-1",
+          type: "function",
+          function: {
+            name: "capture_note",
+            arguments: JSON.stringify({
+              text: ownerText.slice(fakeKeepPrefix.length),
+            }),
+          },
+        },
+      ],
+    };
+  }
+  const kept = decodeKeptNote(toolResult);
+  return {
+    role: "assistant",
+    content: Option.isSome(kept)
+      ? `Kept note ${kept.value.noteId}: ${kept.value.text}`
+      : "Sorry, I could not keep that.",
+  };
+};
+
 const headerValue = (request: IncomingMessage, name: string) => {
   const value = request.headers[name];
   return typeof value === "string" ? value : undefined;
@@ -112,40 +146,7 @@ export const startLocalFakes = Effect.gen(function* startLocalFakesEffect() {
     });
     const ownerText = lastOwnerText(completion.messages);
     const toolResult = toolResultOf(completion.messages);
-    const keepsNote = ownerText.startsWith(fakeKeepPrefix);
-    const message = (() => {
-      if (!keepsNote) {
-        return {
-          role: "assistant",
-          content: `${fakeReplyPrefix}${ownerText}`,
-        };
-      }
-      if (toolResult === undefined) {
-        return {
-          role: "assistant",
-          content: null,
-          tool_calls: [
-            {
-              id: "call-keep-1",
-              type: "function",
-              function: {
-                name: "capture_note",
-                arguments: JSON.stringify({
-                  text: ownerText.slice(fakeKeepPrefix.length),
-                }),
-              },
-            },
-          ],
-        };
-      }
-      const kept = decodeKeptNote(toolResult);
-      return {
-        role: "assistant",
-        content: Option.isSome(kept)
-          ? `Kept note ${kept.value.noteId}: ${kept.value.text}`
-          : "Sorry, I could not keep that.",
-      };
-    })();
+    const message = fakeAssistantMessage(ownerText, toolResult);
     sendJson(response, 200, {
       id: `fake-completion-${modelCalls.length}`,
       object: "chat.completion",
