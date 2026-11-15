@@ -31,7 +31,7 @@ const columnsOf = (table: string) =>
 
 const appendOwnerMessage = Effect.gen(function* appendEffect() {
   const conversation = yield* Conversation;
-  yield* conversation.append([{ role: "user", content: "kept" }]);
+  yield* conversation.append("seed", [{ role: "user", content: "kept" }]);
 });
 
 const readMessages = Effect.gen(function* readEffect() {

@@ -8,7 +8,7 @@ import { OwnerIdSchema } from "../src/owner-id.ts";
 import { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 import { honestFailureText } from "../src/personal-agent/turn-delivery.ts";
-import { unconfirmedSendReason } from "../src/personal-agent/turn.ts";
+import { unconfirmedSendReason } from "../src/personal-agent/turn-recovery.ts";
 import {
   failModel,
   fakeModel,

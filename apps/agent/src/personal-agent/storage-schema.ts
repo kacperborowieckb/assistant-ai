@@ -56,6 +56,11 @@ export const turnProgress = sqliteTable(
   (table) => [index("turn_progress_event").on(table.eventId)]
 );
 
+export const conversationRecordedEvents = sqliteTable(
+  "conversation_recorded_events",
+  { eventId: text("event_id").primaryKey() }
+);
+
 export const journalEntries = sqliteTable("journal_entries", {
   sequence: integer("sequence").primaryKey({ autoIncrement: true }),
   ownerId: text("owner_id").$type<OwnerId>().notNull(),

@@ -306,7 +306,7 @@ describe("Conversation history", () => {
         Effect.gen(function* windowEffect() {
           const conversation = yield* Conversation;
           for (let index = 0; index < 6; index += 1) {
-            yield* conversation.append(toolTurn(index));
+            yield* conversation.append(`seed-${index}`, toolTurn(index));
           }
           return yield* conversation.recent;
         })

@@ -2,7 +2,6 @@ import type { ModelMessage } from "ai";
 import { Clock, Effect } from "effect";
 
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
-import { Journal } from "../journal/journal.ts";
 import { noTools } from "../model-gateway/agent-tool.ts";
 import type { AgentTools } from "../model-gateway/agent-tool.ts";
 import { ModelGateway } from "../model-gateway/model-gateway.ts";
@@ -14,37 +13,31 @@ import { TurnTraces } from "../tracing/turn-trace.ts";
 import { Conversation } from "./conversation.ts";
 import { Inbox } from "./inbox.ts";
 import type { InboxEvent } from "./inbox.ts";
+import { ownerMessage } from "./owner-message.ts";
 import { systemPrompt } from "./system-prompt.ts";
 import {
   deliver,
   failTurnWithHonestMessage,
   recordTurnFailed,
-  sendHonestFailure,
 } from "./turn-delivery.ts";
 import { TurnProgress } from "./turn-progress.ts";
 import {
   modelFailureReason,
+  stepLimitReason,
   responseMessagesOf,
   toolMessagesOf,
   recordTurnMetric,
   traceOf,
 } from "./turn-record.ts";
 import type { ModelOutcome } from "./turn-record.ts";
+import { settleFromJournal } from "./turn-recovery.ts";
 
-const ownerMessage = (event: InboxEvent): ModelMessage => ({
-  role: "user",
-  content: event.text,
-});
-
-const remainingStepLimit = (
+const remainingSteps = (
   maxToolSteps: number,
   earlier: readonly ModelMessage[]
 ) =>
-  Math.max(
-    1,
-    maxToolSteps -
-      earlier.filter((message) => message.role === "assistant").length
-  );
+  maxToolSteps -
+  earlier.filter((message) => message.role === "assistant").length;
 
 const rememberCompletedSteps = (
   event: InboxEvent,
@@ -57,7 +50,7 @@ const rememberCompletedSteps = (
     const completed = toolMessagesOf(outcome);
 
     if (earlier.length + completed.length > 0) {
-      yield* conversation.append([
+      yield* conversation.append(event.eventId, [
         ownerMessage(event),
         ...earlier,
         ...completed.map((message) => redactor.redactMessage(message)),
@@ -88,6 +81,18 @@ const answer = (
     const history = yield* conversation.recent;
     const system = systemPrompt(behavior);
     const earlier = yield* progress.completedFor(event.eventId);
+    const stepsLeft = remainingSteps(behavior.maxToolSteps, earlier);
+    if (stepsLeft <= 0) {
+      yield* conversation.append(event.eventId, [
+        ownerMessage(event),
+        ...earlier,
+      ]);
+      yield* failTurnWithHonestMessage(
+        event,
+        stepLimitReason(behavior.maxToolSteps)
+      );
+      return;
+    }
     const messages = [...history, ownerMessage(event), ...earlier];
     const outcome: ModelOutcome = yield* modelGateway
       .generate({
@@ -98,7 +103,7 @@ const answer = (
           ...tools,
           ...noteToolsFor({ notes, progress, redactor }, event),
         },
-        stepLimit: remainingStepLimit(behavior.maxToolSteps, earlier),
+        stepLimit: stepsLeft,
       })
       .pipe(
         Effect.map((reply): ModelOutcome => ({ _tag: "Replied", reply })),
@@ -148,7 +153,7 @@ const answer = (
       });
       return;
     }
-    yield* conversation.append([
+    yield* conversation.append(event.eventId, [
       ownerMessage(event),
       ...earlier,
       ...responseMessagesOf(outcome).map((message) =>
@@ -157,54 +162,6 @@ const answer = (
     ]);
     yield* inbox.markDone([event]);
     yield* recordTurnMetric({ ownerId, outcome, result: "replied", startedAt });
-  });
-
-export const unconfirmedSendReason =
-  "A send started but Telegram did not confirm it, so the agent did not send again";
-
-const settleFromJournal = (event: InboxEvent) =>
-  Effect.gen(function* settleFromJournalEffect() {
-    const inbox = yield* Inbox;
-    const journal = yield* Journal;
-    const entries = yield* journal.readForEvent(event.eventId);
-    const tags = new Set(entries.map((entry) => entry.record._tag));
-
-    if (tags.has("TurnFailed")) {
-      if (!tags.has("SendStarted")) {
-        yield* sendHonestFailure(event);
-        return "settled" as const;
-      }
-      if (!tags.has("ReplySent") && !tags.has("ReplyFailed")) {
-        yield* journal.append({
-          _tag: "ReplyFailed",
-          eventId: event.eventId,
-          reason: unconfirmedSendReason,
-        });
-      }
-      yield* inbox.markFailed([event]);
-      return "settled" as const;
-    }
-    if (tags.has("ReplySent")) {
-      yield* inbox.markDone([event]);
-      return "settled" as const;
-    }
-    const failedSend = entries.find(
-      (entry) => entry.record._tag === "ReplyFailed"
-    );
-    if (failedSend?.record._tag === "ReplyFailed") {
-      yield* recordTurnFailed(event, failedSend.record.reason);
-      return "settled" as const;
-    }
-    if (tags.has("SendStarted")) {
-      yield* journal.append({
-        _tag: "ReplyFailed",
-        eventId: event.eventId,
-        reason: unconfirmedSendReason,
-      });
-      yield* recordTurnFailed(event, unconfirmedSendReason);
-      return "settled" as const;
-    }
-    return "unanswered" as const;
   });
 
 export const takeTurn = (

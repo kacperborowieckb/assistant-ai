@@ -7,10 +7,14 @@ import {
 import { Effect } from "effect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { defaultBehaviorConfig } from "../src/behavior/behavior-config.ts";
 import { Journal } from "../src/journal/journal.ts";
 import { captureNoteToolName } from "../src/notes/capture-note-tool.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
+import { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
+import { honestFailureText } from "../src/personal-agent/turn-delivery.ts";
+import { TurnProgress } from "../src/personal-agent/turn-progress.ts";
 import {
   fakeModel,
   failModel,
@@ -327,6 +331,106 @@ describe("Capture a Note", () => {
       "user",
       "assistant",
       "tool",
+    ]);
+  });
+
+  it("keeps the saved capture in the conversation when the Durable Object resets after the reply was sent", async () => {
+    const ownerId = await addOwner(7011);
+    scriptModel([captureNote({ text: "buy jam" }), { say: "Kept: buy jam" }]);
+    const agent = await agentOf(ownerId);
+    await runInDurableObject(agent, async (instance) => {
+      await instance.runtime.runPromise(
+        Effect.gen(function* seedEffect() {
+          const inbox = yield* Inbox;
+          yield* inbox.store({
+            channel: "telegram",
+            channelUpdateId: "reset-after-send",
+            conversationId: "7011",
+            channelMessageId: "90",
+            text: "buy jam",
+            sentAt: new Date().toISOString(),
+          });
+          const [event] = yield* inbox.pending;
+          const journal = yield* Journal;
+          const eventId = event?.eventId ?? "";
+          const progress = yield* TurnProgress;
+          yield* progress.recordingToolCall(
+            {
+              eventId,
+              toolCallId: "call-1",
+              toolName: captureNoteToolName,
+              input: { text: "buy jam" },
+              redactor: { redact: (text) => text, redactMessage: (m) => m },
+            },
+            Effect.succeed({ noteId: "n1" })
+          );
+          yield* journal.append({
+            _tag: "ReplyPlanned",
+            eventId,
+            text: "Kept: buy jam",
+          });
+          yield* journal.append({ _tag: "SendStarted", eventId });
+          yield* journal.append({
+            _tag: "ReplySent",
+            eventId,
+            channelMessageId: "9100",
+          });
+        })
+      );
+      await instance.runTurn();
+      await instance.runTurn();
+    });
+
+    expect(await conversationRolesOf(ownerId)).toEqual([
+      "user",
+      "assistant",
+      "tool",
+      "assistant",
+    ]);
+    expect(fakeTelegram.sent).toEqual([]);
+  });
+
+  it("sends the honest failure instead of another step when saved tool calls use up the step limit", async () => {
+    const ownerId = await addOwner(7012);
+    const agent = await agentOf(ownerId);
+    await runInDurableObject(agent, async (instance) => {
+      await instance.runtime.runPromise(
+        Effect.gen(function* seedEffect() {
+          const inbox = yield* Inbox;
+          yield* inbox.store({
+            channel: "telegram",
+            channelUpdateId: "limit",
+            conversationId: "7012",
+            channelMessageId: "91",
+            text: "keep many",
+            sentAt: new Date().toISOString(),
+          });
+          const [event] = yield* inbox.pending;
+          const progress = yield* TurnProgress;
+          for (
+            let index = 0;
+            index < defaultBehaviorConfig.maxToolSteps;
+            index += 1
+          ) {
+            yield* progress.recordingToolCall(
+              {
+                eventId: event?.eventId ?? "",
+                toolCallId: `call-${index}`,
+                toolName: captureNoteToolName,
+                input: { text: `note ${index}` },
+                redactor: { redact: (text) => text, redactMessage: (m) => m },
+              },
+              Effect.succeed({ noteId: `n${index}` })
+            );
+          }
+        })
+      );
+      await instance.runTurn();
+    });
+
+    expect(fakeModel.doGenerateCalls).toHaveLength(0);
+    expect(fakeTelegram.sent.map((sent) => sent.body.text)).toEqual([
+      honestFailureText,
     ]);
   });
 });
