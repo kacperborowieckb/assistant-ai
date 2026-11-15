@@ -504,30 +504,54 @@ describe("Edit and link Notes", () => {
     expect(resultPrompt).toContain("channelMessageId");
   });
 
-  it("returns at most the newest linked Notes of a match and their total count", async () => {
+  it("returns the newest linked Notes of a match and their total count", async () => {
     const ownerId = await addOwner(7213);
     const total = maxLinkedNotesPerMatch + 2;
-    const found = await runInDurableObject(await agentOf(ownerId), (instance) =>
-      instance.runtime.runPromise(
-        Effect.gen(function* hubEffect() {
-          const notes = yield* Notes;
-          const hub = yield* notes.capture({
-            text: "hub topic",
-            source: sourceOfEvent("hub"),
-          });
-          for (let index = 0; index < total; index += 1) {
-            yield* notes.capture({
-              text: `spoke ${index}`,
-              source: sourceOfEvent(`spoke-${index}`),
-              linkedNoteIds: [hub.note.noteId],
+    const found = await runInDurableObject(
+      await agentOf(ownerId),
+      async (instance, state) => {
+        const spokeIds = await instance.runtime.runPromise(
+          Effect.gen(function* hubEffect() {
+            const notes = yield* Notes;
+            const hub = yield* notes.capture({
+              text: "hub topic",
+              source: sourceOfEvent("hub"),
             });
-          }
-          return yield* notes.search({ query: "hub", limit: 1 });
-        })
-      )
+            const ids: string[] = [];
+            for (let index = 0; index < total; index += 1) {
+              const spoke = yield* notes.capture({
+                text: `spoke ${index}`,
+                source: sourceOfEvent(`spoke-${index}`),
+                linkedNoteIds: [hub.note.noteId],
+              });
+              ids.push(spoke.note.noteId);
+            }
+            return ids;
+          })
+        );
+        for (const [index, spokeId] of spokeIds.entries()) {
+          state.storage.sql.exec(
+            "UPDATE note_links SET created_at = ? WHERE from_note_id = ? OR to_note_id = ?",
+            `2026-01-0${index + 1}T00:00:00.000Z`,
+            spokeId,
+            spokeId
+          );
+        }
+        return instance.runtime.runPromise(
+          Notes.pipe(
+            Effect.flatMap((notes) => notes.search({ query: "hub", limit: 1 }))
+          )
+        );
+      }
     );
 
     expect(found[0]?.linkedNoteCount).toBe(total);
-    expect(found[0]?.linkedNotes).toHaveLength(maxLinkedNotesPerMatch);
+    expect(found[0]?.linkedNotes.map((note) => note.text)).toEqual([
+      "spoke 6",
+      "spoke 5",
+      "spoke 4",
+      "spoke 3",
+      "spoke 2",
+    ]);
   });
 });
