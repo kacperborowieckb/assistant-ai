@@ -45,7 +45,7 @@ export const captureNoteTool = (
 ) =>
   agentTool({
     description:
-      "Keep a Note for the Owner: a text, a link, or a text with a link. Does not open the link.",
+      "Keep a Note for the Owner at once: a task, a text, a link, or a text with a link. Call it without asking the Owner first. Does not open the link.",
     inputSchema: effectInputSchema(CaptureNoteInput),
     execute: ({ text, url, linkedNoteIds }, { toolCallId, modelStepKey }) =>
       Effect.gen(function* captureNoteEffect() {
