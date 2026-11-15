@@ -31,7 +31,7 @@
     },
     {
       "id": "personal-agent",
-      "purpose": "One Durable Object for each Owner, built on the pinned Agents SDK. personalAgentFor finds it by Owner Id. Each object builds one Effect runtime over its SQLite storage. It stores each Event in the Inbox, schedules the Turn with a durable alarm, and runs the Turn: model reply, Journal Entries, and the Channel send. A tool with a side effect saves its call and result in the same transaction as its write, so a Turn that restarts replays them and does not run the tool again. It writes the conversation of each Event once, and Journal recovery finishes a write that a reset cut off. It owns the Drizzle storage schema and the versioned migrations that each Personal Agent applies once, in order, when it starts. Every Turn adds the Owner's current local date, time, weekday, and time zone (read from the Effect Clock) as the last section of the system prompt, or says that the time zone is not known.",
+      "purpose": "One Durable Object for each Owner, built on the pinned Agents SDK. personalAgentFor finds it by Owner Id. Each object builds one Effect runtime over its SQLite storage. It stores each Event in the Inbox (Owner messages go first in a Turn), keeps the Owner Channel Conversation from the Owner's messages, schedules the Turn with a durable alarm, and runs the Turn: model reply, Journal Entries, and the Channel send. A tool with a side effect saves its call and result in the same transaction as its write, so a Turn that restarts replays them and does not run the tool again. It writes the conversation of each Event once, and Journal recovery finishes a write that a reset cut off. It owns the Drizzle storage schema and the versioned migrations that each Personal Agent applies once, in order, when it starts. Every Turn adds the Owner's current local date, time, weekday, and time zone (read from the Effect Clock) as the last section of the system prompt, or says that the time zone is not known.",
       "roots": ["apps/agent/src/personal-agent"],
       "adrs": [
         "docs/decisions/0003-runtime-and-model-stack.md",
@@ -44,7 +44,7 @@
     },
     {
       "id": "event",
-      "purpose": "The Owner message Event that a Channel gives to the Personal Agent.",
+      "purpose": "The Event, a tagged union: OwnerMessage (what a Channel gives to the Personal Agent) and ScheduleFired (a Schedule id and the due instant). The Inbox keeps one ScheduleFired Event for each Schedule id and due instant. No code creates ScheduleFired yet.",
       "roots": ["apps/agent/src/event.ts"],
       "adrs": ["docs/decisions/0004-owners-and-channels.md"]
     },
@@ -111,7 +111,7 @@
     },
     {
       "id": "channel",
-      "purpose": "The Channel send action and the Telegram Channel: it decodes private text messages from Telegram updates, with the forward origin name (one line, at most 100 characters) of a forwarded message, and sends a plain-text reply that links to the Owner's message, split into parts within the Telegram limit of 4,096 characters. A send is confirmed only with a Telegram message id.",
+      "purpose": "The Channel send action and the Telegram Channel: it decodes private text messages from Telegram updates, with the forward origin name (one line, at most 100 characters) of a forwarded message, and sends a plain-text message, split into parts within the Telegram limit of 4,096 characters. The send action takes an optional message to reply to; with none, the request has no reply parameters. A send is confirmed only with a Telegram message id.",
       "roots": ["apps/agent/src/channels"],
       "adrs": [
         "docs/decisions/0004-owners-and-channels.md",

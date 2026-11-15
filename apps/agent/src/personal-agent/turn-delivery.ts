@@ -5,9 +5,28 @@ import { Journal } from "../journal/journal.ts";
 import { Redactor } from "../tracing/redactor.ts";
 import { Inbox } from "./inbox.ts";
 import type { InboxEvent } from "./inbox.ts";
+import { OwnerChannelConversation } from "./owner-channel-conversation.ts";
 
 export const honestFailureText =
   "Sorry, I could not answer that. Please try again in a moment.";
+
+export const noOwnerConversationReason =
+  "The Owner has no Channel conversation to send to yet";
+
+const destinationOf = (event: InboxEvent) =>
+  Effect.gen(function* destinationOfEffect() {
+    if (event._tag === "OwnerMessage") {
+      return {
+        conversationId: event.conversationId,
+        inReplyTo: event.channelMessageId,
+      };
+    }
+    const ownerConversation = yield* OwnerChannelConversation;
+    const current = yield* ownerConversation.current;
+    return current === undefined
+      ? undefined
+      : { conversationId: current.conversationId };
+  });
 
 export const deliver = (event: InboxEvent, text: string) =>
   Effect.gen(function* deliverEffect() {
@@ -20,12 +39,17 @@ export const deliver = (event: InboxEvent, text: string) =>
       eventId: event.eventId,
       text,
     });
+    const destination = yield* destinationOf(event);
+    if (destination === undefined) {
+      yield* journal.append({
+        _tag: "ReplyFailed",
+        eventId: event.eventId,
+        reason: noOwnerConversationReason,
+      });
+      return { _tag: "Failed", reason: noOwnerConversationReason } as const;
+    }
     yield* journal.append({ _tag: "SendStarted", eventId: event.eventId });
-    const delivery = yield* channel.send({
-      conversationId: event.conversationId,
-      inReplyTo: event.channelMessageId,
-      text,
-    });
+    const delivery = yield* channel.send({ ...destination, text });
 
     if (delivery._tag === "Failed") {
       const reason = redactor.redact(delivery.reason);

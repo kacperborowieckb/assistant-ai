@@ -344,6 +344,7 @@ describe("Capture a Note", () => {
         Effect.gen(function* seedEffect() {
           const inbox = yield* Inbox;
           yield* inbox.store({
+            _tag: "OwnerMessage",
             channel: "telegram",
             channelUpdateId: "reset-after-send",
             conversationId: "7011",
@@ -399,6 +400,7 @@ describe("Capture a Note", () => {
         Effect.gen(function* seedEffect() {
           const inbox = yield* Inbox;
           yield* inbox.store({
+            _tag: "OwnerMessage",
             channel: "telegram",
             channelUpdateId: "limit",
             conversationId: "7012",
@@ -444,6 +446,7 @@ describe("Capture a Note", () => {
         Effect.gen(function* seedEffect() {
           const inbox = yield* Inbox;
           yield* inbox.store({
+            _tag: "OwnerMessage",
             channel: "telegram",
             channelUpdateId: "failed-steps",
             conversationId: "7014",
@@ -479,6 +482,7 @@ describe("Capture a Note", () => {
         Effect.gen(function* seedEffect() {
           const inbox = yield* Inbox;
           yield* inbox.store({
+            _tag: "OwnerMessage",
             channel: "telegram",
             channelUpdateId: "one-step",
             conversationId: "7013",

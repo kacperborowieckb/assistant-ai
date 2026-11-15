@@ -1,6 +1,6 @@
 import type { OwnerMessage } from "../event.ts";
 import { trustLevelOfEvent } from "../personal-agent/event-trust.ts";
-import type { InboxEvent } from "../personal-agent/inbox.ts";
+import type { OwnerMessageEvent } from "../personal-agent/inbox.ts";
 import type { trustLevels } from "../personal-agent/storage-schema.ts";
 
 export type TrustLevel = (typeof trustLevels)[number];
@@ -22,7 +22,7 @@ export interface NoteSource {
   readonly trustLevel: TrustLevel;
 }
 
-export const noteSourceOfEvent = (event: InboxEvent): NoteSource => ({
+export const noteSourceOfEvent = (event: OwnerMessageEvent): NoteSource => ({
   eventId: event.eventId,
   channel: event.channel,
   conversationId: event.conversationId,

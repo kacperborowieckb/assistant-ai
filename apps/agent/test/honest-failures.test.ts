@@ -60,6 +60,7 @@ const interruptedWith = async (
         const inbox = yield* Inbox;
         const journal = yield* Journal;
         yield* inbox.store({
+          _tag: "OwnerMessage",
           channel: "telegram",
           channelUpdateId: "interrupted-1",
           conversationId: String(telegramUserId),

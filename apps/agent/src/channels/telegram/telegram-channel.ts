@@ -1,7 +1,7 @@
 import { Effect, Layer, Schema } from "effect";
 
 import { Channel } from "../channel.ts";
-import type { Delivery, OutgoingReply } from "../channel.ts";
+import type { Delivery, OutgoingMessage } from "../channel.ts";
 
 export interface TelegramConfig {
   readonly apiUrl: string;
@@ -48,17 +48,21 @@ const hasText = (part: string) => part.trim().length > 0;
 export const telegramParts = (text: string): readonly string[] =>
   splitAtLimit(text).filter(hasText);
 
-const sendMessageRequest = (config: TelegramConfig, reply: OutgoingReply) =>
+const sendMessageRequest = (config: TelegramConfig, message: OutgoingMessage) =>
   new Request(`${config.apiUrl}/bot${config.botToken}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      chat_id: Number(reply.conversationId),
-      text: reply.text,
-      reply_parameters: {
-        message_id: Number(reply.inReplyTo),
-        allow_sending_without_reply: true,
-      },
+      chat_id: Number(message.conversationId),
+      text: message.text,
+      ...(message.inReplyTo === undefined
+        ? {}
+        : {
+            reply_parameters: {
+              message_id: Number(message.inReplyTo),
+              allow_sending_without_reply: true,
+            },
+          }),
     }),
   });
 
@@ -81,9 +85,9 @@ const deliveryFrom = (response: Response) =>
     )
   );
 
-const sendPart = (config: TelegramConfig, reply: OutgoingReply) =>
+const sendPart = (config: TelegramConfig, message: OutgoingMessage) =>
   Effect.tryPromise(() =>
-    (config.fetch ?? fetch)(sendMessageRequest(config, reply))
+    (config.fetch ?? fetch)(sendMessageRequest(config, message))
   ).pipe(
     Effect.matchEffect({
       onFailure: () => Effect.succeed(failed("Telegram could not be reached")),
@@ -91,20 +95,20 @@ const sendPart = (config: TelegramConfig, reply: OutgoingReply) =>
     })
   );
 
-const send = (config: TelegramConfig) => (reply: OutgoingReply) =>
+const send = (config: TelegramConfig) => (message: OutgoingMessage) =>
   Effect.gen(function* sendEffect() {
-    const parts = telegramParts(reply.text);
+    const parts = telegramParts(message.text);
     const [first, ...rest] = parts;
     if (first === undefined) {
       return failed("The reply has no text");
     }
-    let delivery = yield* sendPart(config, { ...reply, text: first });
+    let delivery = yield* sendPart(config, { ...message, text: first });
     let sentParts = 1;
     for (const text of rest) {
       if (delivery._tag === "Failed") {
         break;
       }
-      delivery = yield* sendPart(config, { ...reply, text });
+      delivery = yield* sendPart(config, { ...message, text });
       sentParts += 1;
     }
     if (delivery._tag === "Failed" && parts.length > 1) {

@@ -3,7 +3,7 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 
 import { defaultBehaviorConfig } from "../behavior/behavior-config.ts";
 import type { Channel } from "../channels/channel.ts";
-import type { OwnerMessage } from "../event.ts";
+import type { Event } from "../event.ts";
 import { Journal } from "../journal/journal.ts";
 import { noTools } from "../model-gateway/agent-tool.ts";
 import type { AgentTools } from "../model-gateway/agent-tool.ts";
@@ -20,6 +20,7 @@ import { TurnTraces } from "../tracing/turn-trace.ts";
 import { AgentStorage } from "./agent-storage.ts";
 import { Conversation } from "./conversation.ts";
 import { Inbox } from "./inbox.ts";
+import { OwnerChannelConversation } from "./owner-channel-conversation.ts";
 import { TurnProgress } from "./turn-progress.ts";
 import { liveTurnServices } from "./turn-services.ts";
 import { takeTurn } from "./turn.ts";
@@ -36,6 +37,7 @@ const personalAgentLayer = (
     Profile.layer(ownerId).pipe(Layer.provide(journal)),
     OwnerPreferences.layer.pipe(Layer.provide(journal)),
     Conversation.layer,
+    OwnerChannelConversation.layer,
     TurnProgress.layer,
     UsageLedger.layer(ownerId),
     TurnTraces.layer(ownerId)
@@ -64,9 +66,16 @@ export class PersonalAgent extends Agent<Env> {
     personalAgentLayer(this.ctx.storage, this.ownerId)
   );
 
-  async receive(message: OwnerMessage): Promise<StoreConfirmation> {
+  async receive(event: Event): Promise<StoreConfirmation> {
     await this.runtime.runPromise(
-      Inbox.pipe(Effect.flatMap((inbox) => inbox.store(message)))
+      Effect.gen(function* receiveEffect() {
+        const inbox = yield* Inbox;
+        const ownerConversation = yield* OwnerChannelConversation;
+        if (event._tag === "OwnerMessage") {
+          yield* ownerConversation.remember(event);
+        }
+        yield* inbox.store(event);
+      })
     );
     const hasPendingEvents = await this.runtime.runPromise(
       Inbox.pipe(
