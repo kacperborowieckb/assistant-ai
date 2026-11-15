@@ -4,6 +4,8 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { Effect, Option, Queue, Schema } from "effect";
 
+import { fakeNoteEditMessage, isFakeNoteEdit } from "./fake-note-edits.ts";
+
 export const fakeReplyPrefix = "You said: ";
 
 export interface FakeTelegramMessage {
@@ -133,6 +135,9 @@ const fakeAssistantMessage = (
 ) => {
   if (ownerText.startsWith(fakeRecallPrefix)) {
     return fakeRecallMessage(ownerText, toolResult);
+  }
+  if (isFakeNoteEdit(ownerText)) {
+    return fakeNoteEditMessage(ownerText, toolResult);
   }
   if (!ownerText.startsWith(fakeKeepPrefix)) {
     return { role: "assistant", content: `${fakeReplyPrefix}${ownerText}` };

@@ -1,5 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
-import { Context, Effect, Layer } from "effect";
+import { Context, DateTime, Effect, Layer } from "effect";
 
 import { Journal } from "../journal/journal.ts";
 import type { OwnerId } from "../owner-id.ts";
@@ -143,58 +143,58 @@ const makeNotes = (ownerId: OwnerId) =>
         )
       );
 
-    const update = (request: UpdateRequest) =>
-      database.transaction(() =>
-        Effect.gen(function* writeUpdateEffect() {
-          const { noteId, eventId, text } = request;
-          yield* requireOwnNotes([
-            noteId,
-            ...uniqueNoteIds(request.linkedNoteIds),
-            ...uniqueNoteIds(request.unlinkedNoteIds),
-          ]);
-          const [row] = yield* database
-            .update(notes)
-            .set({
-              lastCheckedAt: new Date().toISOString(),
-              ...(text === undefined ? {} : { text }),
-            })
-            .where(and(eq(notes.ownerId, ownerId), eq(notes.noteId, noteId)))
-            .returning();
-          if (row === undefined) {
-            return yield* Effect.die("The Note is not found after the check");
-          }
-          yield* addLinks(noteId, uniqueNoteIds(request.linkedNoteIds));
-          yield* removeLinks(noteId, uniqueNoteIds(request.unlinkedNoteIds));
-          yield* journal.append({
-            _tag: "NoteUpdated",
-            eventId,
-            noteId,
-            change: changeOfUpdate(request),
-          });
-          return {
-            note: toNote(row),
-            linkedNoteIds: yield* linkedNoteIdsOf(noteId),
-          } satisfies Update;
+    const writeUpdate = Effect.fnUntraced(function* writeUpdate(
+      request: UpdateRequest
+    ) {
+      const { noteId, eventId, text } = request;
+      yield* requireOwnNotes([
+        noteId,
+        ...uniqueNoteIds(request.linkedNoteIds),
+        ...uniqueNoteIds(request.unlinkedNoteIds),
+      ]);
+      const [row] = yield* database
+        .update(notes)
+        .set({
+          lastCheckedAt: DateTime.formatIso(yield* DateTime.now),
+          ...(text === undefined ? {} : { text }),
         })
-      );
-
-    const linkedNotesOf = (noteId: string) =>
-      Effect.gen(function* linkedNotesEffect() {
-        const linkedNoteIds = yield* linkedNoteIdsOf(noteId);
-        if (linkedNoteIds.length === 0) {
-          return [];
-        }
-        const rows = yield* database
-          .select()
-          .from(notes)
-          .where(
-            and(
-              eq(notes.ownerId, ownerId),
-              inArray(notes.noteId, linkedNoteIds)
-            )
-          );
-        return rows.map((row) => toNote(row));
+        .where(and(eq(notes.ownerId, ownerId), eq(notes.noteId, noteId)))
+        .returning();
+      if (row === undefined) {
+        return yield* Effect.die("The Note is not found after the check");
+      }
+      yield* addLinks(noteId, uniqueNoteIds(request.linkedNoteIds));
+      yield* removeLinks(noteId, uniqueNoteIds(request.unlinkedNoteIds));
+      yield* journal.append({
+        _tag: "NoteUpdated",
+        eventId,
+        noteId,
+        change: changeOfUpdate(request),
       });
+      return {
+        note: toNote(row),
+        linkedNoteIds: yield* linkedNoteIdsOf(noteId),
+      } satisfies Update;
+    });
+
+    const update = (request: UpdateRequest) =>
+      database.transaction(() => writeUpdate(request));
+
+    const linkedNotesOf = Effect.fnUntraced(function* linkedNotesOf(
+      noteId: string
+    ) {
+      const linkedNoteIds = yield* linkedNoteIdsOf(noteId);
+      if (linkedNoteIds.length === 0) {
+        return [];
+      }
+      const rows = yield* database
+        .select()
+        .from(notes)
+        .where(
+          and(eq(notes.ownerId, ownerId), inArray(notes.noteId, linkedNoteIds))
+        );
+      return rows.map((row) => toNote(row));
+    });
 
     const search = Effect.fnUntraced(function* search({
       query,
