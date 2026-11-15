@@ -96,6 +96,9 @@ describe("Profile in every Turn", () => {
     await ownerSays(8102, "hello", 1);
 
     expect(systemPromptOfCall(0)).toContain("Profile of the Owner is empty");
+    expect(systemPromptOfCall(0)).toContain(
+      "answer from the Profile when it holds the answer"
+    );
   });
 
   it("takes a removed entry out of the next prompt", async () => {
