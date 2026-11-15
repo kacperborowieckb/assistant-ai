@@ -1,5 +1,5 @@
 import type { JSONValue, ModelMessage } from "ai";
-import { asc, eq } from "drizzle-orm";
+import { asc, countDistinct, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import {
@@ -17,6 +17,7 @@ const checkMessage = Schema.decodeUnknownEffect(ModelMessageSchema);
 export interface ToolCallProgress {
   readonly eventId: string;
   readonly toolCallId: string;
+  readonly modelStepKey: number;
   readonly toolName: string;
   readonly input: JSONValue;
   readonly redactor: Redactor["Service"];
@@ -60,6 +61,13 @@ const makeTurnProgress = Effect.gen(function* makeTurnProgressEffect() {
         )
       );
 
+  const finishedStepCount = (eventId: string) =>
+    database
+      .select({ steps: countDistinct(turnProgress.modelStepKey) })
+      .from(turnProgress)
+      .where(eq(turnProgress.eventId, eventId))
+      .pipe(Effect.map(([row]) => row?.steps ?? 0));
+
   const record = (call: ToolCallProgress, messages: readonly ModelMessage[]) =>
     Effect.gen(function* recordEffect() {
       const recordedAt = new Date().toISOString();
@@ -69,6 +77,7 @@ const makeTurnProgress = Effect.gen(function* makeTurnProgressEffect() {
         ).pipe(Effect.orDie);
         yield* database.insert(turnProgress).values({
           eventId: call.eventId,
+          modelStepKey: call.modelStepKey,
           message: encodeMessage(checked),
           recordedAt,
         });
@@ -85,7 +94,7 @@ const makeTurnProgress = Effect.gen(function* makeTurnProgressEffect() {
       )
     );
 
-  return { completedFor, recordingToolCall };
+  return { completedFor, finishedStepCount, recordingToolCall };
 });
 
 export class TurnProgress extends Context.Service<

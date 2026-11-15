@@ -32,13 +32,6 @@ import {
 import type { ModelOutcome } from "./turn-record.ts";
 import { settleFromJournal } from "./turn-recovery.ts";
 
-const remainingSteps = (
-  maxToolSteps: number,
-  earlier: readonly ModelMessage[]
-) =>
-  maxToolSteps -
-  earlier.filter((message) => message.role === "assistant").length;
-
 const rememberCompletedSteps = (
   event: InboxEvent,
   earlier: readonly ModelMessage[],
@@ -81,7 +74,9 @@ const answer = (
     const history = yield* conversation.recent;
     const system = systemPrompt(behavior);
     const earlier = yield* progress.completedFor(event.eventId);
-    const stepsLeft = remainingSteps(behavior.maxToolSteps, earlier);
+    const stepsLeft =
+      behavior.maxToolSteps -
+      (yield* progress.finishedStepCount(event.eventId));
     if (stepsLeft <= 0) {
       yield* conversation.append(event.eventId, [
         ownerMessage(event),

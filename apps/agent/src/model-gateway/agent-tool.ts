@@ -39,7 +39,7 @@ interface AgentToolDefinition<Input, Output> {
   readonly inputSchema: FlexibleSchema<Input>;
   readonly execute: (
     input: Input,
-    call: { readonly toolCallId: string }
+    call: { readonly toolCallId: string; readonly modelStepKey: number }
   ) => Effect.Effect<Output, ToolFailed>;
 }
 
@@ -50,8 +50,13 @@ export const agentTool = <Input, Output>(
     tool<Input, unknown, Record<string, unknown>>({
       description: definition.description,
       inputSchema: definition.inputSchema,
-      execute: (input: Input, { toolCallId }) =>
-        runEffect(definition.execute(input, { toolCallId })),
+      execute: (input: Input, { toolCallId, messages }) =>
+        runEffect(
+          definition.execute(input, {
+            toolCallId,
+            modelStepKey: messages.length,
+          })
+        ),
     }),
 });
 

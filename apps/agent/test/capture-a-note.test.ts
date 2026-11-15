@@ -17,6 +17,7 @@ import { honestFailureText } from "../src/personal-agent/turn-delivery.ts";
 import { TurnProgress } from "../src/personal-agent/turn-progress.ts";
 import {
   fakeModel,
+  fakeReplyPrefix,
   failModel,
   fakeTelegram,
   holdModel,
@@ -358,6 +359,7 @@ describe("Capture a Note", () => {
             {
               eventId,
               toolCallId: "call-1",
+              modelStepKey: 1,
               toolName: captureNoteToolName,
               input: { text: "buy jam" },
               redactor: { redact: (text) => text, redactMessage: (m) => m },
@@ -416,6 +418,7 @@ describe("Capture a Note", () => {
               {
                 eventId: event?.eventId ?? "",
                 toolCallId: `call-${index}`,
+                modelStepKey: index,
                 toolName: captureNoteToolName,
                 input: { text: `note ${index}` },
                 redactor: { redact: (text) => text, redactMessage: (m) => m },
@@ -431,6 +434,51 @@ describe("Capture a Note", () => {
     expect(fakeModel.doGenerateCalls).toHaveLength(0);
     expect(fakeTelegram.sent.map((sent) => sent.body.text)).toEqual([
       honestFailureText,
+    ]);
+  });
+
+  it("still asks the model for a reply when many saved tool calls came from one model step", async () => {
+    const ownerId = await addOwner(7013);
+    const agent = await agentOf(ownerId);
+    await runInDurableObject(agent, async (instance) => {
+      await instance.runtime.runPromise(
+        Effect.gen(function* seedEffect() {
+          const inbox = yield* Inbox;
+          yield* inbox.store({
+            channel: "telegram",
+            channelUpdateId: "one-step",
+            conversationId: "7013",
+            channelMessageId: "92",
+            text: "keep many",
+            sentAt: new Date().toISOString(),
+          });
+          const [event] = yield* inbox.pending;
+          const progress = yield* TurnProgress;
+          for (
+            let index = 0;
+            index < defaultBehaviorConfig.maxToolSteps;
+            index += 1
+          ) {
+            yield* progress.recordingToolCall(
+              {
+                eventId: event?.eventId ?? "",
+                toolCallId: `call-${index}`,
+                modelStepKey: 5,
+                toolName: captureNoteToolName,
+                input: { text: `note ${index}` },
+                redactor: { redact: (text) => text, redactMessage: (m) => m },
+              },
+              Effect.succeed({ noteId: `n${index}` })
+            );
+          }
+        })
+      );
+      await instance.runTurn();
+    });
+
+    expect(fakeModel.doGenerateCalls).toHaveLength(1);
+    expect(fakeTelegram.sent.map((sent) => sent.body.text)).toEqual([
+      `${fakeReplyPrefix}keep many`,
     ]);
   });
 });

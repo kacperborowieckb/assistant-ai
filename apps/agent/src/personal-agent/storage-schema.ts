@@ -50,6 +50,7 @@ export const turnProgress = sqliteTable(
   {
     sequence: integer("sequence").primaryKey({ autoIncrement: true }),
     eventId: text("event_id").notNull(),
+    modelStepKey: integer("model_step_key").notNull(),
     message: text("message").notNull(),
     recordedAt: text("recorded_at").notNull(),
   },

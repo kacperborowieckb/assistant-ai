@@ -1,11 +1,15 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "b8debc2e-9e24-487a-bc9c-d8d464cd8dae",
+  "id": "a6c5e13a-1fe3-4847-bc64-c0a268de2637",
   "prevIds": ["40846691-f8b3-41aa-a633-a2deac28b160"],
   "ddl": [
     {
       "name": "conversation_messages",
+      "entityType": "tables"
+    },
+    {
+      "name": "conversation_recorded_events",
       "entityType": "tables"
     },
     {
@@ -57,6 +61,16 @@
       "name": "recorded_at",
       "type": "text",
       "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "conversation_recorded_events",
+      "name": "event_id",
+      "type": "text",
+      "notNull": false,
       "autoincrement": false,
       "default": null,
       "generated": null,
@@ -454,6 +468,16 @@
     },
     {
       "table": "turn_progress",
+      "name": "model_step_key",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "turn_progress",
       "name": "message",
       "type": "text",
       "notNull": true,
@@ -582,6 +606,13 @@
       "table": "conversation_messages",
       "name": "conversation_messages_pk",
       "columns": ["sequence"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "conversation_recorded_events",
+      "name": "conversation_recorded_events_pk",
+      "columns": ["event_id"],
       "nameExplicit": false,
       "entityType": "pks"
     },
