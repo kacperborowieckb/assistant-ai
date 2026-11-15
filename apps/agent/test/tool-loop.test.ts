@@ -150,6 +150,26 @@ describe("Tool loop", () => {
     );
   });
 
+  it("remembers in the next Turn a tool that ran in a Turn whose send failed", async () => {
+    await addOwner(9009);
+    scriptModel([keepWord("red"), { say: "Kept red" }]);
+    fakeTelegram.answerWith("refuse");
+    await telegramWebhook(
+      textUpdate({ fromUserId: 9009, text: "keep red", messageId: 1 })
+    );
+    await waitForReplies(1);
+    resetFakes();
+
+    await telegramWebhook(
+      textUpdate({ fromUserId: 9009, text: "again", messageId: 2 })
+    );
+    await waitForReplies(1);
+
+    expect(promptPartTypes(0)).toEqual(
+      expect.arrayContaining(["tool-call", "tool-result"])
+    );
+  });
+
   it("gives a tool error to the model as a result and finishes the Turn", async () => {
     const ownerId = await addOwner(9003);
     fakeTool.failWith = "The Note store is full";

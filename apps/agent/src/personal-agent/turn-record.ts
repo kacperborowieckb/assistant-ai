@@ -150,3 +150,9 @@ export const recordTurnMetric = ({
 
 export const responseMessagesOf = (outcome: ModelOutcome) =>
   stepsOf(outcome).flatMap((step) => step.responseMessages);
+
+export const toolMessagesOf = (outcome: ModelOutcome) =>
+  (outcome._tag === "Replied"
+    ? outcome.reply.steps.slice(0, -1)
+    : outcome.error.steps
+  ).flatMap((step) => step.responseMessages);

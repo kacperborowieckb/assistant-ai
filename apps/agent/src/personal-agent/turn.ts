@@ -16,6 +16,7 @@ import type { InboxEvent } from "./inbox.ts";
 import {
   modelFailureReason,
   responseMessagesOf,
+  toolMessagesOf,
   recordTurnMetric,
   traceOf,
 } from "./turn-record.ts";
@@ -108,7 +109,7 @@ const rememberCompletedSteps = (event: InboxEvent, outcome: ModelOutcome) =>
   Effect.gen(function* rememberCompletedStepsEffect() {
     const conversation = yield* Conversation;
     const redactor = yield* Redactor;
-    const completed = responseMessagesOf(outcome);
+    const completed = toolMessagesOf(outcome);
 
     if (completed.length > 0) {
       yield* conversation.append([
@@ -185,6 +186,7 @@ const answer = (
     const replyText = redactor.redact(outcome.reply.text);
     const delivery = yield* deliver(event, replyText);
     if (delivery._tag === "Failed") {
+      yield* rememberCompletedSteps(event, outcome);
       yield* recordTurnFailed(event, delivery.reason);
       yield* recordTurnMetric({
         ownerId,
