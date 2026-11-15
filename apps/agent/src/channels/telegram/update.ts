@@ -29,6 +29,11 @@ type ForwardOrigin = typeof ForwardOriginSchema.Type;
 
 const unknownForwardOrigin = "an unknown sender";
 
+const maxForwardOriginLength = 100;
+
+const singleLine = (name: string) =>
+  name.replaceAll(/\s+/gu, " ").trim().slice(0, maxForwardOriginLength);
+
 const forwardOriginName = (origin: ForwardOrigin): string => {
   if ("sender_user" in origin) {
     return [origin.sender_user.first_name, origin.sender_user.last_name]
@@ -94,7 +99,11 @@ export const textMessageFrom = (
           sentAt: new Date(message.date * millisecondsPerSecond).toISOString(),
           ...(message.forward_origin === undefined
             ? {}
-            : { forwardOrigin: forwardOriginName(message.forward_origin) }),
+            : {
+                forwardOrigin:
+                  singleLine(forwardOriginName(message.forward_origin)) ||
+                  unknownForwardOrigin,
+              }),
         },
       });
     })

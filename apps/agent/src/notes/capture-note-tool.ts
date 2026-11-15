@@ -9,6 +9,7 @@ import { noteIdListSchema } from "./note-id-list-schema.ts";
 import { noteToolFailureMessage } from "./note-tool-failure-message.ts";
 import type { NoteToolServices } from "./note-tool-services.ts";
 import type { NoteSource } from "./note.ts";
+import { textForModel } from "./recalled-note.ts";
 
 export const captureNoteToolName = "capture_note";
 
@@ -48,6 +49,7 @@ export const captureNoteTool = (
     inputSchema: effectInputSchema(CaptureNoteInput),
     execute: ({ text, url, linkedNoteIds }, { toolCallId, modelStepKey }) =>
       Effect.gen(function* captureNoteEffect() {
+        const keptText = source.forwardedText ?? text;
         yield* progress.markModelStep(source.eventId, modelStepKey);
         return yield* progress.recordingToolCall(
           {
@@ -55,16 +57,19 @@ export const captureNoteTool = (
             toolCallId,
             toolName: captureNoteToolName,
             input: {
-              text,
+              text: textForModel({
+                text: keptText,
+                trustLevel: source.trustLevel,
+              }),
               ...(url === undefined ? {} : { url }),
               ...(linkedNoteIds === undefined ? {} : { linkedNoteIds }),
             },
             redactor,
           },
-          notes.capture({ text, url, source, linkedNoteIds }).pipe(
+          notes.capture({ text: keptText, url, source, linkedNoteIds }).pipe(
             Effect.map(({ note, alreadyKept, linkedNoteIds: linked }) => ({
               noteId: note.noteId,
-              text: note.text,
+              text: textForModel(note),
               url: note.url ?? null,
               alreadyKept,
               linkedNoteIds: linked,
