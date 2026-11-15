@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { Journal } from "../journal/journal.ts";
@@ -6,12 +6,13 @@ import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { notes } from "../personal-agent/storage-schema.ts";
 import { normalizeNoteText } from "./note.ts";
-import type { NoteSource, TrustLevel } from "./note.ts";
+import type { NoteSource, NoteSourceLocation, TrustLevel } from "./note.ts";
 
 export interface Note {
   readonly noteId: string;
   readonly text: string;
   readonly url: string | undefined;
+  readonly source: NoteSourceLocation;
   readonly trustLevel: TrustLevel;
   readonly capturedAt: string;
   readonly lastCheckedAt: string;
@@ -23,6 +24,11 @@ export interface CaptureRequest {
   readonly source: NoteSource;
 }
 
+export interface SearchRequest {
+  readonly query: string;
+  readonly limit: number;
+}
+
 export interface Capture {
   readonly note: Note;
   readonly alreadyKept: boolean;
@@ -32,10 +38,22 @@ const toNote = (row: typeof notes.$inferSelect): Note => ({
   noteId: row.noteId,
   text: row.text,
   url: row.url ?? undefined,
+  source: {
+    channel: row.sourceChannel,
+    conversationId: row.sourceConversationId,
+    channelMessageId: row.sourceChannelMessageId,
+  },
   trustLevel: row.trustLevel,
   capturedAt: row.capturedAt,
   lastCheckedAt: row.lastCheckedAt,
 });
+
+const ftsMatchOf = (query: string) => {
+  const words = query.match(/[\p{L}\p{N}]+/gu);
+  return words === null
+    ? undefined
+    : words.map((word) => `"${word}"`).join(" OR ");
+};
 
 const hashOf = (text: string) =>
   Effect.promise(async () => {
@@ -121,7 +139,32 @@ const makeNotes = (ownerId: OwnerId) =>
         )
       );
 
-    return { capture };
+    const search = ({ query, limit }: SearchRequest) =>
+      Effect.gen(function* searchEffect() {
+        const match = ftsMatchOf(query);
+        if (match === undefined) {
+          return [];
+        }
+        const ranked = yield* database.all<{ note_id: string }>(
+          sql`SELECT note_id FROM notes_fts WHERE notes_fts MATCH ${match} ORDER BY bm25(notes_fts) LIMIT ${limit}`
+        );
+        const noteIds = ranked.map((row) => row.note_id);
+        if (noteIds.length === 0) {
+          return [];
+        }
+        const rows = yield* database
+          .select()
+          .from(notes)
+          .where(
+            and(eq(notes.ownerId, ownerId), inArray(notes.noteId, noteIds))
+          );
+        return noteIds.flatMap((noteId) => {
+          const row = rows.find((candidate) => candidate.noteId === noteId);
+          return row === undefined ? [] : [toNote(row)];
+        });
+      });
+
+    return { capture, search };
   });
 
 export class Notes extends Context.Service<

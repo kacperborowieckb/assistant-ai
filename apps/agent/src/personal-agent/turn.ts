@@ -5,7 +5,7 @@ import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { noTools } from "../model-gateway/agent-tool.ts";
 import type { AgentTools } from "../model-gateway/agent-tool.ts";
 import { ModelGateway } from "../model-gateway/model-gateway.ts";
-import { noteToolsFor } from "../notes/capture-note-tool.ts";
+import { noteToolsFor } from "../notes/note-tools.ts";
 import { Notes } from "../notes/notes.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { Redactor } from "../tracing/redactor.ts";

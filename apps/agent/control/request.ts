@@ -20,10 +20,10 @@ export class ReplyMissing extends Data.TaggedError("ReplyMissing")<{
   }
 }
 
-const sampleUpdate = (text: string) => ({
-  update_id: 1,
+const sampleUpdate = (text: string, position: number) => ({
+  update_id: position,
   message: {
-    message_id: sampleMessageId,
+    message_id: sampleMessageId + position,
     date: Math.floor(Date.now() / 1000),
     chat: { id: sampleTelegramUserId, type: "private" },
     from: { id: sampleTelegramUserId, is_bot: false, first_name: "Owner" },
@@ -49,10 +49,10 @@ const startLocalWorker = (
   );
 
 export const requestReply = ({
-  message,
+  messages,
   contains,
 }: {
-  readonly message: string;
+  readonly messages: readonly string[];
   readonly contains: string;
 }) =>
   Effect.gen(function* requestReplyEffect() {
@@ -81,33 +81,36 @@ export const requestReply = ({
     });
     lines.push(renderAddedOwner(owner));
 
-    const webhook = yield* Effect.promise(() =>
-      fetch(new URL("/telegram/webhook", url), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Telegram-Bot-Api-Secret-Token": secrets.TELEGRAM_WEBHOOK_SECRET,
-        },
-        body: JSON.stringify(sampleUpdate(message)),
-      })
-    );
-    lines.push(
-      `Webhook answered ${webhook.status} for the message "${message}"`
-    );
-
-    const sent = yield* fakes.nextTelegramMessage.pipe(
-      Effect.timeout(replyTimeout)
-    );
-    lines.push(
-      `Telegram sendMessage to chat ${sent.chatId}, reply to message ${sent.replyToMessageId ?? "none"}: "${sent.text}"`
-    );
+    let reply = "";
+    for (const [index, message] of messages.entries()) {
+      const webhook = yield* Effect.promise(() =>
+        fetch(new URL("/telegram/webhook", url), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Telegram-Bot-Api-Secret-Token": secrets.TELEGRAM_WEBHOOK_SECRET,
+          },
+          body: JSON.stringify(sampleUpdate(message, index + 1)),
+        })
+      );
+      lines.push(
+        `Webhook answered ${webhook.status} for the message "${message}"`
+      );
+      const sent = yield* fakes.nextTelegramMessage.pipe(
+        Effect.timeout(replyTimeout)
+      );
+      lines.push(
+        `Telegram sendMessage to chat ${sent.chatId}, reply to message ${sent.replyToMessageId ?? "none"}: "${sent.text}"`
+      );
+      reply = sent.text;
+    }
     for (const call of fakes.modelCalls()) {
       lines.push(
         `AI Gateway call: gateway ${call.gatewayId ?? "missing"}, metadata ${call.metadata ?? "missing"}, collect log payload ${call.collectLogPayload ?? "missing"}`
       );
     }
-    if (!sent.text.includes(contains)) {
-      return yield* new ReplyMissing({ contains, reply: sent.text });
+    if (!reply.includes(contains)) {
+      return yield* new ReplyMissing({ contains, reply });
     }
     lines.push(`Result: the reply contains "${contains}"`);
     return lines.join("\n");

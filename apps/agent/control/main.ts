@@ -88,15 +88,20 @@ const request = Command.make(
       Flag.withDescription("Text that the reply must contain")
     ),
     message: Flag.String("message").pipe(
-      Flag.withDescription("The Owner's text message"),
-      Flag.withDefault("Hello agent")
+      Flag.withDescription(
+        "The Owner's text message. Repeat the flag to send several messages in order."
+      ),
+      Flag.atLeast(0)
     ),
   },
   ({ contains, message }) =>
-    requestReply({ contains, message }).pipe(Effect.flatMap(Console.log))
+    requestReply({
+      contains,
+      messages: message.length === 0 ? ["Hello agent"] : message,
+    }).pipe(Effect.flatMap(Console.log))
 ).pipe(
   Command.withDescription(
-    "Start the Worker locally with temporary storage, a fake Telegram API, and a fake model. Add an Owner, send a sample Telegram text message, and check that the reply contains the text. No network."
+    "Start the Worker locally with temporary storage, a fake Telegram API, and a fake model. Add an Owner, send a sample Telegram text message, and check that the last reply contains the text. No network."
   )
 );
 

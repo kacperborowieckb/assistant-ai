@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Journal } from "../src/journal/journal.ts";
 import { UsageLedger } from "../src/model-gateway/usage-ledger.ts";
+import { Notes } from "../src/notes/notes.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
 import { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
@@ -22,6 +23,15 @@ const readEverything = async (ownerId: string) =>
           traces: TurnTraces.pipe(Effect.flatMap((traces) => traces.read)),
           usage: UsageLedger.pipe(Effect.flatMap((ledger) => ledger.read)),
         })
+      )
+  );
+
+const searchNotesOf = async (ownerId: string, query: string) =>
+  runInDurableObject(
+    await personalAgentFor(env.PERSONAL_AGENT, OwnerIdSchema.make(ownerId)),
+    (instance) =>
+      instance.runtime.runPromise(
+        Notes.pipe(Effect.flatMap((notes) => notes.search({ query, limit: 5 })))
       )
   );
 
@@ -68,5 +78,34 @@ describe("Owner isolation", () => {
       expect(data.usage.every((row) => row.ownerId === ownerId)).toBe(true);
       expect(data.usage).toHaveLength(1);
     }
+  });
+
+  it("never returns the Notes of one Owner in the search of another Owner", async () => {
+    const first = await addOwner(9103);
+    const second = await addOwner(9104);
+    const source = {
+      eventId: "isolation-event",
+      channel: "telegram",
+      conversationId: "9103",
+      channelMessageId: "1",
+      trustLevel: "owner",
+    } as const;
+    await runInDurableObject(
+      await personalAgentFor(env.PERSONAL_AGENT, OwnerIdSchema.make(first)),
+      (instance) =>
+        instance.runtime.runPromise(
+          Notes.pipe(
+            Effect.flatMap((notes) =>
+              notes.capture({ text: "alpha-secret-plan", source })
+            )
+          )
+        )
+    );
+
+    const ofFirst = await searchNotesOf(first, "alpha-secret-plan");
+    const ofSecond = await searchNotesOf(second, "alpha-secret-plan");
+
+    expect(ofFirst.map((note) => note.text)).toEqual(["alpha-secret-plan"]);
+    expect(ofSecond).toEqual([]);
   });
 });
