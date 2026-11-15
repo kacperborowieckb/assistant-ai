@@ -1,9 +1,23 @@
 import type { LanguageModel } from "ai";
-import { Context } from "effect";
+import { Context, Schema } from "effect";
 
 export type ModelTask = "reply";
 
+export const ReasoningEffortSchema = Schema.Literals([
+  "none",
+  "low",
+  "medium",
+  "high",
+]);
+
+export type ReasoningEffort = typeof ReasoningEffortSchema.Type;
+
+export interface ResolvedRoute {
+  readonly model: LanguageModel;
+  readonly reasoningEffort: ReasoningEffort;
+}
+
 export class ModelProvider extends Context.Service<
   ModelProvider,
-  { readonly languageModel: (task: ModelTask) => LanguageModel }
+  { readonly route: (task: ModelTask) => ResolvedRoute }
 >()("ModelProvider") {}

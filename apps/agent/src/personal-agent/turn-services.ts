@@ -4,9 +4,9 @@ import { telegramChannel } from "../channels/telegram/telegram-channel.ts";
 import {
   aiGatewayModelProvider,
   BillingModeSchema,
-  ReasoningEffortSchema,
 } from "../model-gateway/ai-gateway.ts";
 import { ModelGateway } from "../model-gateway/model-gateway.ts";
+import { ReasoningEffortSchema } from "../model-gateway/model-provider.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { OperatorMetrics } from "../tracing/operator-metrics.ts";
 import { Redactor } from "../tracing/redactor.ts";

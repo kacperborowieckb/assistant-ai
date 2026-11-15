@@ -4,16 +4,7 @@ import { Layer, Schema } from "effect";
 
 import type { OwnerId } from "../owner-id.ts";
 import { ModelProvider } from "./model-provider.ts";
-import type { ModelTask } from "./model-provider.ts";
-
-export const ReasoningEffortSchema = Schema.Literals([
-  "none",
-  "low",
-  "medium",
-  "high",
-]);
-
-export type ReasoningEffort = typeof ReasoningEffortSchema.Type;
+import type { ModelTask, ReasoningEffort } from "./model-provider.ts";
 
 export interface ModelRoute {
   readonly model: string;
@@ -66,18 +57,19 @@ export const aiGatewayModelProvider = (
     ...(config.fetch === undefined ? {} : { fetch: config.fetch }),
   });
   return Layer.succeed(ModelProvider, {
-    languageModel: (task) => {
-      const route = config.routes[task];
-      return wrapLanguageModel({
-        model: provider.chatModel(route.model),
-        middleware: defaultSettingsMiddleware({
-          settings: {
-            providerOptions: {
-              [providerName]: { reasoningEffort: route.reasoningEffort },
+    route: (task) => {
+      const { model, reasoningEffort } = config.routes[task];
+      return {
+        reasoningEffort,
+        model: wrapLanguageModel({
+          model: provider.chatModel(model),
+          middleware: defaultSettingsMiddleware({
+            settings: {
+              providerOptions: { [providerName]: { reasoningEffort } },
             },
-          },
+          }),
         }),
-      });
+      };
     },
   });
 };

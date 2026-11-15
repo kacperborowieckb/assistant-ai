@@ -1,6 +1,7 @@
 import { asc } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
+import { ReasoningEffortSchema } from "../model-gateway/model-provider.ts";
 import { OwnerIdSchema } from "../owner-id.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
@@ -32,6 +33,7 @@ const TraceBodySchema = Schema.Struct({
   modelSettings: Schema.Struct({
     attempts: Schema.Number,
     attemptTimeoutMillis: Schema.Number,
+    reasoningEffort: Schema.optionalKey(ReasoningEffortSchema),
   }),
   system: Schema.String,
   messages: Schema.Array(PromptMessageSchema),

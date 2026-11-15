@@ -32,7 +32,9 @@ const fakeTurnServices: TurnServices = Layer.mergeAll(
   }),
   ModelGateway.layer.pipe(
     Layer.provide(
-      Layer.succeed(ModelProvider, { languageModel: () => fakeModel })
+      Layer.succeed(ModelProvider, {
+        route: () => ({ model: fakeModel, reasoningEffort: "none" }),
+      })
     )
   )
 );
