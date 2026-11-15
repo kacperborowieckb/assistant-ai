@@ -19,6 +19,7 @@ import { evalWorkerClient } from "./eval-worker-client.ts";
 import { EvalWorkerFailed } from "./eval-worker-failed.ts";
 import { ownerLabelOf } from "./owner-label.ts";
 import type { OwnerLabel } from "./owner-label.ts";
+import { TurnUnfinished } from "./turn-unfinished.ts";
 
 export const evalWorkerMain = "eval/worker.ts";
 
@@ -161,7 +162,28 @@ export const startLocalEvalAgent = Effect.fnUntraced(
       for (const event of evalCase.events) {
         const label = ownerLabelOf(event);
         exchanges[label].push(
-          yield* exchange(owners[label].ownerId, owners[label].userId, event)
+          yield* exchange(
+            owners[label].ownerId,
+            owners[label].userId,
+            event
+          ).pipe(
+            Effect.catchTag("TurnUnfinished", (unfinished) =>
+              Effect.all([
+                client.observe(owners.A.ownerId),
+                client.observe(owners.B.ownerId),
+              ]).pipe(
+                Effect.flatMap(([ownerA, ownerB]) =>
+                  Effect.fail(
+                    new TurnUnfinished({
+                      ownerText: unfinished.ownerText,
+                      timeoutMillis: unfinished.timeoutMillis,
+                      usage: [...ownerA.usage, ...ownerB.usage],
+                    })
+                  )
+                )
+              )
+            )
+          )
         );
       }
       const ownerRun = Effect.fnUntraced(function* ownerRun(label: OwnerLabel) {

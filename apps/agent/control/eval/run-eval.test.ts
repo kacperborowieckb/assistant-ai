@@ -231,10 +231,20 @@ describe("Eval runner with two Owners", () => {
         ],
       };
 
-      const { results } = await runFakeEval([isolationCase, leakCase], 1, []);
+      const { results, modelCalls } = await runFakeEval(
+        [isolationCase, leakCase],
+        1,
+        []
+      );
       const report = renderEvalReport(results, 1);
+      const judgeInput = modelCalls.find(
+        (call) => call.model === fakeJudgeModel
+      )?.lastUserMessage;
 
       expect(results.map(casePassed)).toStrictEqual([true, false]);
+      expect(judgeInput).toContain("Kept note");
+      expect(judgeInput).toContain("shed code is 77");
+      expect(judgeInput).not.toContain("garage");
       expect(report).toContain(
         'Run 1: Owner B, note_matches: a Note includes "garage". Found: 1 Note: "the shed code is 77, trust level owner"'
       );

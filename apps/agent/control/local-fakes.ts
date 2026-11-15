@@ -22,6 +22,7 @@ export interface FakeModelCall {
   readonly gatewayId: string | undefined;
   readonly metadata: string | undefined;
   readonly collectLogPayload: string | undefined;
+  readonly lastUserMessage: string;
 }
 
 const SendMessageBodySchema = Schema.Struct({
@@ -166,6 +167,7 @@ export const startLocalFakes = Effect.fnUntraced(function* startLocalFakes({
       gatewayId: headerValue(request, "cf-aig-gateway-id"),
       metadata: headerValue(request, "cf-aig-metadata"),
       collectLogPayload: headerValue(request, "cf-aig-collect-log-payload"),
+      lastUserMessage: lastOwnerText(completion.messages),
     });
     const message =
       completion.model === fakeJudgeModel
