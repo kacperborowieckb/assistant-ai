@@ -62,7 +62,8 @@
       "roots": ["apps/agent/src/notes"],
       "adrs": [
         "docs/decisions/0007-typed-queries-and-migrations.md",
-        "docs/decisions/0009-agent-loop-and-client-boundaries.md"
+        "docs/decisions/0009-agent-loop-and-client-boundaries.md",
+        "docs/decisions/0010-full-text-search-of-notes.md"
       ]
     },
     {
