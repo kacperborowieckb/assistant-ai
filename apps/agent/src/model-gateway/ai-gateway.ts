@@ -1,14 +1,20 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { defaultSettingsMiddleware, wrapLanguageModel } from "ai";
 import { Layer, Schema } from "effect";
 
 import type { OwnerId } from "../owner-id.ts";
 import { ModelProvider } from "./model-provider.ts";
-import type { ModelTask } from "./model-provider.ts";
+import type { ModelTask, ReasoningEffort } from "./model-provider.ts";
+
+export interface ModelRoute {
+  readonly model: string;
+  readonly reasoningEffort: ReasoningEffort;
+}
 
 export interface AiGatewayConfig {
   readonly url: string;
   readonly gatewayId: string;
-  readonly models: Readonly<Record<ModelTask, string>>;
+  readonly routes: Readonly<Record<ModelTask, ModelRoute>>;
   readonly fetch?: typeof fetch;
 }
 
@@ -20,6 +26,8 @@ export interface ModelCredentials {
   readonly token: string;
   readonly billing: BillingMode;
 }
+
+const providerName = "cloudflare-ai-gateway";
 
 const billingHeaders = (billing: BillingMode): Record<string, string> =>
   billing === "byok" ? { "cf-aig-no-wholesale": "true" } : {};
@@ -41,7 +49,7 @@ export const aiGatewayModelProvider = (
   ownerId: OwnerId
 ) => {
   const provider = createOpenAICompatible({
-    name: "cloudflare-ai-gateway",
+    name: providerName,
     baseURL: config.url,
     apiKey: credentials.token,
     headers: aiGatewayHeaders(config.gatewayId, credentials, ownerId),
@@ -49,6 +57,19 @@ export const aiGatewayModelProvider = (
     ...(config.fetch === undefined ? {} : { fetch: config.fetch }),
   });
   return Layer.succeed(ModelProvider, {
-    languageModel: (task) => provider.chatModel(config.models[task]),
+    route: (task) => {
+      const { model, reasoningEffort } = config.routes[task];
+      return {
+        reasoningEffort,
+        model: wrapLanguageModel({
+          model: provider.chatModel(model),
+          middleware: defaultSettingsMiddleware({
+            settings: {
+              providerOptions: { [providerName]: { reasoningEffort } },
+            },
+          }),
+        }),
+      };
+    },
   });
 };

@@ -41,7 +41,12 @@ describe("Model Gateway transport", () => {
       {
         url: "https://api.cloudflare.com/client/v4/accounts/account-1/ai/v1",
         gatewayId: "assistant",
-        models: { reply: "anthropic/claude-sonnet-5-5" },
+        routes: {
+          reply: {
+            model: "anthropic/claude-sonnet-5-5",
+            reasoningEffort: "none",
+          },
+        },
         fetch: recordingFetch,
       },
       { token: "gateway-token", billing: "unified-billing" },
@@ -52,7 +57,7 @@ describe("Model Gateway transport", () => {
       ModelProvider.pipe(
         Effect.flatMap((models) =>
           Effect.promise(() =>
-            generateText({ model: models.languageModel("reply"), prompt: "Hi" })
+            generateText({ model: models.route("reply").model, prompt: "Hi" })
           )
         ),
         Effect.provide(provider)
@@ -73,6 +78,7 @@ describe("Model Gateway transport", () => {
     expect(request?.headers.has("cf-aig-no-wholesale")).toBe(false);
     expect(await request?.json()).toMatchObject({
       model: "anthropic/claude-sonnet-5-5",
+      reasoning_effort: "none",
     });
   });
 
@@ -112,7 +118,9 @@ describe("Model Gateway transport", () => {
     const gateway = ModelGateway.layer.pipe(
       Layer.provide(failingLedger),
       Layer.provide(
-        Layer.succeed(ModelProvider, { languageModel: () => fakeModel })
+        Layer.succeed(ModelProvider, {
+          route: () => ({ model: fakeModel, reasoningEffort: "none" }),
+        })
       )
     );
 

@@ -42,10 +42,18 @@ export const traceOf = ({
   modelLatencyMillis,
   redactor,
 }: TraceInput): TurnTrace => {
+  const reasoningEffort =
+    outcome._tag === "Replied"
+      ? outcome.reply.reasoningEffort
+      : outcome.error.reasoningEffort;
   const base = {
     eventId: event.eventId,
     task: "reply",
-    modelSettings: { attempts: modelAttempts, attemptTimeoutMillis },
+    modelSettings: {
+      attempts: modelAttempts,
+      attemptTimeoutMillis,
+      reasoningEffort,
+    },
     system: redactor.redact(system),
     messages: messages.map((message) => ({
       role: message.role,

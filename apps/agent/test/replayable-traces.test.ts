@@ -73,7 +73,11 @@ describe("Replayable Traces", () => {
       result: "model_replied",
       task: "reply",
       modelId: "fake-reply-model",
-      modelSettings: { attempts: 3, attemptTimeoutMillis: 30_000 },
+      modelSettings: {
+        attempts: 3,
+        attemptTimeoutMillis: 30_000,
+        reasoningEffort: "none",
+      },
       messages: [{ role: "user", content: "Hello" }],
       toolCalls: [],
       reply: `${fakeReplyPrefix}Hello`,
@@ -135,6 +139,7 @@ describe("Replayable Traces", () => {
     expect(stored?.trace).toMatchObject({
       result: "model_failed",
       reply: null,
+      modelSettings: { reasoningEffort: "none" },
       messages: [{ role: "user", content: "Hello" }],
     });
     expect(stored?.trace.error).toContain(redactedMark);

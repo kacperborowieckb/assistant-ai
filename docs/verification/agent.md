@@ -132,6 +132,7 @@ pnpm control request --contains "You said: Hello agent"
 - `AI_GATEWAY_URL`: the AI Gateway REST base URL, `https://api.cloudflare.com/client/v4/accounts/<account id>/ai/v1`. It is empty in the repository, because it names the Operator's account. Set it before a deploy. A Turn with an empty value fails and names the value. `dev` and `request` replace it with the local fake.
 - `AI_GATEWAY_ID`: the gateway that the request names in `cf-aig-gateway-id`.
 - `REPLY_MODEL`: the model for the reply task, in the `<provider>/<model>` form of AI Gateway.
+- `REPLY_REASONING_EFFORT`: `none`, `low`, `medium`, or `high`. Each Model Task has its own model and thinking level, which form its route. The reply task sends this value as `reasoning_effort`. `none` turns thinking off on DeepSeek V4.1 Flash and cut the output tokens of a short reply from 76 to 8 in a live test. Use `none` for short chat replies. Use `low` or higher for the tasks that plan, call tools, or recall, when those tasks exist, and set the level from Eval results.
 - `MODEL_BILLING`: the billing mode of the Model Credentials, `unified-billing` (default) or `byok`. With `byok`, each request sends `cf-aig-no-wholesale: true`, so AI Gateway uses the Operator's stored provider key and does not fall back to Unified Billing. The setup of the stored key comes with `create-assistant`.
 
 The Model Gateway uses the AI Gateway REST endpoint, not the `/compat` endpoint, because Cloudflare marks `/compat` as deprecated for single-model chat completions. On this endpoint the token is a Cloudflare API token with the Workers AI Read permission, sent as `Authorization: Bearer`. Model Credentials are the token and the billing mode. Each request sends the Owner Id in `cf-aig-metadata` and `cf-aig-collect-log-payload: false`, so the gateway logs keep metadata and no prompt or reply text.
@@ -161,6 +162,6 @@ Limits from the [Workers limits page](https://developers.cloudflare.com/workers/
 - Startup: the global scope must parse and run within 1 second.
 - CPU time: 10 ms for each HTTP request on the Free plan. Waiting for network I/O does not count.
 
-Result: the Worker uses 6.4% of the size limit. It fits the free plan for bundle size.
+Result: the Worker uses 6.4% of the size limit. It fits the free plan for bundle size. Workers Paid is the supported plan ([decision 0008](../decisions/0008-workers-paid-plan.md)), so the free-plan CPU limit is not a release gate.
 
 Startup CPU is measured on the local machine, which has a different CPU from Cloudflare. The numbers changed between runs on a shared machine, so `bundle` shows them but does not enforce them. The CPU time for each webhook request and each alarm Turn needs the deployed Worker and is measured in the live slice.
