@@ -48,6 +48,21 @@ export const fakeTelegram = {
   },
 };
 
+const recordedDataPoints: AnalyticsEngineDataPoint[] = [];
+
+export const fakeMetrics = {
+  get dataPoints(): readonly AnalyticsEngineDataPoint[] {
+    return recordedDataPoints;
+  },
+  dataset: {
+    writeDataPoint: (dataPoint?: AnalyticsEngineDataPoint) => {
+      if (dataPoint !== undefined) {
+        recordedDataPoints.push(dataPoint);
+      }
+    },
+  } satisfies AnalyticsEngineDataset,
+};
+
 export const fakeReplyPrefix = "You said: ";
 
 const lastOwnerText = (
@@ -58,7 +73,9 @@ const lastOwnerText = (
   return part?.type === "text" ? part.text : "";
 };
 
-const modelFailure = { remaining: 0 };
+const defaultModelFailureMessage = "The model provider is down";
+
+const modelFailure = { remaining: 0, message: defaultModelFailureMessage };
 
 let releaseModel = Promise.resolve();
 
@@ -69,7 +86,7 @@ export const fakeModel = new MockLanguageModelV4({
     await releaseModel;
     if (modelFailure.remaining > 0) {
       modelFailure.remaining -= 1;
-      throw new Error("The model provider is down");
+      throw new Error(modelFailure.message);
     }
     return {
       content: [
@@ -94,12 +111,18 @@ export const holdModel = () => {
   return () => resolve(undefined);
 };
 
-export const failModel = (times: number) => {
+export const failModel = (
+  times: number,
+  message = defaultModelFailureMessage
+) => {
   modelFailure.remaining = times;
+  modelFailure.message = message;
 };
 
 export const resetFakes = () => {
   modelFailure.remaining = 0;
+  modelFailure.message = defaultModelFailureMessage;
+  recordedDataPoints.length = 0;
   fakeTelegramState.sent = [];
   fakeTelegramState.answer = "confirm";
   fakeModel.doGenerateCalls.length = 0;

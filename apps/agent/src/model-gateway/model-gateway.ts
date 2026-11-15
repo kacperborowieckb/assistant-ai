@@ -15,12 +15,14 @@ export interface ModelRequest {
 }
 
 export interface ModelReply {
+  readonly modelId: string;
   readonly text: string;
   readonly usage: Usage;
 }
 
 export const modelAttempts = 3;
-const attemptTimeout = "30 seconds";
+export const attemptTimeoutMillis = 30_000;
+const attemptTimeout = `${attemptTimeoutMillis} millis` as const;
 const firstRetryDelay = "1 second";
 
 const usageOf = (usage: LanguageModelUsage): Usage => ({
@@ -35,8 +37,9 @@ type LanguageModelRef = ReturnType<ModelProvider["Service"]["languageModel"]>;
 const modelIdOf = (model: LanguageModelRef) =>
   typeof model === "string" ? model : model.modelId;
 
-const attemptModelCall = (request: ModelRequest, model: LanguageModelRef) =>
-  Effect.tryPromise({
+const attemptModelCall = (request: ModelRequest, model: LanguageModelRef) => {
+  const modelId = modelIdOf(model);
+  return Effect.tryPromise({
     try: (abortSignal) =>
       generateText({
         model,
@@ -45,13 +48,15 @@ const attemptModelCall = (request: ModelRequest, model: LanguageModelRef) =>
         maxRetries: 0,
         abortSignal,
       }),
-    catch: (cause) => new ModelUnavailable({ cause }),
+    catch: (cause) => new ModelUnavailable({ modelId, cause }),
   }).pipe(
     Effect.timeoutOrElse({
       duration: attemptTimeout,
-      orElse: () => Effect.fail(new ModelUnavailable({ cause: "timeout" })),
+      orElse: () =>
+        Effect.fail(new ModelUnavailable({ modelId, cause: "timeout" })),
     })
   );
+};
 
 const makeModelGateway = Effect.gen(function* makeModelGatewayEffect() {
   const provider = yield* ModelProvider;
@@ -68,6 +73,7 @@ const makeModelGateway = Effect.gen(function* makeModelGatewayEffect() {
         ledger.record(request.task, modelIdOf(model), usageOf(result.usage))
       ),
       Effect.map((result): ModelReply => ({
+        modelId: modelIdOf(model),
         text: result.text,
         usage: usageOf(result.usage),
       }))

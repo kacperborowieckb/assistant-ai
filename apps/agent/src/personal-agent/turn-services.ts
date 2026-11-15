@@ -7,6 +7,8 @@ import {
 } from "../model-gateway/ai-gateway.ts";
 import { ModelGateway } from "../model-gateway/model-gateway.ts";
 import type { OwnerId } from "../owner-id.ts";
+import { OperatorMetrics } from "../tracing/operator-metrics.ts";
+import { Redactor } from "../tracing/redactor.ts";
 
 export class TurnConfigurationInvalid extends Data.TaggedError(
   "TurnConfigurationInvalid"
@@ -50,7 +52,14 @@ export const decodeTurnEnv = (env: Env) =>
 export const liveTurnServices = (env: Env, ownerId: OwnerId) =>
   Layer.unwrap(
     Effect.map(decodeTurnEnv(env), (config) =>
-      Layer.merge(
+      Layer.mergeAll(
+        OperatorMetrics.layer(env.OPERATOR_METRICS),
+        Redactor.layer([
+          config.TELEGRAM_BOT_TOKEN,
+          config.AI_GATEWAY_TOKEN,
+          env.TELEGRAM_WEBHOOK_SECRET,
+          env.OPERATOR_TOKEN,
+        ]),
         telegramChannel({
           apiUrl: config.TELEGRAM_API_URL,
           botToken: config.TELEGRAM_BOT_TOKEN,

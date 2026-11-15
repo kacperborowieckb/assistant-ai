@@ -1,13 +1,17 @@
 import { Effect } from "effect";
 
 import { Directory } from "../directory/directory.ts";
+import { OperatorMetrics } from "../tracing/operator-metrics.ts";
 import { handleAddOwner } from "./operator-routes.ts";
 import type { EdgeRouteKey } from "./routes.ts";
 import { handleTelegramUpdate } from "./telegram-webhook.ts";
 
 const handlers: Record<
   EdgeRouteKey,
-  (request: Request, env: Env) => Effect.Effect<Response, unknown, Directory>
+  (
+    request: Request,
+    env: Env
+  ) => Effect.Effect<Response, unknown, Directory | OperatorMetrics>
 > = {
   "POST /telegram/webhook": handleTelegramUpdate,
   "POST /operator/owners": handleAddOwner,
@@ -24,6 +28,7 @@ const handleRequest: ExportedHandlerFetchHandler<Env> = (request, env) => {
   return Effect.runPromise(
     handlers[key](request, env).pipe(
       Effect.provide(Directory.layer(env.DIRECTORY)),
+      Effect.provide(OperatorMetrics.layer(env.OPERATOR_METRICS)),
       Effect.catchCause((cause) =>
         Effect.as(
           Effect.logError("The Edge could not handle a request", cause),
