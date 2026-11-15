@@ -109,6 +109,38 @@ describe("Private metrics", () => {
     ]);
   });
 
+  it("still answers 401 and 200 at the Edge when the metric cannot be written", async () => {
+    fakeMetrics.failWrites();
+    await addOwner(9007);
+
+    const refused = await telegramWebhook(
+      textUpdate({ fromUserId: 9007, text: "Hello" }),
+      "wrong-token"
+    );
+    const unknown = await telegramWebhook(
+      textUpdate({ fromUserId: 9008, text: "Hello" })
+    );
+
+    expect(refused.status).toBe(401);
+    expect(unknown.status).toBe(200);
+  });
+
+  it("still answers every pending Event when the metric cannot be written", async () => {
+    fakeMetrics.failWrites();
+    await addOwner(9009);
+
+    await telegramWebhook(
+      textUpdate({ fromUserId: 9009, text: "One", messageId: 1 })
+    );
+    await telegramWebhook(
+      textUpdate({ fromUserId: 9009, text: "Two", messageId: 2 })
+    );
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2), {
+      timeout: 10_000,
+    });
+  });
+
   it("records nothing for an update that is not a text message", async () => {
     await telegramWebhook({ update_id: 1, edited_message: {} });
 

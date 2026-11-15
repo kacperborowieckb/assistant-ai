@@ -50,12 +50,20 @@ export const fakeTelegram = {
 
 const recordedDataPoints: AnalyticsEngineDataPoint[] = [];
 
+const metricsState = { failing: false };
+
 export const fakeMetrics = {
   get dataPoints(): readonly AnalyticsEngineDataPoint[] {
     return recordedDataPoints;
   },
+  failWrites: () => {
+    metricsState.failing = true;
+  },
   dataset: {
     writeDataPoint: (dataPoint?: AnalyticsEngineDataPoint) => {
+      if (metricsState.failing) {
+        throw new Error("Analytics Engine is down");
+      }
       if (dataPoint !== undefined) {
         recordedDataPoints.push(dataPoint);
       }
@@ -123,6 +131,7 @@ export const resetFakes = () => {
   modelFailure.remaining = 0;
   modelFailure.message = defaultModelFailureMessage;
   recordedDataPoints.length = 0;
+  metricsState.failing = false;
   fakeTelegramState.sent = [];
   fakeTelegramState.answer = "confirm";
   fakeModel.doGenerateCalls.length = 0;

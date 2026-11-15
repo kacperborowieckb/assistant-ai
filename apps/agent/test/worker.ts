@@ -19,7 +19,12 @@ export { default } from "../src/index.ts";
 
 const fakeTurnServices: TurnServices = Layer.mergeAll(
   OperatorMetrics.layer(fakeMetrics.dataset),
-  Redactor.layer([env.TELEGRAM_BOT_TOKEN, env.AI_GATEWAY_TOKEN]),
+  Redactor.layer([
+    env.TELEGRAM_BOT_TOKEN,
+    env.AI_GATEWAY_TOKEN,
+    env.TELEGRAM_WEBHOOK_SECRET,
+    env.OPERATOR_TOKEN,
+  ]),
   telegramChannel({
     apiUrl: fakeTelegramApiUrl,
     botToken: env.TELEGRAM_BOT_TOKEN,

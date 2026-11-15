@@ -49,6 +49,13 @@ const everythingStoredFor = async (ownerId: string) =>
     )
   );
 
+const allSecrets = [
+  env.AI_GATEWAY_TOKEN,
+  env.TELEGRAM_BOT_TOKEN,
+  env.TELEGRAM_WEBHOOK_SECRET,
+  env.OPERATOR_TOKEN,
+];
+
 beforeEach(() => {
   resetFakes();
 });
@@ -119,10 +126,7 @@ describe("Replayable Traces", () => {
 
   it("records a failed Turn with its error and no secret", async () => {
     const ownerId = await addOwner(8003);
-    failModel(
-      3,
-      `Provider refused ${env.AI_GATEWAY_TOKEN} and ${env.TELEGRAM_BOT_TOKEN}`
-    );
+    failModel(3, `Provider refused ${allSecrets.join(" and ")}`);
 
     await telegramWebhook(textUpdate({ fromUserId: 8003, text: "Hello" }));
     await waitForTraces(ownerId, 1);
@@ -136,12 +140,7 @@ describe("Replayable Traces", () => {
     expect(stored?.trace.error).toContain(redactedMark);
     await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(1));
     const storedText = await everythingStoredFor(ownerId);
-    for (const secret of [
-      env.AI_GATEWAY_TOKEN,
-      env.TELEGRAM_BOT_TOKEN,
-      env.TELEGRAM_WEBHOOK_SECRET,
-      env.OPERATOR_TOKEN,
-    ]) {
+    for (const secret of allSecrets) {
       expect(storedText).not.toContain(secret);
     }
   });
@@ -150,15 +149,18 @@ describe("Replayable Traces", () => {
     const ownerId = await addOwner(8005);
 
     await telegramWebhook(
-      textUpdate({ fromUserId: 8005, text: `Key ${env.AI_GATEWAY_TOKEN}` })
+      textUpdate({ fromUserId: 8005, text: `Keys ${allSecrets.join(" ")}` })
     );
     await waitForTraces(ownerId, 1);
 
     const storedText = await everythingStoredFor(ownerId);
-    expect(storedText).not.toContain(env.AI_GATEWAY_TOKEN);
+    for (const secret of allSecrets) {
+      expect(storedText).not.toContain(secret);
+    }
+    const marks = allSecrets.map(() => redactedMark).join(" ");
     const [stored] = await tracesOf(ownerId);
-    expect(stored?.trace.messages[0]?.content).toBe(`Key ${redactedMark}`);
-    expect(stored?.trace.reply).toBe(`${fakeReplyPrefix}Key ${redactedMark}`);
+    expect(stored?.trace.messages[0]?.content).toBe(`Keys ${marks}`);
+    expect(stored?.trace.reply).toBe(`${fakeReplyPrefix}Keys ${marks}`);
   });
 
   it("refuses updates and deletes of a Trace", async () => {

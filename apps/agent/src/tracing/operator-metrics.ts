@@ -64,7 +64,11 @@ const makeOperatorMetrics = (dataset: AnalyticsEngineDataset) => ({
   record: (metric: OperatorMetric) =>
     Effect.sync(() => {
       dataset.writeDataPoint(dataPointOf(metric));
-    }),
+    }).pipe(
+      Effect.catchCause(() =>
+        Effect.logWarning("The Operator metric could not be written")
+      )
+    ),
 });
 
 export class OperatorMetrics extends Context.Service<
