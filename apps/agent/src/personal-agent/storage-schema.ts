@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   check,
   index,
@@ -16,6 +17,8 @@ import type { OwnerId } from "../owner-id.ts";
 export const inboxStates = ["pending", "done", "failed"] as const;
 
 export const trustLevels = ["owner", "untrusted"] as const;
+
+export const noteChanges = ["text", "links", "text_and_links"] as const;
 
 export const turnResults = ["model_replied", "model_failed"] as const;
 
@@ -129,5 +132,26 @@ export const notes = sqliteTable(
   (table) => [
     unique().on(table.sourceEventId, table.textHash),
     check("notes_trust_level_check", valueIn(table.trustLevel, trustLevels)),
+  ]
+);
+
+export const noteLinks = sqliteTable(
+  "note_links",
+  {
+    fromNoteId: text("from_note_id")
+      .notNull()
+      .references(() => notes.noteId, { onDelete: "cascade" }),
+    toNoteId: text("to_note_id")
+      .notNull()
+      .references(() => notes.noteId, { onDelete: "cascade" }),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.fromNoteId, table.toNoteId] }),
+    index("note_links_to_note").on(table.toNoteId),
+    check(
+      "note_links_ordered_check",
+      sql`${table.fromNoteId} < ${table.toNoteId}`
+    ),
   ]
 );
