@@ -8,11 +8,17 @@ import { ModelGateway } from "../model-gateway/model-gateway.ts";
 import { noteToolsFor } from "../notes/note-tools.ts";
 import { Notes } from "../notes/notes.ts";
 import type { OwnerId } from "../owner-id.ts";
+import { OwnerPreferences } from "../preferences/owner-preferences.ts";
+import {
+  setTimeZoneTool,
+  setTimeZoneToolName,
+} from "../preferences/set-time-zone-tool.ts";
 import { Profile } from "../profile/profile.ts";
 import {
   updateProfileTool,
   updateProfileToolName,
 } from "../profile/update-profile-tool.ts";
+import { ownerCurrentTimeText } from "../time/owner-current-time.ts";
 import { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
 import { Conversation } from "./conversation.ts";
@@ -75,11 +81,16 @@ const answer = (
     const redactor = yield* Redactor;
     const notes = yield* Notes;
     const profile = yield* Profile;
+    const preferences = yield* OwnerPreferences;
     const progress = yield* TurnProgress;
 
     const startedAt = yield* Clock.currentTimeMillis;
     const history = yield* conversation.recent;
-    const system = systemPrompt(behavior, yield* profile.read);
+    const system = systemPrompt(
+      behavior,
+      yield* profile.read,
+      yield* ownerCurrentTimeText(behavior)
+    );
     const earlier = yield* progress.completedFor(event.eventId);
     const stepsLeft =
       behavior.maxToolSteps - (yield* progress.usedStepCount(event.eventId));
@@ -112,6 +123,14 @@ const answer = (
                     redactor,
                     characterLimit: behavior.maxProfileCharacters,
                   },
+                  event.eventId
+                ),
+              }
+            : {}),
+          ...(trustLevelOfEvent(event) === "owner"
+            ? {
+                [setTimeZoneToolName]: setTimeZoneTool(
+                  { preferences, progress, redactor },
                   event.eventId
                 ),
               }

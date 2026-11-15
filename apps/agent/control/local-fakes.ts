@@ -8,6 +8,10 @@ import { fakeJudgeMessage, fakeJudgeModel } from "./fake-judge.ts";
 import type { FakeJudgeVerdict } from "./fake-judge.ts";
 import { fakeNoteEditMessage, isFakeNoteEdit } from "./fake-note-edits.ts";
 import { fakeRecallMessage, fakeRecallPrefix } from "./fake-recall.ts";
+import {
+  fakeTimeZoneMessage,
+  isFakeTimeZoneMessage,
+} from "./fake-time-zone.ts";
 
 export const fakeReplyPrefix = "You said: ";
 
@@ -70,6 +74,15 @@ const lastOwnerText = (
   return typeof content === "string" ? content : "";
 };
 
+const systemTextOf = (
+  messages: (typeof ChatCompletionBodySchema.Type)["messages"]
+) => {
+  const content = messages.find(
+    (message) => message.role === "system"
+  )?.content;
+  return typeof content === "string" ? content : "";
+};
+
 const toolResultOf = (
   messages: (typeof ChatCompletionBodySchema.Type)["messages"]
 ) => {
@@ -81,8 +94,12 @@ const toolResultOf = (
 
 const fakeAssistantMessage = (
   ownerText: string,
-  toolResult: string | undefined
+  toolResult: string | undefined,
+  systemText: string
 ) => {
+  if (isFakeTimeZoneMessage(ownerText)) {
+    return fakeTimeZoneMessage(ownerText, toolResult, systemText);
+  }
   if (ownerText.startsWith(fakeRecallPrefix)) {
     return fakeRecallMessage(ownerText, toolResult);
   }
@@ -174,7 +191,8 @@ export const startLocalFakes = Effect.fnUntraced(function* startLocalFakes({
         ? fakeJudgeMessage(pendingJudgeVerdicts.shift() ?? "pass")
         : fakeAssistantMessage(
             lastOwnerText(completion.messages),
-            toolResultOf(completion.messages)
+            toolResultOf(completion.messages),
+            systemTextOf(completion.messages)
           );
     sendJson(response, 200, {
       id: `fake-completion-${modelCalls.length}`,

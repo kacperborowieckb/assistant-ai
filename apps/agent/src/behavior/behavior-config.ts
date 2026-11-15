@@ -2,6 +2,7 @@ export interface BehaviorConfig {
   readonly textingStyle: string;
   readonly maxToolSteps: number;
   readonly maxProfileCharacters: number;
+  readonly defaultTimeZone?: string | undefined;
 }
 
 export const defaultBehaviorConfig: BehaviorConfig = {

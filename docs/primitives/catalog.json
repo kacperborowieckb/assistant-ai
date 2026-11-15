@@ -31,14 +31,15 @@
     },
     {
       "id": "personal-agent",
-      "purpose": "One Durable Object for each Owner, built on the pinned Agents SDK. personalAgentFor finds it by Owner Id. Each object builds one Effect runtime over its SQLite storage. It stores each Event in the Inbox, schedules the Turn with a durable alarm, and runs the Turn: model reply, Journal Entries, and the Channel send. A tool with a side effect saves its call and result in the same transaction as its write, so a Turn that restarts replays them and does not run the tool again. It writes the conversation of each Event once, and Journal recovery finishes a write that a reset cut off. It owns the Drizzle storage schema and the versioned migrations that each Personal Agent applies once, in order, when it starts.",
+      "purpose": "One Durable Object for each Owner, built on the pinned Agents SDK. personalAgentFor finds it by Owner Id. Each object builds one Effect runtime over its SQLite storage. It stores each Event in the Inbox, schedules the Turn with a durable alarm, and runs the Turn: model reply, Journal Entries, and the Channel send. A tool with a side effect saves its call and result in the same transaction as its write, so a Turn that restarts replays them and does not run the tool again. It writes the conversation of each Event once, and Journal recovery finishes a write that a reset cut off. It owns the Drizzle storage schema and the versioned migrations that each Personal Agent applies once, in order, when it starts. Every Turn adds the Owner's current local date, time, weekday, and time zone (read from the Effect Clock) as the last section of the system prompt, or says that the time zone is not known.",
       "roots": ["apps/agent/src/personal-agent"],
       "adrs": [
         "docs/decisions/0003-runtime-and-model-stack.md",
         "docs/decisions/0004-owners-and-channels.md",
         "docs/decisions/0007-typed-queries-and-migrations.md",
         "docs/decisions/0008-workers-paid-plan.md",
-        "docs/decisions/0009-agent-loop-and-client-boundaries.md"
+        "docs/decisions/0009-agent-loop-and-client-boundaries.md",
+        "docs/decisions/0013-schedules-and-time.md"
       ]
     },
     {
@@ -76,6 +77,16 @@
       ]
     },
     {
+      "id": "owner-preferences",
+      "purpose": "The Owner Preferences primitive and the time of the Owner. Typed preferences live in the owner_preferences table of the Personal Agent SQLite (versioned migration), each checked by a Schema on write and read. The first preference is the time zone, an IANA name that DateTime.zoneMakeNamed accepts. The Owner Preference overrides the Behavior Config default. Each change appends an OwnerPreferenceChanged Journal Entry. The set_time_zone tool (only for an Event with Trust Level owner) sets it and returns a message for the model, with no change, for an invalid name. The time module renders the current local date, time, weekday, and time zone of the Owner from the Effect Clock.",
+      "roots": ["apps/agent/src/preferences", "apps/agent/src/time"],
+      "adrs": [
+        "docs/decisions/0007-typed-queries-and-migrations.md",
+        "docs/decisions/0009-agent-loop-and-client-boundaries.md",
+        "docs/decisions/0013-schedules-and-time.md"
+      ]
+    },
+    {
       "id": "model-gateway",
       "purpose": "The one interface to models. It selects the model for a Model Task (reply, or eval_judge for the Eval judge), each with its own route of model and thinking level, resolves the Model Credentials (token and billing mode), calls it with the AI SDK through Cloudflare AI Gateway with the Owner Id as metadata and no stored bodies, retries with a timeout for each try, and records Usage for each model call in the Personal Agent SQLite.",
       "roots": ["apps/agent/src/model-gateway"],
@@ -109,9 +120,9 @@
     },
     {
       "id": "behavior-config",
-      "purpose": "The typed Behavior Config defaults: the texting style, the tool step limit of a Turn, and the size limit of the Profile in characters.",
+      "purpose": "The typed Behavior Config defaults: the texting style, the tool step limit of a Turn, the size limit of the Profile in characters, and an optional default time zone that the Owner Preference overrides.",
       "roots": ["apps/agent/src/behavior"],
-      "adrs": []
+      "adrs": ["docs/decisions/0013-schedules-and-time.md"]
     },
     {
       "id": "owner-id",
@@ -121,7 +132,7 @@
     },
     {
       "id": "agent-control-cli",
-      "purpose": "The control CLI of apps/agent: doctor checks configuration and secret names, dev runs the Worker locally with local fakes, owner add adds the Owner through the Operator route, request --contains proves a reply locally with no network, eval runs the Eval Cases against the real model (decision 0011), map writes and checks the Feature Map of the Edge routes, and bundle measures bundle size and local startup CPU.",
+      "purpose": "The control CLI of apps/agent: doctor checks configuration and secret names, dev runs the Worker locally with local fakes, owner add adds the Owner through the Operator route, request --contains proves a reply locally with no network (its fake model also sets the time zone and tells the local time), eval runs the Eval Cases against the real model (decision 0011), map writes and checks the Feature Map of the Edge routes, and bundle measures bundle size and local startup CPU.",
       "roots": ["apps/agent/control"],
       "adrs": [
         "docs/decisions/0001-repository-foundation.md",
