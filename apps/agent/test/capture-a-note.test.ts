@@ -182,7 +182,7 @@ describe("Capture a Note", () => {
     await vi.waitFor(() => expect(fakeModel.doGenerateCalls).toHaveLength(2));
     expect(await notesOf(ownerId)).toHaveLength(1);
     await abortAllDurableObjects();
-    scriptModel([captureNote({ text: "buy tea" }), { say: "Kept: buy tea" }]);
+    scriptModel([{ say: "Kept: buy tea" }]);
     releaseModel();
     await runDurableObjectAlarm(await agentOf(ownerId));
     await waitForReplies(1);
@@ -190,6 +190,9 @@ describe("Capture a Note", () => {
     expect(await notesOf(ownerId)).toHaveLength(1);
     expect(fakeTelegram.sent).toHaveLength(1);
     expect(await capturedEntriesOf(ownerId)).toHaveLength(1);
+    expect(JSON.stringify(fakeModel.doGenerateCalls.at(-1)?.prompt)).toContain(
+      "You already kept these Notes"
+    );
   });
 
   it("writes nothing and tells the model the Note was not kept when the write fails", async () => {
@@ -234,5 +237,30 @@ describe("Capture a Note", () => {
 
     expect(await notesOf(ownerId)).toHaveLength(1);
     expect(await capturedEntriesOf(ownerId)).toHaveLength(1);
+  });
+
+  it("keeps no Note when the Journal Entry of the write cannot be appended", async () => {
+    const ownerId = await addOwner(7008);
+    await runInDurableObject(
+      await agentOf(ownerId),
+      async (instance, state) => {
+        await instance.runtime.runPromise(Effect.void);
+        state.storage.sql.exec(
+          "CREATE TRIGGER journal_fail BEFORE INSERT ON journal_entries WHEN NEW.kind = 'NoteCaptured' BEGIN SELECT RAISE(ABORT, 'disk full'); END"
+        );
+      }
+    );
+    scriptModel([
+      captureNote({ text: "buy rice" }),
+      { say: "Sorry, I could not keep that" },
+    ]);
+
+    await telegramWebhook(textUpdate({ fromUserId: 7008, text: "buy rice" }));
+    await waitForReplies(1);
+
+    expect(await notesOf(ownerId)).toEqual([]);
+    expect(JSON.stringify(fakeModel.doGenerateCalls[1]?.prompt)).toContain(
+      "The Note was not kept"
+    );
   });
 });

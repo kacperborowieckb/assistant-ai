@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { Journal } from "../journal/journal.ts";
@@ -66,9 +66,11 @@ const makeNotes = (ownerId: OwnerId) =>
         }
       });
 
-    const capture = ({ text, url, source }: CaptureRequest) =>
-      Effect.gen(function* captureEffect() {
-        const textHash = yield* hashOf(text);
+    const writeNote = (
+      { text, url, source }: CaptureRequest,
+      textHash: string
+    ) =>
+      Effect.gen(function* writeNoteEffect() {
         const now = new Date().toISOString();
         const [inserted] = yield* database
           .insert(notes)
@@ -112,7 +114,22 @@ const makeNotes = (ownerId: OwnerId) =>
         } satisfies Capture;
       });
 
-    return { capture };
+    const capture = (request: CaptureRequest) =>
+      hashOf(request.text).pipe(
+        Effect.flatMap((textHash) =>
+          database.transaction(() => writeNote(request, textHash))
+        )
+      );
+
+    const keptForEvent = (eventId: string) =>
+      database
+        .select()
+        .from(notes)
+        .where(eq(notes.sourceEventId, eventId))
+        .orderBy(asc(notes.capturedAt))
+        .pipe(Effect.map((rows) => rows.map(toNote)));
+
+    return { capture, keptForEvent };
   });
 
 export class Notes extends Context.Service<

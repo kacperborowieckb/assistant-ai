@@ -135,7 +135,10 @@ const answer = (
 
     const startedAt = yield* Clock.currentTimeMillis;
     const history = yield* conversation.recent;
-    const system = systemPrompt(behavior);
+    const system = systemPrompt(
+      behavior,
+      yield* notes.keptForEvent(event.eventId)
+    );
     const messages = [...history, ownerMessage(event)];
     const outcome: ModelOutcome = yield* modelGateway
       .generate({
