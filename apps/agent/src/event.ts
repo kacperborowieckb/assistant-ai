@@ -6,6 +6,7 @@ export const OwnerMessageSchema = Schema.Struct({
   conversationId: Schema.String,
   channelMessageId: Schema.String,
   text: Schema.String,
+  forwardOrigin: Schema.optionalKey(Schema.String),
   sentAt: Schema.String,
 });
 

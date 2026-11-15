@@ -9,6 +9,7 @@ export const toNote = (row: typeof notes.$inferSelect): Note => ({
     channel: row.sourceChannel,
     conversationId: row.sourceConversationId,
     channelMessageId: row.sourceChannelMessageId,
+    forwardOrigin: row.sourceForwardOrigin ?? undefined,
   },
   trustLevel: row.trustLevel,
   capturedAt: row.capturedAt,

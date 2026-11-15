@@ -8,6 +8,7 @@ import m0006 from "./20261115153100_turn_progress/migration.sql";
 import m0007 from "./20261115172013_notes_search/migration.sql";
 import m0008 from "./20261115175723_note_links/migration.sql";
 import m0009 from "./20261115183520_profile_entries/migration.sql";
+import m0010 from "./20261115191148_forwarded_messages/migration.sql";
 
 export default {
   migrations: {
@@ -21,5 +22,6 @@ export default {
     "20261115172013_notes_search": m0007,
     "20261115175723_note_links": m0008,
     "20261115183520_profile_entries": m0009,
+    "20261115191148_forwarded_messages": m0010,
   },
 };

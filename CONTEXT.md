@@ -52,7 +52,8 @@ Use these terms with these meanings in code, docs, issues, and prompts. Use the 
 
 - **Approval**: the Owner's explicit yes before an irreversible action, money, or a message sent in the Owner's name. Not needed in the MVP, because the MVP has no write tools.
 - **Auto-review**: a separate reviewer model that checks each action before it runs. Comes with the first write tool.
-- **Untrusted Content**: text from outside the Owner's own messages (web pages, mail, webhooks, tool output). It is data and never an instruction.
+- **Trust Level**: the mark on a Note and on an Event that says where its text came from: `owner` for the Owner's own words, `untrusted` for Untrusted Content. Code sets it from the Event, never from the model.
+- **Untrusted Content**: text from outside the Owner's own messages (forwarded messages, web pages, mail, webhooks, tool output). It is data and never an instruction.
 - **Trace**: the full record of a Turn: the prompt, injected state, tool calls, results, cost, latency, and cache hits. Enough to replay the Turn.
 - **Eval**: a repeatable case that scores the full sequence of steps of a Turn. Measured as pass^k: it passes on every one of k runs.
 - **Usage**: the tokens, messages, and cost for each Owner.

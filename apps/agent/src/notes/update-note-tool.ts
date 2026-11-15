@@ -8,6 +8,7 @@ import {
 import { noteIdListSchema } from "./note-id-list-schema.ts";
 import { noteToolFailureMessage } from "./note-tool-failure-message.ts";
 import type { NoteToolServices } from "./note-tool-services.ts";
+import { textForModel } from "./recalled-note.ts";
 
 export const updateNoteToolName = "update_note";
 
@@ -88,7 +89,7 @@ export const updateNoteTool = (
               .pipe(
                 Effect.map(({ note, linkedNoteIds: linked }) => ({
                   noteId: note.noteId,
-                  text: note.text,
+                  text: textForModel(note),
                   url: note.url ?? null,
                   lastCheckedAt: note.lastCheckedAt,
                   linkedNoteIds: linked,
