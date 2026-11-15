@@ -57,6 +57,15 @@
       ]
     },
     {
+      "id": "notes",
+      "purpose": "The Document primitive (Notes). A Note has a Note id, Owner Id, text, optional URL, source (Event and Channel message), trust level (owner or untrusted), captured date, and last-checked date. It lives in the Personal Agent SQLite. The capture_note tool writes a Note; code sets the source and the trust level from the Event, not the model. A unique constraint on the source Event id and the hash of the normalized text makes a repeated write return the existing Note. Each Note write appends a Journal Entry with the Note id. The agent does not fetch links.",
+      "roots": ["apps/agent/src/notes"],
+      "adrs": [
+        "docs/decisions/0007-typed-queries-and-migrations.md",
+        "docs/decisions/0009-agent-loop-and-client-boundaries.md"
+      ]
+    },
+    {
       "id": "model-gateway",
       "purpose": "The one interface to models. It selects the model for a task, resolves the Model Credentials (token and billing mode), calls it with the AI SDK through Cloudflare AI Gateway with the Owner Id as metadata and no stored bodies, retries with a timeout for each try, and records Usage for each model call in the Personal Agent SQLite.",
       "roots": ["apps/agent/src/model-gateway"],

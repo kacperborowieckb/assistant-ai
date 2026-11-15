@@ -7,12 +7,15 @@ import { Journal } from "../journal/journal.ts";
 import { noTools } from "../model-gateway/agent-tool.ts";
 import type { AgentTools } from "../model-gateway/agent-tool.ts";
 import { ModelGateway } from "../model-gateway/model-gateway.ts";
+import { noteToolsFor } from "../notes/capture-note-tool.ts";
+import { Notes } from "../notes/notes.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
 import { Conversation } from "./conversation.ts";
 import { Inbox } from "./inbox.ts";
 import type { InboxEvent } from "./inbox.ts";
+import { systemPrompt } from "./system-prompt.ts";
 import {
   modelFailureReason,
   responseMessagesOf,
@@ -21,13 +24,6 @@ import {
   traceOf,
 } from "./turn-record.ts";
 import type { ModelOutcome } from "./turn-record.ts";
-
-export const systemPrompt = (behavior: BehaviorConfig) =>
-  [
-    "You are the Owner's Personal Agent. You talk with the Owner in a chat.",
-    "Answer the Owner's newest messages. Be honest when you do not know something.",
-    behavior.textingStyle,
-  ].join("\n");
 
 const ownerMessage = (event: InboxEvent): ModelMessage => ({
   role: "user",
@@ -135,6 +131,7 @@ const answer = (
     const modelGateway = yield* ModelGateway;
     const traces = yield* TurnTraces;
     const redactor = yield* Redactor;
+    const notes = yield* Notes;
 
     const startedAt = yield* Clock.currentTimeMillis;
     const history = yield* conversation.recent;
@@ -145,7 +142,7 @@ const answer = (
         task: "reply",
         system,
         messages,
-        tools,
+        tools: { ...tools, ...noteToolsFor(notes, event) },
         stepLimit: behavior.maxToolSteps,
       })
       .pipe(

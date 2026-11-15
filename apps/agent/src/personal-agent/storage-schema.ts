@@ -14,6 +14,8 @@ import type { OwnerId } from "../owner-id.ts";
 
 export const inboxStates = ["pending", "done", "failed"] as const;
 
+export const trustLevels = ["owner", "untrusted"] as const;
+
 export const turnResults = ["model_replied", "model_failed"] as const;
 
 export const inboxEvents = sqliteTable(
@@ -77,5 +79,29 @@ export const turnTraces = sqliteTable(
   (table) => [
     index("turn_traces_event").on(table.eventId),
     check("turn_traces_result_check", valueIn(table.result, turnResults)),
+  ]
+);
+
+export const notes = sqliteTable(
+  "notes",
+  {
+    noteId: text("note_id").primaryKey(),
+    ownerId: text("owner_id").$type<OwnerId>().notNull(),
+    text: text("text").notNull(),
+    url: text("url"),
+    sourceEventId: text("source_event_id").notNull(),
+    sourceChannel: text("source_channel")
+      .$type<OwnerMessage["channel"]>()
+      .notNull(),
+    sourceConversationId: text("source_conversation_id").notNull(),
+    sourceChannelMessageId: text("source_channel_message_id").notNull(),
+    trustLevel: text("trust_level", { enum: trustLevels }).notNull(),
+    textHash: text("text_hash").notNull(),
+    capturedAt: text("captured_at").notNull(),
+    lastCheckedAt: text("last_checked_at").notNull(),
+  },
+  (table) => [
+    unique().on(table.sourceEventId, table.textHash),
+    check("notes_trust_level_check", valueIn(table.trustLevel, trustLevels)),
   ]
 );

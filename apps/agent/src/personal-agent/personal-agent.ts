@@ -9,6 +9,7 @@ import { noTools } from "../model-gateway/agent-tool.ts";
 import type { AgentTools } from "../model-gateway/agent-tool.ts";
 import type { ModelGateway } from "../model-gateway/model-gateway.ts";
 import { UsageLedger } from "../model-gateway/usage-ledger.ts";
+import { Notes } from "../notes/notes.ts";
 import { OwnerIdSchema } from "../owner-id.ts";
 import type { OwnerId } from "../owner-id.ts";
 import type { OperatorMetrics } from "../tracing/operator-metrics.ts";
@@ -28,6 +29,7 @@ const personalAgentLayer = (
   return Layer.mergeAll(
     Inbox.layer.pipe(Layer.provide(journal)),
     journal,
+    Notes.layer(ownerId).pipe(Layer.provide(journal)),
     Conversation.layer,
     UsageLedger.layer(ownerId),
     TurnTraces.layer(ownerId)
