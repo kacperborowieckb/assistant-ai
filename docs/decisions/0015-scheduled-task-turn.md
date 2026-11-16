@@ -14,7 +14,7 @@ Spec #66 (Schedule Actions), ticket #69. Supersedes the part of [0014](0014-sche
 - **Tools.** The Turn gets `search_notes`, `list_linked_notes`, and `list_schedules`. It gets no tool that writes. The step limit is `maxToolSteps`.
 - **Result.** The result goes to the Owner Channel Conversation with no message to reply to. The prompt and the result enter the Conversation history. The Schedule then completes, or moves to its next occurrence, as for a Reminder.
 - **Records.** The Trace has the task `scheduled_task`, the Schedule id, and the due instant. Its results are `scheduled_task_replied` and `scheduled_task_failed`. Usage is recorded under `scheduled_task`. The `ScheduleCompleted` or `ScheduleRescheduled` Journal Entry has the Schedule id.
-- **Not in this record.** Lateness, the failure message, the token Budget, `maxActiveScheduledTasks`, and `list_schedules`, `change_schedule`, and `cancel_schedule` for `RunPrompt` Schedules come in tickets #70, #71, and #72.
+- **Not in this record.** Lateness, the failure message, the token Budget, and `maxActiveScheduledTasks` come in tickets #70 and #71. The tools `list_schedules`, `change_schedule`, and `cancel_schedule` for `RunPrompt` Schedules come in ticket #72.
 
 ## Why
 
