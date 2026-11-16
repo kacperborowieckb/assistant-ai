@@ -44,7 +44,7 @@ const waitForReplies = (count: number) =>
 const tracesOf = (ownerId: string) =>
   inPersonalAgent(
     ownerId,
-    TurnTraces.pipe(Effect.flatMap((traces) => traces.read))
+    TurnTraces.pipe(Effect.flatMap((traces) => traces.readReplies))
   );
 
 const keepWord = (word: string) =>

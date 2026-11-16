@@ -31,7 +31,7 @@
     },
     {
       "id": "personal-agent",
-      "purpose": "One Durable Object for each Owner, built on the pinned Agents SDK. personalAgentFor finds it by Owner Id. Each object builds one Effect runtime over its SQLite storage. It stores each Event in the Inbox (Owner messages go first in a Turn), keeps the Owner Channel Conversation from the Owner's messages, schedules the Turn with a durable alarm, and runs the Turn: model reply, Journal Entries, and the Channel send. A tool with a side effect saves its call and result in the same transaction as its write, so a Turn that restarts replays them and does not run the tool again. It writes the conversation of each Event once, and Journal recovery finishes a write that a reset cut off. It owns the Drizzle storage schema and the versioned migrations that each Personal Agent applies once, in order, when it starts. Every Turn adds the Owner's current local date, time, weekday, and time zone (read from the Effect Clock) as the last section of the system prompt, or says that the time zone is not known.",
+      "purpose": "One Durable Object for each Owner, built on the pinned Agents SDK. personalAgentFor finds it by Owner Id. Each object builds one Effect runtime over its SQLite storage. It stores each Event in the Inbox (Owner messages go first in a Turn), keeps the Owner Channel Conversation from the Owner's messages, schedules the Turn with a durable alarm, and runs the Turn: model reply, Journal Entries, and the Channel send. When the alarm runs, each due Schedule enters the Inbox as a ScheduleFired Event, and a Turn delivers a Reminder by code, with no model call, to the Owner Channel Conversation (reminder-delivery); a failed send is recorded and the Schedule stays active. A tool with a side effect saves its call and result in the same transaction as its write, so a Turn that restarts replays them and does not run the tool again. It writes the conversation of each Event once, and Journal recovery finishes a write that a reset cut off. It owns the Drizzle storage schema and the versioned migrations that each Personal Agent applies once, in order, when it starts. Every Turn adds the Owner's current local date, time, weekday, and time zone (read from the Effect Clock) as the last section of the system prompt, or says that the time zone is not known.",
       "roots": ["apps/agent/src/personal-agent"],
       "adrs": [
         "docs/decisions/0003-runtime-and-model-stack.md",
@@ -44,7 +44,7 @@
     },
     {
       "id": "event",
-      "purpose": "The Event, a tagged union: OwnerMessage (what a Channel gives to the Personal Agent) and ScheduleFired (a Schedule id and the due instant). The Inbox keeps one ScheduleFired Event for each Schedule id and due instant. No code creates ScheduleFired yet.",
+      "purpose": "The Event, a tagged union: OwnerMessage (what a Channel gives to the Personal Agent) and ScheduleFired (a Schedule id and the due instant). The Inbox keeps one ScheduleFired Event for each Schedule id and due instant. The alarm of the Personal Agent creates it for each due Schedule.",
       "roots": ["apps/agent/src/event.ts"],
       "adrs": ["docs/decisions/0004-owners-and-channels.md"]
     },
@@ -77,6 +77,16 @@
       ]
     },
     {
+      "id": "schedule",
+      "purpose": "The Schedule primitive: a wake-up time. The schedules table of the Personal Agent SQLite (versioned migration) is the only source of truth. A Schedule has a Schedule id, Owner Id, kind (reminder; the union grows), set by (owner or agent), text, optional Note id (cascades with the Note), next due instant (UTC), state (active, done, cancelled), the source Event id, and created and changed instants. A unique key on the source Event id and the request makes a repeated set_reminder call return the existing Schedule. Each set appends a ScheduleSet Journal Entry, each fire a ScheduleFired entry, and each completion a ScheduleCompleted entry, all with the Schedule id. The set_reminder tool (only for an Event with Trust Level owner) takes the text, a local due time YYYY-MM-DDTHH:mm, and an optional Note id. Code converts the local time with the Owner time zone (Effect DateTime makeZoned, disambiguation later), sets set by to owner, and refuses with a message for the model when the time zone is not known, the time is not real, or the time is in the past. The result gives the local weekday, date, and time. The Personal Agent keeps one Agents SDK Schedule (callback fireDueSchedules) at the earliest due instant of the active Schedules that have no Inbox Event yet, arms it again after each set and each fire, and leaves none when no Schedule qualifies. A Reminder whose send failed stays active and arms no alarm, so the alarm never loops on it.",
+      "roots": ["apps/agent/src/schedule"],
+      "adrs": [
+        "docs/decisions/0003-runtime-and-model-stack.md",
+        "docs/decisions/0007-typed-queries-and-migrations.md",
+        "docs/decisions/0013-schedules-and-time.md"
+      ]
+    },
+    {
       "id": "owner-preferences",
       "purpose": "The Owner Preferences primitive and the time of the Owner. Typed preferences live in the owner_preferences table of the Personal Agent SQLite (versioned migration), each checked by a Schema on write and read. The first preference is the time zone, an IANA name that DateTime.zoneMakeNamed accepts. The Owner Preference overrides the Behavior Config default. Each change appends an OwnerPreferenceChanged Journal Entry. The set_time_zone tool (only for an Event with Trust Level owner) sets it and returns a message for the model, with no change, for an invalid name. The time module renders the current local date, time, weekday, and time zone of the Owner from the Effect Clock.",
       "roots": ["apps/agent/src/preferences", "apps/agent/src/time"],
@@ -102,7 +112,7 @@
     },
     {
       "id": "tracing",
-      "purpose": "The Trace and the Operator metrics of a Turn. The Trace is one append-only record for each model-answered Event in the Personal Agent SQLite: the system prompt, the messages, the model settings, tool calls, the reply or the error, Usage, and latency. That is enough to replay the Turn, and it holds private content, so it stays with the Owner. The Operator metrics are one Analytics Engine data point for each Turn and each refused request, with the Owner Id (or none), result, latency, tokens, cost, and cache hits, and with no content. The Redactor removes secret values from error text before it enters a Trace or the Journal.",
+      "purpose": "The Trace and the Operator metrics of a Turn. The Trace is one append-only record for each model-answered Event, and for each Reminder delivery (a record with the Schedule id, the due instant, the text, and the result, and no model fields) in the Personal Agent SQLite: the system prompt, the messages, the model settings, tool calls, the reply or the error, Usage, and latency. That is enough to replay the Turn, and it holds private content, so it stays with the Owner. The Operator metrics are one Analytics Engine data point for each Turn and each refused request, with the Owner Id (or none), result, latency, tokens, cost, and cache hits, and with no content. The Redactor removes secret values from error text before it enters a Trace or the Journal.",
       "roots": ["apps/agent/src/tracing"],
       "adrs": [
         "docs/decisions/0004-owners-and-channels.md",

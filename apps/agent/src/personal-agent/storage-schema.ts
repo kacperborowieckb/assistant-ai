@@ -26,7 +26,18 @@ export const profileEntryKinds = ["fact", "style_rule"] as const;
 
 export const ownerPreferenceKeys = ["time_zone"] as const;
 
-export const turnResults = ["model_replied", "model_failed"] as const;
+export const turnResults = [
+  "model_replied",
+  "model_failed",
+  "reminder_delivered",
+  "reminder_delivery_failed",
+] as const;
+
+export const scheduleKinds = ["reminder"] as const;
+
+export const scheduleSetBy = ["owner", "agent"] as const;
+
+export const scheduleStates = ["active", "done", "cancelled"] as const;
 
 export const modelTasks = ["reply", "eval_judge"] as const;
 
@@ -217,5 +228,33 @@ export const ownerPreferences = sqliteTable(
       "owner_preferences_key_check",
       valueIn(table.key, ownerPreferenceKeys)
     ),
+  ]
+);
+
+export const schedules = sqliteTable(
+  "schedules",
+  {
+    scheduleId: text("schedule_id").primaryKey(),
+    ownerId: text("owner_id").$type<OwnerId>().notNull(),
+    kind: text("kind", { enum: scheduleKinds }).notNull(),
+    setBy: text("set_by", { enum: scheduleSetBy }).notNull(),
+    text: text("text").notNull(),
+    noteId: text("note_id").references(() => notes.noteId, {
+      onDelete: "cascade",
+    }),
+    nextDueAt: text("next_due_at").notNull(),
+    state: text("state", { enum: scheduleStates }).notNull(),
+    sourceEventId: text("source_event_id").notNull(),
+    requestKey: text("request_key").notNull(),
+    createdAt: text("created_at").notNull(),
+    changedAt: text("changed_at").notNull(),
+  },
+  (table) => [
+    unique().on(table.sourceEventId, table.requestKey),
+    index("schedules_state_due").on(table.state, table.nextDueAt),
+    index("schedules_note").on(table.noteId),
+    check("schedules_kind_check", valueIn(table.kind, scheduleKinds)),
+    check("schedules_set_by_check", valueIn(table.setBy, scheduleSetBy)),
+    check("schedules_state_check", valueIn(table.state, scheduleStates)),
   ]
 );

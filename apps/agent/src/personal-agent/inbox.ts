@@ -27,6 +27,8 @@ export type InboxEvent = typeof InboxEventSchema.Type;
 
 export type OwnerMessageEvent = Extract<InboxEvent, { _tag: "OwnerMessage" }>;
 
+export type ScheduleFiredEvent = Extract<InboxEvent, { _tag: "ScheduleFired" }>;
+
 export type StoreResult = "stored" | "duplicate";
 
 const decodeInboxEvent = Schema.decodeUnknownSync(InboxEventSchema);
@@ -96,6 +98,14 @@ const makeInbox = Effect.gen(function* makeInboxEffect() {
         return "duplicate" satisfies StoreResult;
       }
       yield* journal.append({ _tag: "EventReceived", eventId });
+      if (event._tag === "ScheduleFired") {
+        yield* journal.append({
+          _tag: "ScheduleFired",
+          eventId,
+          scheduleId: event.scheduleId,
+          dueAt: event.dueAt,
+        });
+      }
       return "stored" satisfies StoreResult;
     });
 

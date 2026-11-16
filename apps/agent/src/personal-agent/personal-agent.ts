@@ -1,5 +1,5 @@
 import { Agent, getAgentByName } from "agents";
-import { Effect, Layer, ManagedRuntime } from "effect";
+import { DateTime, Effect, Layer, ManagedRuntime, Option } from "effect";
 
 import { defaultBehaviorConfig } from "../behavior/behavior-config.ts";
 import type { Channel } from "../channels/channel.ts";
@@ -14,11 +14,15 @@ import { OwnerIdSchema } from "../owner-id.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { OwnerPreferences } from "../preferences/owner-preferences.ts";
 import { Profile } from "../profile/profile.ts";
+import { ScheduleAlarm } from "../schedule/schedule-alarm.ts";
+import type { AlarmClock } from "../schedule/schedule-alarm.ts";
+import { Schedules } from "../schedule/schedules.ts";
 import type { OperatorMetrics } from "../tracing/operator-metrics.ts";
 import type { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
 import { AgentStorage } from "./agent-storage.ts";
 import { Conversation } from "./conversation.ts";
+import { storeDueScheduleEvents } from "./due-schedule-events.ts";
 import { Inbox } from "./inbox.ts";
 import { OwnerChannelConversation } from "./owner-channel-conversation.ts";
 import { TurnProgress } from "./turn-progress.ts";
@@ -27,10 +31,14 @@ import { takeTurn } from "./turn.ts";
 
 const personalAgentLayer = (
   storage: DurableObjectStorage,
-  ownerId: OwnerId
+  ownerId: OwnerId,
+  alarmClock: AlarmClock
 ) => {
   const journal = Journal.layer(ownerId);
+  const schedules = Schedules.layer(ownerId).pipe(Layer.provide(journal));
   return Layer.mergeAll(
+    schedules,
+    ScheduleAlarm.layer(alarmClock).pipe(Layer.provide(schedules)),
     Inbox.layer.pipe(Layer.provide(journal)),
     journal,
     Notes.layer(ownerId).pipe(Layer.provide(journal)),
@@ -62,8 +70,12 @@ export class PersonalAgent extends Agent<Env> {
 
   protected readonly turnTools: AgentTools = noTools;
 
+  protected readonly alarmClock: AlarmClock = {
+    setAt: (dueAt) => this.setAlarmAt(dueAt),
+  };
+
   readonly runtime = ManagedRuntime.make(
-    personalAgentLayer(this.ctx.storage, this.ownerId)
+    personalAgentLayer(this.ctx.storage, this.ownerId, this.alarmClock)
   );
 
   async receive(event: Event): Promise<StoreConfirmation> {
@@ -77,6 +89,53 @@ export class PersonalAgent extends Agent<Env> {
         yield* inbox.store(event);
       })
     );
+    await this.runTurnWhenEventsArePending();
+    await this.rearmAlarm();
+    return "stored";
+  }
+
+  async fireDueSchedules(): Promise<void> {
+    await this.runtime.runPromise(storeDueScheduleEvents);
+    await this.runTurnWhenEventsArePending();
+    await this.rearmAlarm();
+  }
+
+  private async rearmAlarm(): Promise<void> {
+    await this.runtime.runPromise(
+      ScheduleAlarm.pipe(Effect.flatMap((alarm) => alarm.rearm))
+    );
+  }
+
+  private async setAlarmAt(dueAt: Option.Option<DateTime.Utc>): Promise<void> {
+    const sdkSchedules = await this.listSchedules();
+    const armed = sdkSchedules.filter(
+      (schedule) => schedule.callback === "fireDueSchedules"
+    );
+    const dueSeconds = dueAt.pipe(
+      Option.map((instant) => Math.ceil(DateTime.toEpochMillis(instant) / 1000))
+    );
+    const [only] = armed;
+    if (
+      armed.length === 1 &&
+      only !== undefined &&
+      Option.contains(dueSeconds, only.time)
+    ) {
+      return;
+    }
+    await Promise.all(
+      armed.map((schedule) => this.cancelSchedule(schedule.id))
+    );
+    if (Option.isSome(dueSeconds)) {
+      await this.schedule(
+        new Date(dueSeconds.value * 1000),
+        "fireDueSchedules",
+        undefined,
+        { retry: { maxAttempts: 3 } }
+      );
+    }
+  }
+
+  private async runTurnWhenEventsArePending(): Promise<void> {
     const hasPendingEvents = await this.runtime.runPromise(
       Inbox.pipe(
         Effect.flatMap((inbox) => inbox.pending),
@@ -88,10 +147,10 @@ export class PersonalAgent extends Agent<Env> {
         retry: { maxAttempts: 1 },
       });
     }
-    return "stored";
   }
 
   async runTurn(): Promise<void> {
+    await this.rearmAlarm();
     await this.runtime.runPromise(
       takeTurn(this.ownerId, defaultBehaviorConfig, this.turnTools).pipe(
         Effect.provide(this.turnServices(this.env, this.ownerId))

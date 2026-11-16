@@ -9,6 +9,8 @@ export const turnMetricResults = [
   "send_failed",
 ] as const;
 
+export const reminderMetricResults = ["delivered", "delivery_failed"] as const;
+
 export const refusalReasons = [
   "bad_secret_token",
   "unknown_sender",
@@ -25,6 +27,12 @@ export type OperatorMetric =
       readonly usage: Usage | undefined;
       readonly stepCount: number;
       readonly toolCallCount: number;
+    }
+  | {
+      readonly kind: "reminder";
+      readonly ownerId: OwnerId;
+      readonly result: (typeof reminderMetricResults)[number];
+      readonly latencyMillis: number;
     }
   | {
       readonly kind: "refused";

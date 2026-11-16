@@ -9,7 +9,7 @@ import { Notes } from "../src/notes/notes.ts";
 import { Inbox } from "../src/personal-agent/inbox.ts";
 import { Profile } from "../src/profile/profile.ts";
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
-import type { StoredTurnTrace } from "../src/tracing/turn-trace.ts";
+import type { StoredReplyTurnTrace } from "../src/tracing/turn-trace.ts";
 import type {
   AgentObservation,
   ObservedNote,
@@ -84,7 +84,7 @@ const observedNote = (note: ListedNote): ObservedNote => ({
 });
 
 const observedToolCalls = (
-  traces: readonly StoredTurnTrace[]
+  traces: readonly StoredReplyTurnTrace[]
 ): ObservedToolCall[] =>
   traces.flatMap(({ trace }) =>
     trace.steps.flatMap((step) =>
@@ -116,7 +116,7 @@ export const observeOwnerState = Effect.gen(function* observeOwnerState() {
     pendingEventCount: (yield* inbox.pending).length,
     notes: (yield* notes.list).map(observedNote),
     profile: (yield* profile.read).map(({ kind, text }) => ({ kind, text })),
-    toolCalls: observedToolCalls(yield* traces.read),
+    toolCalls: observedToolCalls(yield* traces.readReplies),
     usage: (yield* usage.read).map(observedUsage),
   } satisfies AgentObservation;
 });

@@ -10,6 +10,7 @@ const sampleTelegramUserId = 424_242;
 const sampleMessageId = 7;
 const replyTimeout = "30 seconds";
 const nextPartTimeout = "1 second";
+const laterMessageTimeout = "100 seconds";
 
 const collapseWhitespace = (text: string) => text.replaceAll(/\s+/gu, " ");
 
@@ -32,9 +33,11 @@ export class ReplyMissing extends Data.TaggedError("ReplyMissing")<{
 export const requestReply = ({
   messages,
   contains,
+  waitForLaterMessage,
 }: {
   readonly messages: readonly string[];
   readonly contains: string;
+  readonly waitForLaterMessage: boolean;
 }) =>
   Effect.gen(function* requestReplyEffect() {
     const fakes = yield* startLocalFakes();
@@ -92,6 +95,22 @@ export const requestReply = ({
       lines.push(
         `Telegram sendMessage to chat ${sent?.chatId ?? "none"}, reply to message ${sent?.replyToMessageId ?? "none"}: "${replyParts.join("")}"`
       );
+    }
+    let waiting =
+      waitForLaterMessage && !replyPartsContain(replyParts, contains);
+    while (waiting) {
+      const later = yield* fakes.nextTelegramMessage.pipe(
+        Effect.timeoutOption(laterMessageTimeout)
+      );
+      if (Option.isNone(later)) {
+        waiting = false;
+      } else {
+        replyParts = [later.value.text];
+        lines.push(
+          `Telegram sendMessage to chat ${later.value.chatId}, no message to reply to: "${later.value.text}"`
+        );
+        waiting = !replyPartsContain(replyParts, contains);
+      }
     }
     for (const call of fakes.modelCalls()) {
       lines.push(

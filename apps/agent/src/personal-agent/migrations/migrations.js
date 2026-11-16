@@ -11,6 +11,7 @@ import m0009 from "./20261115183520_profile_entries/migration.sql";
 import m0010 from "./20261115191148_forwarded_messages/migration.sql";
 import m0011 from "./20261115225540_owner_preferences/migration.sql";
 import m0012 from "./20261116000630_schedule_fired_events/migration.sql";
+import m0013 from "./20261116004554_schedules/migration.sql";
 
 export default {
   migrations: {
@@ -27,5 +28,6 @@ export default {
     "20261115191148_forwarded_messages": m0010,
     "20261115225540_owner_preferences": m0011,
     "20261116000630_schedule_fired_events": m0012,
+    "20261116004554_schedules": m0013,
   },
 };
