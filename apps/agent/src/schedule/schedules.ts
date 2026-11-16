@@ -5,22 +5,12 @@ import { Journal } from "../journal/journal.ts";
 import { makeNoteLinks } from "../notes/note-links.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
-import type {
-  scheduleKinds,
-  scheduleSetBy,
-  scheduleStates,
-} from "../personal-agent/storage-schema.ts";
 import { inboxEvents, schedules } from "../personal-agent/storage-schema.ts";
+import { makeScheduleEdits } from "./schedule-edits.ts";
+import type { Schedule } from "./schedule.ts";
+import { toSchedule } from "./schedule.ts";
 
-export interface Schedule {
-  readonly scheduleId: string;
-  readonly kind: (typeof scheduleKinds)[number];
-  readonly setBy: (typeof scheduleSetBy)[number];
-  readonly text: string;
-  readonly noteId: string | undefined;
-  readonly nextDueAt: DateTime.Utc;
-  readonly state: (typeof scheduleStates)[number];
-}
+export type { Schedule } from "./schedule.ts";
 
 export interface SetScheduleRequest {
   readonly kind: Schedule["kind"];
@@ -35,16 +25,6 @@ export interface ScheduleSet {
   readonly schedule: Schedule;
   readonly alreadySet: boolean;
 }
-
-const toSchedule = (row: typeof schedules.$inferSelect): Schedule => ({
-  scheduleId: row.scheduleId,
-  kind: row.kind,
-  setBy: row.setBy,
-  text: row.text,
-  noteId: row.noteId ?? undefined,
-  nextDueAt: DateTime.makeUnsafe(row.nextDueAt),
-  state: row.state,
-});
 
 const requestKeyOf = ({ text, dueAt, noteId }: SetScheduleRequest) =>
   JSON.stringify([text, DateTime.formatIso(dueAt), noteId ?? null]);
@@ -70,6 +50,7 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
   const { database } = yield* AgentStorage;
   const journal = yield* Journal;
   const { requireOwnNotes } = yield* makeNoteLinks(ownerId);
+  const scheduleEdits = yield* makeScheduleEdits(ownerId);
 
   const writeSchedule = Effect.fnUntraced(function* writeSchedule(
     request: SetScheduleRequest
@@ -199,7 +180,14 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
       })
     );
 
-  return { set, byId, earliestUnfiredDueAt, unfiredDueBy, complete };
+  return {
+    ...scheduleEdits,
+    set,
+    byId,
+    earliestUnfiredDueAt,
+    unfiredDueBy,
+    complete,
+  };
 });
 
 export class Schedules extends Context.Service<

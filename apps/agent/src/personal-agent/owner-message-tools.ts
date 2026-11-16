@@ -13,6 +13,18 @@ import {
   updateProfileTool,
   updateProfileToolName,
 } from "../profile/update-profile-tool.ts";
+import {
+  cancelReminderTool,
+  cancelReminderToolName,
+} from "../schedule/cancel-reminder-tool.ts";
+import {
+  changeReminderTool,
+  changeReminderToolName,
+} from "../schedule/change-reminder-tool.ts";
+import {
+  listRemindersTool,
+  listRemindersToolName,
+} from "../schedule/list-reminders-tool.ts";
 import type { ScheduleAlarm } from "../schedule/schedule-alarm.ts";
 import type { Schedules } from "../schedule/schedules.ts";
 import {
@@ -43,6 +55,16 @@ export const ownerMessageTools = (
   }: OwnerMessageToolServices
 ) => {
   const { progress, redactor } = noteServices;
+  const reminderServices = {
+    schedules,
+    alarm,
+    ownerTimeZone: ownerTimeZone(behavior).pipe(
+      Effect.provideService(OwnerPreferences, preferences),
+      Effect.orDie
+    ),
+    progress,
+    redactor,
+  };
   return {
     ...noteToolsFor(noteServices, event),
     ...(trustLevelOfEvent(event) === "owner"
@@ -61,16 +83,19 @@ export const ownerMessageTools = (
             event.eventId
           ),
           [setReminderToolName]: setReminderTool(
-            {
-              schedules,
-              alarm,
-              ownerTimeZone: ownerTimeZone(behavior).pipe(
-                Effect.provideService(OwnerPreferences, preferences),
-                Effect.orDie
-              ),
-              progress,
-              redactor,
-            },
+            reminderServices,
+            event.eventId
+          ),
+          [listRemindersToolName]: listRemindersTool(
+            reminderServices,
+            event.eventId
+          ),
+          [changeReminderToolName]: changeReminderTool(
+            reminderServices,
+            event.eventId
+          ),
+          [cancelReminderToolName]: cancelReminderTool(
+            reminderServices,
             event.eventId
           ),
         }
