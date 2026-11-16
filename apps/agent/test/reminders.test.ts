@@ -535,6 +535,51 @@ describe("Reminder delivery", () => {
     expect(await alarmsOf(ownerId)).toEqual([]);
   });
 
+  it("writes the missing failure Trace when the Durable Object resets after a refused send", async () => {
+    const ownerId = await ownerInWarsaw(9026);
+    await owner(9026, "hello");
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(1));
+    const schedule = await inAgent(ownerId, dueInThePast("refused"));
+    await inAgent(ownerId, storeDueScheduleEvents);
+    await inAgent(
+      ownerId,
+      Effect.gen(function* refusedEffect() {
+        const journal = yield* Journal;
+        const entries = yield* journal.read;
+        const fired = entries.find(
+          (entry) =>
+            entry.record._tag === "ScheduleFired" &&
+            entry.record.scheduleId === schedule.scheduleId
+        );
+        const eventId = fired?.record.eventId ?? "";
+        yield* journal.append({ _tag: "ReplyPlanned", eventId, text: "x" });
+        yield* journal.append({ _tag: "SendStarted", eventId });
+        yield* journal.append({
+          _tag: "ReplyFailed",
+          eventId,
+          reason: "Bad Request: chat not found",
+        });
+      })
+    );
+
+    await abortAllDurableObjects();
+    await fireTheAlarm(ownerId);
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(async () => {
+      const traces = await inAgent(
+        ownerId,
+        TurnTraces.pipe(Effect.flatMap((stored) => stored.read))
+      );
+      expect(
+        traces.filter(
+          ({ trace }) => trace.result === "reminder_delivery_failed"
+        )
+      ).toHaveLength(1);
+    });
+    expect(sentTexts()).toEqual(["You said: hello"]);
+  });
+
   it("records a failed send honestly, keeps the Schedule active, and does not arm a hot alarm", async () => {
     const ownerId = await ownerInWarsaw(9024);
     await owner(9024, "hello");

@@ -19,10 +19,7 @@ import { eventMessage } from "./event-message.ts";
 import { Inbox } from "./inbox.ts";
 import type { InboxEvent, OwnerMessageEvent } from "./inbox.ts";
 import { ownerMessageTools } from "./owner-message-tools.ts";
-import {
-  deliverReminder,
-  recoverDeliveredReminder,
-} from "./reminder-delivery.ts";
+import { deliverReminder, recoverReminderRecord } from "./reminder-delivery.ts";
 import { systemPrompt } from "./system-prompt.ts";
 import {
   deliver,
@@ -194,7 +191,7 @@ export const takeTurn = (
     const events = yield* inbox.pending;
     for (const event of events) {
       if (event._tag === "ScheduleFired") {
-        yield* recoverDeliveredReminder(ownerId, event);
+        yield* recoverReminderRecord(ownerId, event);
       }
       const outcome = yield* settleFromJournal(event);
       if (outcome === "unanswered") {

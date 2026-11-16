@@ -1,6 +1,7 @@
 import { Clock, DateTime, Effect } from "effect";
 
 import { Journal } from "../journal/journal.ts";
+import type { JournalRecord } from "../journal/journal.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { Schedules } from "../schedule/schedules.ts";
 import { OperatorMetrics } from "../tracing/operator-metrics.ts";
@@ -44,13 +45,11 @@ const recordDelivered = Effect.fnUntraced(function* recordDelivered(
   });
 });
 
-const recordDeliveryFailed = Effect.fnUntraced(function* recordDeliveryFailed(
-  { ownerId, event, text, latencyMillis }: DeliveryRecord,
+const recordFailedTrace = Effect.fnUntraced(function* recordFailedTrace(
+  { event, text, latencyMillis }: DeliveryRecord,
   reason: string
 ) {
   const traces = yield* TurnTraces;
-  const metrics = yield* OperatorMetrics;
-  yield* recordTurnFailed(event, reason);
   yield* traces.record({
     eventId: event.eventId,
     task: "reminder_delivery",
@@ -62,19 +61,44 @@ const recordDeliveryFailed = Effect.fnUntraced(function* recordDeliveryFailed(
     error: reason,
     latencyMillis,
   });
+});
+
+const recordDeliveryFailed = Effect.fnUntraced(function* recordDeliveryFailed(
+  record: DeliveryRecord,
+  reason: string
+) {
+  const metrics = yield* OperatorMetrics;
+  yield* recordFailedTrace(record, reason);
+  yield* recordTurnFailed(record.event, reason);
   yield* metrics.record({
     kind: "reminder",
-    ownerId,
+    ownerId: record.ownerId,
     result: "delivery_failed",
-    latencyMillis,
+    latencyMillis: record.latencyMillis,
   });
 });
 
-export const recoverDeliveredReminder = Effect.fnUntraced(
-  function* recoverDeliveredReminder(
-    ownerId: OwnerId,
-    event: ScheduleFiredEvent
+type RecordedOutcome =
+  | { readonly _tag: "Failed"; readonly reason: string }
+  | { readonly _tag: "Delivered"; readonly channelMessageId: string };
+
+const outcomeOf = (
+  failure: JournalRecord | undefined,
+  sent: JournalRecord | undefined
+): RecordedOutcome | undefined => {
+  if (
+    failure?.["_tag"] === "ReplyFailed" ||
+    failure?.["_tag"] === "TurnFailed"
   ) {
+    return { _tag: "Failed", reason: failure.reason };
+  }
+  return sent?.["_tag"] === "ReplySent"
+    ? { _tag: "Delivered", channelMessageId: sent.channelMessageId }
+    : undefined;
+};
+
+export const recoverReminderRecord = Effect.fnUntraced(
+  function* recoverReminderRecord(ownerId: OwnerId, event: ScheduleFiredEvent) {
     const journal = yield* Journal;
     const schedules = yield* Schedules;
     const traces = yield* TurnTraces;
@@ -83,27 +107,34 @@ export const recoverDeliveredReminder = Effect.fnUntraced(
       (entry) => entry.record._tag === "ReplyPlanned"
     );
     const sent = entries.findLast((entry) => entry.record._tag === "ReplySent");
-    const failed = entries.some((entry) => entry.record._tag === "TurnFailed");
-    if (
-      failed ||
-      planned?.record._tag !== "ReplyPlanned" ||
-      sent?.record._tag !== "ReplySent"
-    ) {
+    const failure = entries.findLast(
+      (entry) =>
+        entry.record._tag === "ReplyFailed" ||
+        entry.record._tag === "TurnFailed"
+    );
+    if (planned?.record._tag !== "ReplyPlanned") {
       return;
     }
-    yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
-    const recorded = yield* traces.read;
-    if (!recorded.some(({ trace }) => trace.eventId === event.eventId)) {
-      yield* recordDelivered(
-        {
-          ownerId,
-          event,
-          text: planned.record.text,
-          latencyMillis: 0,
-        },
-        sent.record.channelMessageId
-      );
+    const record = {
+      ownerId,
+      event,
+      text: planned.record.text,
+      latencyMillis: 0,
+    };
+    const outcome = outcomeOf(failure?.record, sent?.record);
+    if (outcome === undefined) {
+      return;
     }
+    if (outcome._tag === "Delivered") {
+      yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
+    }
+    const recorded = yield* traces.read;
+    if (recorded.some(({ trace }) => trace.eventId === event.eventId)) {
+      return;
+    }
+    yield* outcome._tag === "Delivered"
+      ? recordDelivered(record, outcome.channelMessageId)
+      : recordFailedTrace(record, outcome.reason);
   }
 );
 

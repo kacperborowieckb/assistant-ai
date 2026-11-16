@@ -61,6 +61,7 @@ export const requestReply = ({
     lines.push(renderAddedOwner(owner));
 
     let replyParts: readonly string[] = [];
+    let carried: FakeTelegramMessage | undefined;
     for (const [index, message] of messages.entries()) {
       const webhook = yield* sendTelegramUpdate({
         workerUrl: url,
@@ -75,17 +76,22 @@ export const requestReply = ({
       lines.push(
         `Webhook answered ${webhook.status} for the message "${message}"`
       );
-      const sentParts: FakeTelegramMessage[] = [
-        yield* fakes.nextTelegramMessage.pipe(Effect.timeout(replyTimeout)),
-      ];
+      const first =
+        carried ??
+        (yield* fakes.nextTelegramMessage.pipe(Effect.timeout(replyTimeout)));
+      carried = undefined;
+      const sentParts: FakeTelegramMessage[] = [first];
       for (;;) {
         const nextPart = yield* fakes.nextTelegramMessage.pipe(
           Effect.timeoutOption(nextPartTimeout)
         );
+        if (Option.isNone(nextPart)) {
+          break;
+        }
         if (
-          Option.isNone(nextPart) ||
           nextPart.value.replyToMessageId !== sentParts[0]?.replyToMessageId
         ) {
+          carried = nextPart.value;
           break;
         }
         sentParts.push(nextPart.value);
@@ -99,9 +105,12 @@ export const requestReply = ({
     let waiting =
       waitForLaterMessage && !replyPartsContain(replyParts, contains);
     while (waiting) {
-      const later = yield* fakes.nextTelegramMessage.pipe(
-        Effect.timeoutOption(laterMessageTimeout)
-      );
+      const later = carried
+        ? Option.some(carried)
+        : yield* fakes.nextTelegramMessage.pipe(
+            Effect.timeoutOption(laterMessageTimeout)
+          );
+      carried = undefined;
       if (Option.isNone(later)) {
         waiting = false;
       } else {
