@@ -107,11 +107,11 @@ const fakeAssistantMessage = (
   toolResult: string | undefined,
   systemText: string
 ) => {
-  if (isFakeTimeZoneMessage(ownerText)) {
-    return fakeTimeZoneMessage(ownerText, toolResult, systemText);
-  }
   if (systemText.includes(scheduledTaskMarker)) {
     return fakeScheduledTaskMessage(ownerText);
+  }
+  if (isFakeTimeZoneMessage(ownerText)) {
+    return fakeTimeZoneMessage(ownerText, toolResult, systemText);
   }
   if (isFakeScheduleRequest(ownerText)) {
     return fakeScheduleMessage(ownerText, toolResult, systemText);
