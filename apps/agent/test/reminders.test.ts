@@ -501,6 +501,40 @@ describe("Reminder delivery", () => {
     });
   });
 
+  it("never sends again when the Durable Object resets after SendStarted and before Telegram confirms", async () => {
+    const ownerId = await ownerInWarsaw(9025);
+    await owner(9025, "hello");
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(1));
+    const schedule = await inAgent(ownerId, dueInThePast("maybe sent"));
+    await inAgent(ownerId, storeDueScheduleEvents);
+    await inAgent(
+      ownerId,
+      Effect.gen(function* startedEffect() {
+        const journal = yield* Journal;
+        const entries = yield* journal.read;
+        const fired = entries.find(
+          (entry) =>
+            entry.record._tag === "ScheduleFired" &&
+            entry.record.scheduleId === schedule.scheduleId
+        );
+        const eventId = fired?.record.eventId ?? "";
+        yield* journal.append({ _tag: "ReplyPlanned", eventId, text: "x" });
+        yield* journal.append({ _tag: "SendStarted", eventId });
+      })
+    );
+
+    await abortAllDurableObjects();
+    await fireTheAlarm(ownerId);
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(async () =>
+      expect(await journalTagsOf(ownerId)).toContain("ReplyFailed")
+    );
+    expect(sentTexts()).toEqual(["You said: hello"]);
+    expect(await firstScheduleState(ownerId)).toBe("active");
+    expect(await alarmsOf(ownerId)).toEqual([]);
+  });
+
   it("records a failed send honestly, keeps the Schedule active, and does not arm a hot alarm", async () => {
     const ownerId = await ownerInWarsaw(9024);
     await owner(9024, "hello");
