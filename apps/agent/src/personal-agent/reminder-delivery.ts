@@ -1,9 +1,12 @@
-import { Clock, DateTime, Effect } from "effect";
+import { Clock, DateTime, Effect, Option } from "effect";
 
+import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { Journal } from "../journal/journal.ts";
 import type { JournalRecord } from "../journal/journal.ts";
 import type { OwnerId } from "../owner-id.ts";
+import { lateReminderText } from "../schedule/late-reminder-text.ts";
 import { Schedules } from "../schedule/schedules.ts";
+import { ownerTimeZone } from "../time/owner-current-time.ts";
 import { OperatorMetrics } from "../tracing/operator-metrics.ts";
 import { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
@@ -17,11 +20,12 @@ interface DeliveryRecord {
   readonly ownerId: OwnerId;
   readonly event: ScheduleFiredEvent;
   readonly text: string;
+  readonly late: boolean;
   readonly latencyMillis: number;
 }
 
 const recordDelivered = Effect.fnUntraced(function* recordDelivered(
-  { ownerId, event, text, latencyMillis }: DeliveryRecord,
+  { ownerId, event, text, late, latencyMillis }: DeliveryRecord,
   channelMessageId: string
 ) {
   const traces = yield* TurnTraces;
@@ -32,6 +36,7 @@ const recordDelivered = Effect.fnUntraced(function* recordDelivered(
     result: "reminder_delivered",
     scheduleId: event.scheduleId,
     dueAt: event.dueAt,
+    late,
     text,
     channelMessageId,
     error: null,
@@ -46,7 +51,7 @@ const recordDelivered = Effect.fnUntraced(function* recordDelivered(
 });
 
 const recordFailedTrace = Effect.fnUntraced(function* recordFailedTrace(
-  { event, text, latencyMillis }: DeliveryRecord,
+  { event, text, late, latencyMillis }: DeliveryRecord,
   reason: string
 ) {
   const traces = yield* TurnTraces;
@@ -56,6 +61,7 @@ const recordFailedTrace = Effect.fnUntraced(function* recordFailedTrace(
     result: "reminder_delivery_failed",
     scheduleId: event.scheduleId,
     dueAt: event.dueAt,
+    late,
     text,
     channelMessageId: null,
     error: reason,
@@ -119,6 +125,7 @@ export const recoverReminderRecord = Effect.fnUntraced(
       ownerId,
       event,
       text: planned.record.text,
+      late: entries.some((entry) => entry.record._tag === "ReminderLate"),
       latencyMillis: 0,
     };
     const outcome = outcomeOf(failure?.record, sent?.record);
@@ -138,8 +145,38 @@ export const recoverReminderRecord = Effect.fnUntraced(
   }
 );
 
+const reminderTextFor = Effect.fnUntraced(function* reminderTextFor(
+  behavior: BehaviorConfig,
+  event: ScheduleFiredEvent,
+  savedText: string
+) {
+  const journal = yield* Journal;
+  const now = yield* DateTime.now;
+  const dueAt = DateTime.makeUnsafe(event.dueAt);
+  const lateByMillis =
+    DateTime.toEpochMillis(now) - DateTime.toEpochMillis(dueAt);
+  if (lateByMillis <= behavior.reminderGraceMillis) {
+    return { text: savedText, late: false };
+  }
+  const recorded = yield* journal.readForEvent(event.eventId);
+  if (!recorded.some((entry) => entry.record._tag === "ReminderLate")) {
+    yield* journal.append({
+      _tag: "ReminderLate",
+      eventId: event.eventId,
+      scheduleId: event.scheduleId,
+      dueAt: event.dueAt,
+      lateByMillis,
+    });
+  }
+  const timeZone = (yield* ownerTimeZone(behavior)).pipe(
+    Option.getOrElse(() => DateTime.zoneMakeOffset(0))
+  );
+  return { text: lateReminderText(savedText, dueAt, timeZone), late: true };
+});
+
 export const deliverReminder = Effect.fnUntraced(function* deliverReminder(
   ownerId: OwnerId,
+  behavior: BehaviorConfig,
   event: ScheduleFiredEvent
 ) {
   const inbox = yield* Inbox;
@@ -157,12 +194,17 @@ export const deliverReminder = Effect.fnUntraced(function* deliverReminder(
     yield* inbox.markDone([event]);
     return;
   }
-  const text = redactor.redact(schedule.value.text);
+  const { text, late } = yield* reminderTextFor(
+    behavior,
+    event,
+    redactor.redact(schedule.value.text)
+  );
   const delivery = yield* deliver(event, text);
   const record = {
     ownerId,
     event,
     text,
+    late,
     latencyMillis: (yield* Clock.currentTimeMillis) - startedAt,
   };
 

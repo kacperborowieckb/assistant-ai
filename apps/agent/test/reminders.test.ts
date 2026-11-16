@@ -21,6 +21,7 @@ import {
   noTimeZoneForReminderMessage,
   setReminderToolName,
 } from "../src/schedule/set-reminder-tool.ts";
+import { localTimeOf } from "../src/time/local-time.ts";
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
 import {
   fakeMetrics,
@@ -138,7 +139,7 @@ const toolCallsOf = (ownerId: string) =>
     )
   );
 
-const dueInThePast = (text: string) =>
+const dueAgo = (text: string, ago: Partial<DateTime.DateTime.PartsForMath>) =>
   Schedules.pipe(
     Effect.flatMap((schedules) =>
       Effect.gen(function* setDueScheduleEffect() {
@@ -147,13 +148,15 @@ const dueInThePast = (text: string) =>
           kind: "reminder",
           setBy: "owner",
           text,
-          dueAt: DateTime.subtract(now, { seconds: 5 }),
+          dueAt: DateTime.subtract(now, ago),
           sourceEventId: `setup-${text}`,
         });
       })
     ),
     Effect.map(({ schedule }) => schedule)
   );
+
+const dueInThePast = (text: string) => dueAgo(text, { seconds: 5 });
 
 const fireTheAlarm = async (ownerId: string) =>
   runInDurableObject(await agentOf(ownerId), (instance) =>
@@ -600,6 +603,92 @@ describe("Reminder delivery", () => {
     );
     expect(traces.at(-1)?.trace).toMatchObject({
       result: "reminder_delivery_failed",
+    });
+  });
+});
+
+describe("Late Reminders", () => {
+  it("sends the saved text with no late note inside the grace period", async () => {
+    const ownerId = await ownerInWarsaw(9030);
+    await owner(9030, "hello");
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(1));
+    await inAgent(ownerId, dueAgo("Buy the gift", { minutes: 4 }));
+
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    expect(sentTexts()[1]).toBe("Buy the gift");
+    expect(await journalTagsOf(ownerId)).not.toContain("ReminderLate");
+    const traces = await inAgent(
+      ownerId,
+      TurnTraces.pipe(Effect.flatMap((stored) => stored.read))
+    );
+    expect(traces.at(-1)?.trace).toMatchObject({ late: false });
+  });
+
+  it("says that it is late and gives the local due time after the grace period, and sends it once", async () => {
+    const ownerId = await ownerInWarsaw(9031);
+    await owner(9031, "hello");
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(1));
+    const modelCallsBefore = fakeModel.doGenerateCalls.length;
+    const schedule = await inAgent(
+      ownerId,
+      dueAgo("Buy the gift", { hours: 2 })
+    );
+    const expectedLocalTime = await inAgent(
+      ownerId,
+      Effect.sync(() =>
+        localTimeOf(
+          schedule.nextDueAt,
+          DateTime.zoneMakeNamedUnsafe("Europe/Warsaw")
+        )
+      )
+    );
+
+    await fireTheAlarm(ownerId);
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    expect(sentTexts()[1]).toBe(
+      `This Reminder is late. It was due ${expectedLocalTime} (Europe/Warsaw): Buy the gift`
+    );
+    expect(fakeTelegram.sent).toHaveLength(2);
+    expect(fakeModel.doGenerateCalls).toHaveLength(modelCallsBefore);
+    expect(await firstScheduleState(ownerId)).toBe("done");
+  });
+
+  it("records in the Journal Entry and the Trace that the Reminder was late", async () => {
+    const ownerId = await ownerInWarsaw(9032);
+    await owner(9032, "hello");
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(1));
+    const schedule = await inAgent(
+      ownerId,
+      dueAgo("Buy the gift", { hours: 2 })
+    );
+
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    const entries = await inAgent(
+      ownerId,
+      Journal.pipe(Effect.flatMap((journal) => journal.read))
+    );
+    const late = entries
+      .map((entry) => entry.record)
+      .filter((record) => record._tag === "ReminderLate");
+    expect(late).toHaveLength(1);
+    expect(late[0]).toMatchObject({
+      scheduleId: schedule.scheduleId,
+      dueAt: DateTime.formatIso(schedule.nextDueAt),
+    });
+    expect(late[0]?.lateByMillis).toBeGreaterThanOrEqual(2 * 3_600_000);
+    const traces = await inAgent(
+      ownerId,
+      TurnTraces.pipe(Effect.flatMap((stored) => stored.read))
+    );
+    expect(traces.at(-1)?.trace).toMatchObject({
+      result: "reminder_delivered",
+      late: true,
     });
   });
 });
