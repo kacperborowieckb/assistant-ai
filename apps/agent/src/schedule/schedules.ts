@@ -6,9 +6,11 @@ import { makeNoteLinks } from "../notes/note-links.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { inboxEvents, schedules } from "../personal-agent/storage-schema.ts";
-import { makeScheduleEdits } from "./schedule-edits.ts";
-import type { Schedule } from "./schedule.ts";
-import { toSchedule } from "./schedule.ts";
+import { nextOccurrence } from "../time/next-occurrence.ts";
+import { makeRepeatingSchedules } from "./repeating-schedules.ts";
+import { makeScheduleEdits, recurrenceValuesOf } from "./schedule-edits.ts";
+import { encodeRule, toSchedule } from "./schedule.ts";
+import type { Repeat, Schedule } from "./schedule.ts";
 
 export type { Schedule } from "./schedule.ts";
 
@@ -18,6 +20,7 @@ export interface SetScheduleRequest {
   readonly text: string;
   readonly noteId?: string | undefined;
   readonly dueAt: DateTime.Utc;
+  readonly repeat?: Repeat | undefined;
   readonly sourceEventId: string;
 }
 
@@ -26,8 +29,15 @@ export interface ScheduleSet {
   readonly alreadySet: boolean;
 }
 
-const requestKeyOf = ({ text, dueAt, noteId }: SetScheduleRequest) =>
-  JSON.stringify([text, DateTime.formatIso(dueAt), noteId ?? null]);
+const requestKeyOf = ({ text, dueAt, noteId, repeat }: SetScheduleRequest) =>
+  JSON.stringify([
+    text,
+    DateTime.formatIso(dueAt),
+    noteId ?? null,
+    repeat === undefined
+      ? null
+      : [encodeRule(repeat.rule), DateTime.zoneToString(repeat.timeZone)],
+  ]);
 
 const hasNoInboxEventForDueInstant = (
   database: AgentStorage["Service"]["database"]
@@ -51,6 +61,7 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
   const journal = yield* Journal;
   const { requireOwnNotes } = yield* makeNoteLinks(ownerId);
   const scheduleEdits = yield* makeScheduleEdits(ownerId);
+  const repeatingSchedules = yield* makeRepeatingSchedules(ownerId);
 
   const writeSchedule = Effect.fnUntraced(function* writeSchedule(
     request: SetScheduleRequest
@@ -70,6 +81,7 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
         text: request.text,
         noteId: request.noteId ?? null,
         nextDueAt: DateTime.formatIso(request.dueAt),
+        ...recurrenceValuesOf(request.repeat),
         state: "active",
         sourceEventId: request.sourceEventId,
         requestKey,
@@ -152,36 +164,62 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
       .orderBy(asc(schedules.nextDueAt), asc(schedules.createdAt))
       .pipe(Effect.map((rows) => rows.map(toSchedule)));
 
+  const dueActive = (scheduleId: string, dueAt: string) =>
+    and(
+      eq(schedules.ownerId, ownerId),
+      eq(schedules.scheduleId, scheduleId),
+      eq(schedules.state, "active"),
+      eq(schedules.nextDueAt, dueAt)
+    );
+
   const complete = (scheduleId: string, dueAt: string, eventId: string) =>
     database.transaction(() =>
       Effect.gen(function* completeEffect() {
-        const [row] = yield* database
-          .update(schedules)
-          .set({
-            state: "done",
-            changedAt: DateTime.formatIso(yield* DateTime.now),
-          })
-          .where(
-            and(
-              eq(schedules.ownerId, ownerId),
-              eq(schedules.scheduleId, scheduleId),
-              eq(schedules.state, "active"),
-              eq(schedules.nextDueAt, dueAt)
-            )
-          )
-          .returning({ scheduleId: schedules.scheduleId });
-        if (row !== undefined) {
+        const now = yield* DateTime.now;
+        const [due] = yield* database
+          .select()
+          .from(schedules)
+          .where(dueActive(scheduleId, dueAt));
+        if (due === undefined) {
+          return;
+        }
+        const { repeat } = toSchedule(due);
+        if (repeat === undefined) {
+          yield* database
+            .update(schedules)
+            .set({ state: "done", changedAt: DateTime.formatIso(now) })
+            .where(dueActive(scheduleId, dueAt));
           yield* journal.append({
             _tag: "ScheduleCompleted",
             eventId,
             scheduleId,
           });
+          return;
         }
+        const nextDueAt = nextOccurrence(
+          repeat.rule,
+          DateTime.max(DateTime.makeUnsafe(dueAt), now),
+          repeat.timeZone
+        );
+        yield* database
+          .update(schedules)
+          .set({
+            nextDueAt: DateTime.formatIso(nextDueAt),
+            changedAt: DateTime.formatIso(now),
+          })
+          .where(dueActive(scheduleId, dueAt));
+        yield* journal.append({
+          _tag: "ScheduleRescheduled",
+          eventId,
+          scheduleId,
+          nextDueAt: DateTime.formatIso(nextDueAt),
+        });
       })
     );
 
   return {
     ...scheduleEdits,
+    ...repeatingSchedules,
     set,
     byId,
     earliestUnfiredDueAt,

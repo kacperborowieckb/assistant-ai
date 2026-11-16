@@ -5,14 +5,15 @@ import { Journal } from "../journal/journal.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { schedules } from "../personal-agent/storage-schema.ts";
-import { toSchedule } from "./schedule.ts";
-import type { Schedule } from "./schedule.ts";
+import { encodeRule, toSchedule } from "./schedule.ts";
+import type { Repeat, Schedule } from "./schedule.ts";
 
 export interface ScheduleChangeRequest {
   readonly scheduleId: string;
   readonly kind: Schedule["kind"];
   readonly text?: string | undefined;
   readonly dueAt?: DateTime.Utc | undefined;
+  readonly repeat?: Repeat | undefined;
   readonly eventId: string;
 }
 
@@ -25,8 +26,16 @@ export interface ScheduleCancelRequest {
 interface ScheduleEditValues {
   readonly text?: string;
   readonly nextDueAt?: string;
+  readonly recurrence?: string | null;
+  readonly recurrenceTimeZone?: string | null;
   readonly state?: "cancelled";
 }
+
+export const recurrenceValuesOf = (repeat: Repeat | undefined) => ({
+  recurrence: repeat === undefined ? null : encodeRule(repeat.rule),
+  recurrenceTimeZone:
+    repeat === undefined ? null : DateTime.zoneToString(repeat.timeZone),
+});
 
 export const makeScheduleEdits = Effect.fnUntraced(function* makeScheduleEdits(
   ownerId: OwnerId
@@ -77,7 +86,10 @@ export const makeScheduleEdits = Effect.fnUntraced(function* makeScheduleEdits(
           ...(request.text === undefined ? {} : { text: request.text }),
           ...(request.dueAt === undefined
             ? {}
-            : { nextDueAt: DateTime.formatIso(request.dueAt) }),
+            : {
+                nextDueAt: DateTime.formatIso(request.dueAt),
+                ...recurrenceValuesOf(request.repeat),
+              }),
         });
         if (Option.isSome(changed)) {
           yield* journal.append({

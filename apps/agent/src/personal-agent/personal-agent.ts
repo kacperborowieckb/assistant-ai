@@ -151,11 +151,15 @@ export class PersonalAgent extends Agent<Env> {
 
   async runTurn(): Promise<void> {
     await this.rearmAlarm();
-    await this.runtime.runPromise(
-      takeTurn(this.ownerId, defaultBehaviorConfig, this.turnTools).pipe(
-        Effect.provide(this.turnServices(this.env, this.ownerId))
-      )
-    );
+    try {
+      await this.runtime.runPromise(
+        takeTurn(this.ownerId, defaultBehaviorConfig, this.turnTools).pipe(
+          Effect.provide(this.turnServices(this.env, this.ownerId))
+        )
+      );
+    } finally {
+      await this.rearmAlarm();
+    }
   }
 }
 

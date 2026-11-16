@@ -12,7 +12,11 @@ import {
   fakeCancelReminderMessage,
   fakeCancelReminderPrefix,
 } from "./fake-reminder-cancel.ts";
-import { fakeReminderMessage, fakeReminderPrefix } from "./fake-reminder.ts";
+import {
+  fakeReminderMessage,
+  fakeReminderPrefix,
+  fakeRepeatingReminderPrefix,
+} from "./fake-reminder.ts";
 import {
   fakeTimeZoneMessage,
   isFakeTimeZoneMessage,
@@ -105,7 +109,10 @@ const fakeAssistantMessage = (
   if (isFakeTimeZoneMessage(ownerText)) {
     return fakeTimeZoneMessage(ownerText, toolResult, systemText);
   }
-  if (ownerText.startsWith(fakeReminderPrefix)) {
+  if (
+    ownerText.startsWith(fakeReminderPrefix) ||
+    ownerText.startsWith(fakeRepeatingReminderPrefix)
+  ) {
     return fakeReminderMessage(ownerText, toolResult, systemText);
   }
   if (ownerText.startsWith(fakeCancelReminderPrefix)) {
