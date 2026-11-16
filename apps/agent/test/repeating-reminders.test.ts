@@ -151,6 +151,22 @@ const seedRepeating = (
     })
   );
 
+const seedOneTime = (ownerId: string, dueAt: DateTime.Utc) =>
+  inAgent(
+    ownerId,
+    Effect.gen(function* seedEffect() {
+      const schedules = yield* Schedules;
+      yield* schedules.set({
+        kind: "reminder",
+        setBy: "owner",
+        text: "Water the plants",
+        dueAt,
+        sourceEventId: "seed-one-time-conversion",
+      });
+      yield* (yield* ScheduleAlarm).rearm;
+    })
+  );
+
 const fireTheAlarm = async (ownerId: string) =>
   runInDurableObject(await agentOf(ownerId), (instance) =>
     instance.fireDueSchedules()
@@ -232,6 +248,35 @@ describe("set_reminder with a repeat rule", () => {
   });
 });
 
+describe("a repeated set_reminder call with a rule", () => {
+  it("creates one Schedule when the same call arrives again after an occurrence", async () => {
+    const ownerId = await ownerIn(9103, "Europe/Warsaw");
+    const request = (dueAt: DateTime.Utc) =>
+      inAgent(
+        ownerId,
+        Schedules.pipe(
+          Effect.flatMap((schedules) =>
+            schedules.set({
+              kind: "reminder",
+              setBy: "owner",
+              text: "Water the plants",
+              dueAt,
+              repeat: { rule: weeklyMondayAtNine, timeZone: warsaw },
+              sourceEventId: "same-event",
+            })
+          )
+        )
+      );
+
+    const first = await request(DateTime.makeUnsafe("2099-01-05T08:00:00Z"));
+    const again = await request(DateTime.makeUnsafe("2099-01-12T08:00:00Z"));
+
+    expect(first.alreadySet).toBe(false);
+    expect(again.alreadySet).toBe(true);
+    expect(await schedulesOf(ownerId)).toHaveLength(1);
+  });
+});
+
 describe("list_reminders and change_reminder", () => {
   it("lists the rule with the next local due time", async () => {
     const ownerId = await ownerIn(9110, "Europe/Warsaw");
@@ -256,11 +301,10 @@ describe("list_reminders and change_reminder", () => {
 
   it("changes a one-time Reminder into a repeating one and back", async () => {
     const ownerId = await ownerIn(9111, "Europe/Warsaw");
-    await seedRepeating(
-      ownerId,
-      weeklyMondayAtNine,
-      nextOccurrence(weeklyMondayAtNine, DateTime.nowUnsafe(), warsaw)
-    );
+    await seedOneTime(ownerId, DateTime.add(DateTime.nowUnsafe(), { days: 3 }));
+    expect(await onlyScheduleOf(ownerId)).toMatchObject({
+      recurrence: null,
+    });
     const { schedule_id: scheduleId } = await onlyScheduleOf(ownerId);
     scriptModel([
       {

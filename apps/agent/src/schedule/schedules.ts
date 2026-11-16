@@ -32,10 +32,9 @@ export interface ScheduleSet {
 const requestKeyOf = ({ text, dueAt, noteId, repeat }: SetScheduleRequest) =>
   JSON.stringify([
     text,
-    DateTime.formatIso(dueAt),
     noteId ?? null,
     repeat === undefined
-      ? null
+      ? [DateTime.formatIso(dueAt)]
       : [encodeRule(repeat.rule), DateTime.zoneToString(repeat.timeZone)],
   ]);
 
