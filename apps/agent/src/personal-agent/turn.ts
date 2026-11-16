@@ -16,10 +16,11 @@ import { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
 import { Conversation } from "./conversation.ts";
 import { eventMessage } from "./event-message.ts";
+import { fireSchedule } from "./fire-schedule.ts";
 import { Inbox } from "./inbox.ts";
 import type { InboxEvent, OwnerMessageEvent } from "./inbox.ts";
 import { ownerMessageTools } from "./owner-message-tools.ts";
-import { deliverReminder, recoverReminderRecord } from "./reminder-delivery.ts";
+import { recoverReminderRecord } from "./reminder-delivery.ts";
 import { systemPrompt } from "./system-prompt.ts";
 import {
   deliver,
@@ -196,7 +197,7 @@ export const takeTurn = (
       const outcome = yield* settleFromJournal(event);
       if (outcome === "unanswered") {
         yield* event._tag === "ScheduleFired"
-          ? deliverReminder(ownerId, behavior, event)
+          ? fireSchedule(ownerId, behavior, event)
           : answer(ownerId, { behavior, tools }, event);
       }
     }

@@ -5,13 +5,15 @@ import { Journal } from "../journal/journal.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { schedules } from "../personal-agent/storage-schema.ts";
+import { actionColumnOfTag, columnsOfAction } from "./schedule-action.ts";
+import type { ScheduleAction, ScheduleActionTag } from "./schedule-action.ts";
 import { encodeRule, toSchedule } from "./schedule.ts";
-import type { Repeat, Schedule } from "./schedule.ts";
+import type { Repeat } from "./schedule.ts";
 
 export interface ScheduleChangeRequest {
   readonly scheduleId: string;
-  readonly kind: Schedule["kind"];
-  readonly text?: string | undefined;
+  readonly actionTag: ScheduleActionTag;
+  readonly action?: ScheduleAction | undefined;
   readonly dueAt?: DateTime.Utc | undefined;
   readonly repeat?: Repeat | undefined;
   readonly eventId: string;
@@ -19,11 +21,12 @@ export interface ScheduleChangeRequest {
 
 export interface ScheduleCancelRequest {
   readonly scheduleId: string;
-  readonly kind: Schedule["kind"];
+  readonly actionTag: ScheduleActionTag;
   readonly eventId: string;
 }
 
 interface ScheduleEditValues {
+  readonly action?: (typeof schedules.$inferSelect)["action"];
   readonly text?: string;
   readonly nextDueAt?: string;
   readonly recurrence?: string | null;
@@ -43,14 +46,14 @@ export const makeScheduleEdits = Effect.fnUntraced(function* makeScheduleEdits(
   const { database } = yield* AgentStorage;
   const journal = yield* Journal;
 
-  const listActive = (kind: Schedule["kind"]) =>
+  const listActive = (actionTag: ScheduleActionTag) =>
     database
       .select()
       .from(schedules)
       .where(
         and(
           eq(schedules.ownerId, ownerId),
-          eq(schedules.kind, kind),
+          eq(schedules.action, actionColumnOfTag(actionTag)),
           eq(schedules.state, "active")
         )
       )
@@ -58,7 +61,10 @@ export const makeScheduleEdits = Effect.fnUntraced(function* makeScheduleEdits(
       .pipe(Effect.map((rows) => rows.map(toSchedule)));
 
   const updateActive = Effect.fnUntraced(function* updateActive(
-    { scheduleId, kind }: Pick<ScheduleChangeRequest, "kind" | "scheduleId">,
+    {
+      scheduleId,
+      actionTag,
+    }: Pick<ScheduleChangeRequest, "actionTag" | "scheduleId">,
     values: ScheduleEditValues
   ) {
     const [row] = yield* database
@@ -71,7 +77,7 @@ export const makeScheduleEdits = Effect.fnUntraced(function* makeScheduleEdits(
         and(
           eq(schedules.ownerId, ownerId),
           eq(schedules.scheduleId, scheduleId),
-          eq(schedules.kind, kind),
+          eq(schedules.action, actionColumnOfTag(actionTag)),
           eq(schedules.state, "active")
         )
       )
@@ -83,7 +89,9 @@ export const makeScheduleEdits = Effect.fnUntraced(function* makeScheduleEdits(
     database.transaction(() =>
       Effect.gen(function* changeEffect() {
         const changed = yield* updateActive(request, {
-          ...(request.text === undefined ? {} : { text: request.text }),
+          ...(request.action === undefined
+            ? {}
+            : columnsOfAction(request.action)),
           ...(request.dueAt === undefined
             ? {}
             : {

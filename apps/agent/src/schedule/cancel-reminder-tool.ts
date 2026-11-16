@@ -8,6 +8,7 @@ import {
 import { noActiveReminderMessage } from "./reminder-presentation.ts";
 import { failWithToolMessage } from "./reminder-tool-failure.ts";
 import type { ReminderToolServices } from "./reminder-tool-services.ts";
+import { textOfAction } from "./schedule-action.ts";
 
 export const cancelReminderToolName = "cancel_reminder";
 
@@ -45,7 +46,7 @@ export const cancelReminderTool = (
           Effect.gen(function* cancelScheduleEffect() {
             const result = yield* schedules.cancel({
               scheduleId,
-              kind: "reminder",
+              actionTag: "SendText",
               eventId,
             });
             if (result._tag === "None") {
@@ -55,7 +56,7 @@ export const cancelReminderTool = (
             }
             return {
               scheduleId,
-              text: result.value.text,
+              text: textOfAction(result.value.action),
               state: result.value.state,
             };
           })

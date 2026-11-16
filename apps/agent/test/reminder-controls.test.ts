@@ -125,9 +125,8 @@ const seedReminder = (ownerId: string, text: string, dueAt: DateTime.Utc) =>
     Effect.gen(function* seedEffect() {
       const schedules = yield* Schedules;
       yield* schedules.set({
-        kind: "reminder",
+        action: { _tag: "SendText", text },
         setBy: "owner",
-        text,
         dueAt,
         sourceEventId: `seed-${text}`,
       });
@@ -146,7 +145,7 @@ const changeAt = async (ownerId: string, text: string, dueAt: DateTime.Utc) => {
       const schedules = yield* Schedules;
       yield* schedules.change({
         scheduleId,
-        kind: "reminder",
+        actionTag: "SendText",
         dueAt,
         eventId: "setup",
       });
@@ -201,7 +200,7 @@ describe("list_reminders", () => {
         );
         yield* schedules.cancel({
           scheduleId: dropped.schedule_id,
-          kind: "reminder",
+          actionTag: "SendText",
           eventId: "setup",
         });
       })
@@ -306,7 +305,7 @@ describe("change_reminder", () => {
         );
         yield* schedules.cancel({
           scheduleId: dropped.schedule_id,
-          kind: "reminder",
+          actionTag: "SendText",
           eventId: "setup",
         });
       })
@@ -464,7 +463,7 @@ describe("cancel_reminder", () => {
         const schedules = yield* Schedules;
         yield* schedules.cancel({
           scheduleId,
-          kind: "reminder",
+          actionTag: "SendText",
           eventId: "setup",
         });
         yield* (yield* ScheduleAlarm).rearm;

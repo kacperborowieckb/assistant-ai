@@ -8,6 +8,8 @@ import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { inboxEvents, schedules } from "../personal-agent/storage-schema.ts";
 import { nextOccurrence } from "../time/next-occurrence.ts";
 import { makeRepeatingSchedules } from "./repeating-schedules.ts";
+import { columnsOfAction } from "./schedule-action.ts";
+import type { ScheduleAction } from "./schedule-action.ts";
 import { makeScheduleEdits, recurrenceValuesOf } from "./schedule-edits.ts";
 import { encodeRule, toSchedule } from "./schedule.ts";
 import type { Repeat, Schedule } from "./schedule.ts";
@@ -15,9 +17,8 @@ import type { Repeat, Schedule } from "./schedule.ts";
 export type { Schedule } from "./schedule.ts";
 
 export interface SetScheduleRequest {
-  readonly kind: Schedule["kind"];
+  readonly action: ScheduleAction;
   readonly setBy: Schedule["setBy"];
-  readonly text: string;
   readonly noteId?: string | undefined;
   readonly dueAt: DateTime.Utc;
   readonly repeat?: Repeat | undefined;
@@ -29,9 +30,9 @@ export interface ScheduleSet {
   readonly alreadySet: boolean;
 }
 
-const requestKeyOf = ({ text, dueAt, noteId, repeat }: SetScheduleRequest) =>
+const requestKeyOf = ({ action, dueAt, noteId, repeat }: SetScheduleRequest) =>
   JSON.stringify([
-    text,
+    action._tag === "SendText" ? action.text : { prompt: action.prompt },
     noteId ?? null,
     repeat === undefined
       ? [DateTime.formatIso(dueAt)]
@@ -75,9 +76,8 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
       .values({
         scheduleId: crypto.randomUUID(),
         ownerId,
-        kind: request.kind,
+        ...columnsOfAction(request.action),
         setBy: request.setBy,
-        text: request.text,
         noteId: request.noteId ?? null,
         nextDueAt: DateTime.formatIso(request.dueAt),
         ...recurrenceValuesOf(request.repeat),

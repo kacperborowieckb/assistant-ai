@@ -1,6 +1,7 @@
 import { DateTime } from "effect";
 
 import { localTimeOf } from "../time/local-time.ts";
+import { textOfAction } from "./schedule-action.ts";
 import type { Schedule } from "./schedule.ts";
 
 export const reminderOf = (
@@ -8,7 +9,7 @@ export const reminderOf = (
   timeZone: DateTime.TimeZone.Named
 ) => ({
   scheduleId: schedule.scheduleId,
-  text: schedule.text,
+  text: textOfAction(schedule.action),
   noteId: schedule.noteId ?? null,
   due: localTimeOf(schedule.nextDueAt, schedule.repeat?.timeZone ?? timeZone),
   repeats:

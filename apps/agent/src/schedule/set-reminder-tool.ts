@@ -118,9 +118,8 @@ export const setReminderTool = (
               return yield* new ToolFailed({ message: noDueGivenMessage });
             }
             const { schedule, alreadySet } = yield* schedules.set({
-              kind: "reminder",
+              action: { _tag: "SendText", text },
               setBy: "owner",
-              text,
               noteId,
               dueAt: due.value.dueAt,
               repeat: due.value.repeat,
