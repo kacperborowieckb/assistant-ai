@@ -22,6 +22,8 @@ export const noteChanges = ["text", "links", "text_and_links"] as const;
 
 export const profileEntryKinds = ["fact", "style_rule"] as const;
 
+export const ownerPreferenceKeys = ["time_zone"] as const;
+
 export const turnResults = ["model_replied", "model_failed"] as const;
 
 export const modelTasks = ["reply", "eval_judge"] as const;
@@ -175,5 +177,21 @@ export const profileEntries = sqliteTable(
   (table) => [
     unique().on(table.kind, table.text),
     check("profile_entries_kind_check", valueIn(table.kind, profileEntryKinds)),
+  ]
+);
+
+export const ownerPreferences = sqliteTable(
+  "owner_preferences",
+  {
+    key: text("key", { enum: ownerPreferenceKeys }).primaryKey(),
+    value: text("value").notNull(),
+    sourceEventId: text("source_event_id").notNull(),
+    changedAt: text("changed_at").notNull(),
+  },
+  (table) => [
+    check(
+      "owner_preferences_key_check",
+      valueIn(table.key, ownerPreferenceKeys)
+    ),
   ]
 );
