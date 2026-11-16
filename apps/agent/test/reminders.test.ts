@@ -42,7 +42,7 @@ type ReminderServices =
 
 interface ScheduleRow extends Record<string, SqlStorageValue> {
   schedule_id: string;
-  kind: string;
+  action: string;
   set_by: string;
   text: string;
   note_id: string | null;
@@ -65,7 +65,7 @@ const schedulesOf = async (ownerId: string) =>
   runInDurableObject(await agentOf(ownerId), (_, state) =>
     state.storage.sql
       .exec<ScheduleRow>(
-        "SELECT schedule_id, kind, set_by, text, note_id, next_due_at, state FROM schedules ORDER BY next_due_at"
+        "SELECT schedule_id, action, set_by, text, note_id, next_due_at, state FROM schedules ORDER BY next_due_at"
       )
       .toArray()
   );
@@ -145,9 +145,8 @@ const dueAgo = (text: string, ago: Partial<DateTime.DateTime.PartsForMath>) =>
       Effect.gen(function* setDueScheduleEffect() {
         const now = yield* DateTime.now;
         return yield* schedules.set({
-          kind: "reminder",
+          action: { _tag: "SendText", text },
           setBy: "owner",
-          text,
           dueAt: DateTime.subtract(now, ago),
           sourceEventId: `setup-${text}`,
         });
@@ -180,7 +179,7 @@ describe("set_reminder", () => {
     await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(1));
     expect(await schedulesOf(ownerId)).toEqual([
       expect.objectContaining({
-        kind: "reminder",
+        action: "send_text",
         set_by: "owner",
         text: "Buy the gift for Ana",
         note_id: null,
@@ -347,9 +346,8 @@ describe("the alarm", () => {
           ["earlier", earlier],
         ] as const) {
           yield* schedules.set({
-            kind: "reminder",
+            action: { _tag: "SendText", text },
             setBy: "owner",
-            text,
             dueAt,
             sourceEventId: text,
           });

@@ -9,6 +9,7 @@ import {
   lateByMillisOf,
   lateReminderText,
 } from "../schedule/late-reminder.ts";
+import type { SendText } from "../schedule/schedule-action.ts";
 import { Schedules } from "../schedule/schedules.ts";
 import { ownerTimeZone } from "../time/owner-current-time.ts";
 import { OperatorMetrics } from "../tracing/operator-metrics.ts";
@@ -177,30 +178,29 @@ const reminderTextFor = Effect.fnUntraced(function* reminderTextFor(
   return { text: lateReminderText(savedText, dueAt, timeZone), late: true };
 });
 
-export const deliverReminder = Effect.fnUntraced(function* deliverReminder(
-  ownerId: OwnerId,
-  behavior: BehaviorConfig,
-  event: ScheduleFiredEvent
-) {
+interface ReminderDelivery {
+  readonly ownerId: OwnerId;
+  readonly behavior: BehaviorConfig;
+  readonly event: ScheduleFiredEvent;
+  readonly action: SendText;
+}
+
+export const deliverReminder = Effect.fnUntraced(function* deliverReminder({
+  ownerId,
+  behavior,
+  event,
+  action,
+}: ReminderDelivery) {
   const inbox = yield* Inbox;
   const schedules = yield* Schedules;
   const conversation = yield* Conversation;
   const redactor = yield* Redactor;
   const startedAt = yield* Clock.currentTimeMillis;
 
-  const schedule = yield* schedules.byId(event.scheduleId);
-  const stillDue =
-    schedule._tag === "Some" &&
-    schedule.value.state === "active" &&
-    DateTime.formatIso(schedule.value.nextDueAt) === event.dueAt;
-  if (!stillDue) {
-    yield* inbox.markDone([event]);
-    return;
-  }
   const { text, late } = yield* reminderTextFor(
     behavior,
     event,
-    redactor.redact(schedule.value.text)
+    redactor.redact(action.text)
   );
   const delivery = yield* deliver(event, text);
   const record = {

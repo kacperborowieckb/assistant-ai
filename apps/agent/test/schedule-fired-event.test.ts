@@ -36,9 +36,8 @@ const setReminder = (text: string) =>
   Schedules.pipe(
     Effect.flatMap((schedules) =>
       schedules.set({
-        kind: "reminder",
+        action: { _tag: "SendText", text },
         setBy: "owner",
-        text,
         dueAt: DateTime.makeUnsafe(reminderDueAt),
         sourceEventId: "test-source",
       })

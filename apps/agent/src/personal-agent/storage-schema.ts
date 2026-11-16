@@ -33,7 +33,7 @@ export const turnResults = [
   "reminder_delivery_failed",
 ] as const;
 
-export const scheduleKinds = ["reminder"] as const;
+export const scheduleActions = ["send_text", "run_prompt"] as const;
 
 export const scheduleSetBy = ["owner", "agent"] as const;
 
@@ -236,7 +236,7 @@ export const schedules = sqliteTable(
   {
     scheduleId: text("schedule_id").primaryKey(),
     ownerId: text("owner_id").$type<OwnerId>().notNull(),
-    kind: text("kind", { enum: scheduleKinds }).notNull(),
+    action: text("action", { enum: scheduleActions }).notNull(),
     setBy: text("set_by", { enum: scheduleSetBy }).notNull(),
     text: text("text").notNull(),
     noteId: text("note_id").references(() => notes.noteId),
@@ -253,7 +253,7 @@ export const schedules = sqliteTable(
     unique().on(table.sourceEventId, table.requestKey),
     index("schedules_state_due").on(table.state, table.nextDueAt),
     index("schedules_note").on(table.noteId),
-    check("schedules_kind_check", valueIn(table.kind, scheduleKinds)),
+    check("schedules_action_check", valueIn(table.action, scheduleActions)),
     check("schedules_set_by_check", valueIn(table.setBy, scheduleSetBy)),
     check("schedules_state_check", valueIn(table.state, scheduleStates)),
     check(

@@ -121,8 +121,9 @@ export const changeReminderTool = (
             );
             const result = yield* schedules.change({
               scheduleId,
-              kind: "reminder",
-              text,
+              actionTag: "SendText",
+              action:
+                text === undefined ? undefined : { _tag: "SendText", text },
               dueAt: due.pipe(
                 Option.map(({ dueAt }) => dueAt),
                 Option.getOrUndefined

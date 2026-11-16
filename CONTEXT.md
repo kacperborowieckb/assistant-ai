@@ -25,8 +25,10 @@ Use these terms with these meanings in code, docs, issues, and prompts. Use the 
 - **Event**: a signal that wakes the agent: an Owner message, a fired Schedule, a finished Helper, or a webhook. Every Event enters the Inbox.
 - **Inbox**: the queue of Events for one Owner. The router drops duplicates, merges bursts into one Turn, and puts Owner messages first.
 - **Owner Channel Conversation**: the Channel and the conversation id where the Owner last wrote. The agent sends there when it has no message to reply to. The Personal Agent keeps it from the Owner's messages.
-- **Schedule**: a wake-up time. The Owner sets it (a Reminder) or the agent sets it for itself (proactive work).
-- **Reminder**: a Schedule that the Owner asks for, with the text to send at that time.
+- **Schedule**: a wake-up time with one Action.
+- **Action**: what a Schedule does when it fires: `SendText` or `RunPrompt`.
+- **Reminder**: a Schedule that the Owner asks for, with the `SendText` Action.
+- **Scheduled Task**: a Schedule with the `RunPrompt` Action. The Owner sets it, or (later) the agent sets it for itself.
 - **Document**: something the agent writes, for itself or for the Owner. A Note is the main kind.
 - **Note**: a small, linked unit of memory with metadata: source, trust level, and the date it was last checked.
 - **Profile**: the short core facts and style rules about the Owner. The agent adds them to every Turn, and compaction never drops them.

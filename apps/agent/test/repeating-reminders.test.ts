@@ -140,9 +140,8 @@ const seedRepeating = (
     Effect.gen(function* seedEffect() {
       const schedules = yield* Schedules;
       yield* schedules.set({
-        kind: "reminder",
+        action: { _tag: "SendText", text: "Water the plants" },
         setBy: "owner",
-        text: "Water the plants",
         dueAt,
         repeat: { rule, timeZone: warsaw },
         sourceEventId: "seed-repeating",
@@ -157,9 +156,8 @@ const seedOneTime = (ownerId: string, dueAt: DateTime.Utc) =>
     Effect.gen(function* seedEffect() {
       const schedules = yield* Schedules;
       yield* schedules.set({
-        kind: "reminder",
+        action: { _tag: "SendText", text: "Water the plants" },
         setBy: "owner",
-        text: "Water the plants",
         dueAt,
         sourceEventId: "seed-one-time-conversion",
       });
@@ -257,9 +255,8 @@ describe("a repeated set_reminder call with a rule", () => {
         Schedules.pipe(
           Effect.flatMap((schedules) =>
             schedules.set({
-              kind: "reminder",
+              action: { _tag: "SendText", text: "Water the plants" },
               setBy: "owner",
-              text: "Water the plants",
               dueAt,
               repeat: { rule: weeklyMondayAtNine, timeZone: warsaw },
               sourceEventId: "same-event",
@@ -453,16 +450,18 @@ describe("a changed time zone", () => {
       nextOccurrence(weeklyMondayAtNine, DateTime.nowUnsafe(), warsaw)
     );
     const oneTimeDueAt = DateTime.formatIso(
-      DateTime.add(DateTime.nowUnsafe(), { days: 3 })
+      DateTime.startOf(
+        DateTime.add(DateTime.nowUnsafe(), { days: 3 }),
+        "second"
+      )
     );
     await inAgent(
       ownerId,
       Schedules.pipe(
         Effect.flatMap((schedules) =>
           schedules.set({
-            kind: "reminder",
+            action: { _tag: "SendText", text: "One time" },
             setBy: "owner",
-            text: "One time",
             dueAt: DateTime.makeUnsafe(oneTimeDueAt),
             sourceEventId: "seed-one-time",
           })

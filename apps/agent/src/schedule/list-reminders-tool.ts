@@ -43,7 +43,7 @@ export const listRemindersTool = (
                 message: noTimeZoneForListMessage,
               });
             }
-            const active = yield* schedules.listActive("reminder");
+            const active = yield* schedules.listActive("SendText");
             return {
               timeZone: DateTime.zoneToString(timeZone.value),
               reminders: active.map((schedule) =>
