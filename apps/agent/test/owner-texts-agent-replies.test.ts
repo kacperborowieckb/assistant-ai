@@ -44,6 +44,7 @@ const ownerMessageFor = ({
   readonly updateId: string;
   readonly messageId: string;
 }) => ({
+  _tag: "OwnerMessage" as const,
   channel: "telegram" as const,
   channelUpdateId: updateId,
   conversationId,
@@ -70,7 +71,11 @@ describe("Owner texts, agent replies", () => {
       ownerId,
       Inbox.pipe(Effect.flatMap((inbox) => inbox.pending))
     );
-    expect(pending.map((event) => event.text)).toEqual(["hello agent"]);
+    expect(
+      pending.map((event) =>
+        event._tag === "OwnerMessage" ? event.text : undefined
+      )
+    ).toEqual(["hello agent"]);
     expect(fakeTelegram.sent).toEqual([]);
 
     releaseModel();
@@ -214,7 +219,7 @@ describe("Pending Events", () => {
 
     expect(
       fakeTelegram.sent.map((message) => [
-        message.body.reply_parameters.message_id,
+        message.body.reply_parameters?.message_id,
         message.body.text,
       ])
     ).toEqual([

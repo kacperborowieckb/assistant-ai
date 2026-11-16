@@ -91,6 +91,7 @@ export const textMessageFrom = (
       return Option.some({
         senderId: message.from.id,
         message: {
+          _tag: "OwnerMessage",
           channel: "telegram",
           channelUpdateId: String(updateId),
           conversationId: String(message.chat.id),

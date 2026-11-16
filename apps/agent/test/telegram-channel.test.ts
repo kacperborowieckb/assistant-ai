@@ -10,9 +10,11 @@ import {
 
 const fakeTelegramApi = (refuseFrom = Number.POSITIVE_INFINITY) => {
   const texts: string[] = [];
+  const bodies: object[] = [];
   const fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const body = await new Request(input, init).json<{ text: string }>();
     texts.push(body.text);
+    bodies.push(body);
     if (texts.length >= refuseFrom) {
       return Response.json(
         { ok: false, description: "Bad Request: message is too long" },
@@ -21,14 +23,22 @@ const fakeTelegramApi = (refuseFrom = Number.POSITIVE_INFINITY) => {
     }
     return Response.json({ ok: true, result: { message_id: texts.length } });
   };
-  return { texts, fetch };
+  return { texts, bodies, fetch };
 };
 
-const sendWith = (api: ReturnType<typeof fakeTelegramApi>, text: string) =>
+const sendWith = (
+  api: ReturnType<typeof fakeTelegramApi>,
+  text: string,
+  inReplyTo: string | null = "2"
+) =>
   Effect.runPromise(
     Channel.pipe(
       Effect.flatMap((channel) =>
-        channel.send({ conversationId: "1", inReplyTo: "2", text })
+        channel.send({
+          conversationId: "1",
+          ...(inReplyTo === null ? {} : { inReplyTo }),
+          text,
+        })
       ),
       Effect.provide(
         telegramChannel({
@@ -97,6 +107,28 @@ describe("Telegram send", () => {
       }))
     );
     expect(api.texts).toEqual([]);
+  });
+
+  it("sends a plain message with no reply parameters when there is no message to reply to", async () => {
+    const api = fakeTelegramApi();
+
+    await sendWith(api, "Reminder text", null);
+
+    expect(api.bodies).toEqual([{ chat_id: 1, text: "Reminder text" }]);
+  });
+
+  it("sends reply parameters when there is a message to reply to", async () => {
+    const api = fakeTelegramApi();
+
+    await sendWith(api, "An answer");
+
+    expect(api.bodies).toEqual([
+      {
+        chat_id: 1,
+        text: "An answer",
+        reply_parameters: { message_id: 2, allow_sending_without_reply: true },
+      },
+    ]);
   });
 
   it("confirms a long reply only after every part is confirmed", async () => {

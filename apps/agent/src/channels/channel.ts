@@ -1,9 +1,9 @@
 import { Context } from "effect";
 import type { Effect } from "effect";
 
-export interface OutgoingReply {
+export interface OutgoingMessage {
   readonly conversationId: string;
-  readonly inReplyTo: string;
+  readonly inReplyTo?: string;
   readonly text: string;
 }
 
@@ -13,5 +13,5 @@ export type Delivery =
 
 export class Channel extends Context.Service<
   Channel,
-  { readonly send: (reply: OutgoingReply) => Effect.Effect<Delivery> }
+  { readonly send: (message: OutgoingMessage) => Effect.Effect<Delivery> }
 >()("Channel") {}

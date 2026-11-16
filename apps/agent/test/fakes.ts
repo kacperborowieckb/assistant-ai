@@ -8,7 +8,7 @@ export interface SentTelegramMessage {
     readonly chat_id: number;
     readonly text: string;
     readonly parse_mode?: string;
-    readonly reply_parameters: { readonly message_id: number };
+    readonly reply_parameters?: { readonly message_id: number };
   };
 }
 

@@ -1,5 +1,5 @@
 import { trustLevelOfEvent } from "../personal-agent/event-trust.ts";
-import type { InboxEvent } from "../personal-agent/inbox.ts";
+import type { OwnerMessageEvent } from "../personal-agent/inbox.ts";
 import { captureNoteTool, captureNoteToolName } from "./capture-note-tool.ts";
 import {
   listLinkedNotesTool,
@@ -12,7 +12,7 @@ import { updateNoteTool, updateNoteToolName } from "./update-note-tool.ts";
 
 export const noteToolsFor = (
   services: NoteToolServices,
-  event: InboxEvent
+  event: OwnerMessageEvent
 ) => ({
   [captureNoteToolName]: captureNoteTool(services, noteSourceOfEvent(event)),
   ...(trustLevelOfEvent(event) === "owner"

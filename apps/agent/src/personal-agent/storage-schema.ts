@@ -14,6 +14,8 @@ import { valueIn } from "../check-values.ts";
 import type { OwnerMessage } from "../event.ts";
 import type { OwnerId } from "../owner-id.ts";
 
+export const eventKinds = ["OwnerMessage", "ScheduleFired"] as const;
+
 export const inboxStates = ["pending", "done", "failed"] as const;
 
 export const trustLevels = ["owner", "untrusted"] as const;
@@ -33,20 +35,42 @@ export const inboxEvents = sqliteTable(
   {
     sequence: integer("sequence").primaryKey({ autoIncrement: true }),
     eventId: text("event_id").notNull().unique(),
-    channel: text("channel").$type<OwnerMessage["channel"]>().notNull(),
-    channelUpdateId: text("channel_update_id").notNull(),
-    conversationId: text("conversation_id").notNull(),
-    channelMessageId: text("channel_message_id").notNull(),
-    text: text("text").notNull(),
+    kind: text("kind", { enum: eventKinds }).notNull().default("OwnerMessage"),
+    channel: text("channel").$type<OwnerMessage["channel"]>(),
+    channelUpdateId: text("channel_update_id"),
+    conversationId: text("conversation_id"),
+    channelMessageId: text("channel_message_id"),
+    text: text("text"),
     forwardOrigin: text("forward_origin"),
-    sentAt: text("sent_at").notNull(),
+    sentAt: text("sent_at"),
+    scheduleId: text("schedule_id"),
+    dueAt: text("due_at"),
     receivedAt: text("received_at").notNull(),
     state: text("state", { enum: inboxStates }).notNull(),
   },
   (table) => [
     unique().on(table.channel, table.channelUpdateId),
+    unique().on(table.scheduleId, table.dueAt),
     index("inbox_events_state").on(table.state, table.receivedAt),
     check("inbox_events_state_check", valueIn(table.state, inboxStates)),
+    check("inbox_events_kind_check", valueIn(table.kind, eventKinds)),
+    check(
+      "inbox_events_fields_check",
+      sql`(${table.kind} = 'OwnerMessage' AND ${table.channel} IS NOT NULL AND ${table.channelUpdateId} IS NOT NULL AND ${table.conversationId} IS NOT NULL AND ${table.channelMessageId} IS NOT NULL AND ${table.text} IS NOT NULL AND ${table.sentAt} IS NOT NULL AND ${table.scheduleId} IS NULL AND ${table.dueAt} IS NULL) OR (${table.kind} = 'ScheduleFired' AND ${table.scheduleId} IS NOT NULL AND ${table.dueAt} IS NOT NULL AND ${table.channel} IS NULL AND ${table.channelUpdateId} IS NULL AND ${table.conversationId} IS NULL AND ${table.channelMessageId} IS NULL AND ${table.text} IS NULL AND ${table.forwardOrigin} IS NULL AND ${table.sentAt} IS NULL)`
+    ),
+  ]
+);
+
+export const ownerChannelConversations = sqliteTable(
+  "owner_channel_conversations",
+  {
+    slot: integer("slot").primaryKey(),
+    channel: text("channel").$type<OwnerMessage["channel"]>().notNull(),
+    conversationId: text("conversation_id").notNull(),
+    recordedAt: text("recorded_at").notNull(),
+  },
+  (table) => [
+    check("owner_channel_conversations_one_row", sql`${table.slot} = 0`),
   ]
 );
 

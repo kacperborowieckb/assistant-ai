@@ -64,6 +64,7 @@ const interruptedAfter = async (
         const inbox = yield* Inbox;
         const journal = yield* Journal;
         yield* inbox.store({
+          _tag: "OwnerMessage",
           channel: "telegram",
           channelUpdateId: "interrupted-1",
           conversationId: String(telegramUserId),
@@ -246,6 +247,7 @@ describe("Exactly one reply", () => {
         Inbox.pipe(
           Effect.flatMap((inbox) =>
             inbox.store({
+              _tag: "OwnerMessage",
               channel: "telegram",
               channelUpdateId: String(update.update_id),
               conversationId: "6008",

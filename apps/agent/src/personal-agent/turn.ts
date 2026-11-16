@@ -5,6 +5,7 @@ import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { noTools } from "../model-gateway/agent-tool.ts";
 import type { AgentTools } from "../model-gateway/agent-tool.ts";
 import { ModelGateway } from "../model-gateway/model-gateway.ts";
+import type { NoteToolServices } from "../notes/note-tool-services.ts";
 import { noteToolsFor } from "../notes/note-tools.ts";
 import { Notes } from "../notes/notes.ts";
 import type { OwnerId } from "../owner-id.ts";
@@ -22,10 +23,10 @@ import { ownerCurrentTimeText } from "../time/owner-current-time.ts";
 import { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
 import { Conversation } from "./conversation.ts";
+import { eventMessage } from "./event-message.ts";
 import { trustLevelOfEvent } from "./event-trust.ts";
 import { Inbox } from "./inbox.ts";
-import type { InboxEvent } from "./inbox.ts";
-import { ownerMessage } from "./owner-message.ts";
+import type { InboxEvent, OwnerMessageEvent } from "./inbox.ts";
 import { systemPrompt } from "./system-prompt.ts";
 import {
   deliver,
@@ -56,7 +57,7 @@ const rememberCompletedSteps = (
 
     if (earlier.length + completed.length > 0) {
       yield* conversation.append(event.eventId, [
-        ownerMessage(event),
+        eventMessage(event),
         ...earlier,
         ...completed.map((message) => redactor.redactMessage(message)),
       ]);
@@ -67,6 +68,31 @@ interface TurnSettings {
   readonly behavior: BehaviorConfig;
   readonly tools: AgentTools;
 }
+
+interface OwnerMessageToolServices extends NoteToolServices {
+  readonly profile: Profile["Service"];
+  readonly maxProfileCharacters: number;
+}
+
+const ownerMessageTools = (
+  event: OwnerMessageEvent,
+  { profile, maxProfileCharacters, ...noteServices }: OwnerMessageToolServices
+) => ({
+  ...noteToolsFor(noteServices, event),
+  ...(trustLevelOfEvent(event) === "owner"
+    ? {
+        [updateProfileToolName]: updateProfileTool(
+          {
+            profile,
+            progress: noteServices.progress,
+            redactor: noteServices.redactor,
+            characterLimit: maxProfileCharacters,
+          },
+          event.eventId
+        ),
+      }
+    : {}),
+});
 
 const answer = (
   ownerId: OwnerId,
@@ -96,7 +122,7 @@ const answer = (
       behavior.maxToolSteps - (yield* progress.usedStepCount(event.eventId));
     if (stepsLeft <= 0) {
       yield* conversation.append(event.eventId, [
-        ownerMessage(event),
+        eventMessage(event),
         ...earlier,
       ]);
       yield* failTurnWithHonestMessage(
@@ -105,7 +131,7 @@ const answer = (
       );
       return;
     }
-    const messages = [...history, ownerMessage(event), ...earlier];
+    const messages = [...history, eventMessage(event), ...earlier];
     const outcome: ModelOutcome = yield* modelGateway
       .generate({
         task: "reply",
@@ -113,19 +139,14 @@ const answer = (
         messages,
         tools: {
           ...tools,
-          ...noteToolsFor({ notes, progress, redactor }, event),
-          ...(trustLevelOfEvent(event) === "owner"
-            ? {
-                [updateProfileToolName]: updateProfileTool(
-                  {
-                    profile,
-                    progress,
-                    redactor,
-                    characterLimit: behavior.maxProfileCharacters,
-                  },
-                  event.eventId
-                ),
-              }
+          ...(event._tag === "OwnerMessage"
+            ? ownerMessageTools(event, {
+                notes,
+                profile,
+                progress,
+                redactor,
+                maxProfileCharacters: behavior.maxProfileCharacters,
+              })
             : {}),
           ...(trustLevelOfEvent(event) === "owner"
             ? {
@@ -187,7 +208,7 @@ const answer = (
       return;
     }
     yield* conversation.append(event.eventId, [
-      ownerMessage(event),
+      eventMessage(event),
       ...earlier,
       ...responseMessagesOf(outcome).map((message) =>
         redactor.redactMessage(message)

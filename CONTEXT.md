@@ -24,6 +24,7 @@ Use these terms with these meanings in code, docs, issues, and prompts. Use the 
 - **Channel Identity**: the Owner's identity inside a Channel, for example a Telegram user id. The Directory maps it to an Owner Id.
 - **Event**: a signal that wakes the agent: an Owner message, a fired Schedule, a finished Helper, or a webhook. Every Event enters the Inbox.
 - **Inbox**: the queue of Events for one Owner. The router drops duplicates, merges bursts into one Turn, and puts Owner messages first.
+- **Owner Channel Conversation**: the Channel and the conversation id where the Owner last wrote. The agent sends there when it has no message to reply to. The Personal Agent keeps it from the Owner's messages.
 - **Schedule**: a wake-up time. The Owner sets it (a Reminder) or the agent sets it for itself (proactive work).
 - **Reminder**: a Schedule that the Owner asks for, with the text to send at that time.
 - **Document**: something the agent writes, for itself or for the Owner. A Note is the main kind.

@@ -85,6 +85,59 @@ describe("Personal Agent migrations", () => {
     });
   });
 
+  it("keeps the Inbox rows and the Owner conversation that existed before the Event union migration", async () => {
+    const agent = await freshAgent("owner-before-event-union");
+    const eventUnionMigration = "20261116000630_schedule_fired_events";
+    const { [eventUnionMigration]: _later, ...earlier } =
+      personalAgentMigrations.migrations;
+
+    await runInDurableObject(agent, async (_instance, state) => {
+      await runWithMigrations(
+        state.storage,
+        { migrations: earlier },
+        columnsOf("inbox_events")
+      );
+      state.storage.sql.exec(
+        "INSERT INTO inbox_events (event_id, channel, channel_update_id, conversation_id, channel_message_id, text, sent_at, received_at, state) VALUES ('kept-event', 'telegram', '11', '7', '12', 'kept text', '2026-11-15T10:00:00.000Z', '2026-11-15T10:00:01.000Z', 'done')"
+      );
+
+      state.storage.sql.exec(
+        "INSERT INTO inbox_events (event_id, channel, channel_update_id, conversation_id, channel_message_id, text, sent_at, received_at, state) VALUES ('latest-event', 'telegram', '12', '8', '13', 'latest text', '2026-11-15T11:00:00.000Z', '2026-11-15T11:00:01.000Z', 'done')"
+      );
+
+      const upgraded = await runWithMigrations(
+        state.storage,
+        undefined,
+        columnsOf("inbox_events")
+      );
+      const conversation = state.storage.sql
+        .exec(
+          "SELECT channel, conversation_id FROM owner_channel_conversations"
+        )
+        .toArray();
+      const rows = state.storage.sql
+        .exec<{
+          event_id: string;
+          kind: string;
+          text: string;
+          state: string;
+          sequence: number;
+        }>("SELECT event_id, kind, text, state, sequence FROM inbox_events")
+        .toArray();
+
+      expect(Exit.isSuccess(upgraded)).toBe(true);
+      expect(conversation).toEqual([
+        { channel: "telegram", conversation_id: "8" },
+      ]);
+      expect(rows.map((row) => [row.event_id, row.kind, row.sequence])).toEqual(
+        [
+          ["kept-event", "OwnerMessage", 1],
+          ["latest-event", "OwnerMessage", 2],
+        ]
+      );
+    });
+  });
+
   it("leaves no partial schema when a migration fails", async () => {
     const agent = await freshAgent("owner-failed-migration");
 
