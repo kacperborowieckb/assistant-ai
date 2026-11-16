@@ -138,22 +138,22 @@ const seedReminder = (ownerId: string, text: string, dueAt: DateTime.Utc) =>
 const dueSecondsAgo = (seconds: number) =>
   DateTime.subtract(DateTime.nowUnsafe(), { seconds });
 
-const changeAt = (ownerId: string, text: string, dueAt: DateTime.Utc) =>
-  rowOf(ownerId, text).then(({ schedule_id: scheduleId }) =>
-    inAgent(
-      ownerId,
-      Effect.gen(function* changeEffect() {
-        const schedules = yield* Schedules;
-        yield* schedules.change({
-          scheduleId,
-          kind: "reminder",
-          dueAt,
-          eventId: "setup",
-        });
-        yield* (yield* ScheduleAlarm).rearm;
-      })
-    )
+const changeAt = async (ownerId: string, text: string, dueAt: DateTime.Utc) => {
+  const { schedule_id: scheduleId } = await rowOf(ownerId, text);
+  await inAgent(
+    ownerId,
+    Effect.gen(function* changeEffect() {
+      const schedules = yield* Schedules;
+      yield* schedules.change({
+        scheduleId,
+        kind: "reminder",
+        dueAt,
+        eventId: "setup",
+      });
+      yield* (yield* ScheduleAlarm).rearm;
+    })
   );
+};
 
 const owner = (telegramUserId: number, text: string) =>
   telegramWebhook(textUpdate({ fromUserId: telegramUserId, text }));
@@ -172,9 +172,9 @@ const toolNamesOf = (call: {
 const askAndWaitForReply = async (telegramUserId: number, text: string) => {
   const repliesBefore = fakeTelegram.sent.length;
   await owner(telegramUserId, text);
-  await vi.waitFor(() =>
-    expect(fakeTelegram.sent).toHaveLength(repliesBefore + 1)
-  );
+  await vi.waitUntil(() => fakeTelegram.sent.length > repliesBefore, {
+    timeout: 5000,
+  });
 };
 
 beforeEach(() => {

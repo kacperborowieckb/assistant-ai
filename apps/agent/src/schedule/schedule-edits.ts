@@ -22,6 +22,12 @@ export interface ScheduleCancelRequest {
   readonly eventId: string;
 }
 
+interface ScheduleEditValues {
+  readonly text?: string;
+  readonly nextDueAt?: string;
+  readonly state?: "cancelled";
+}
+
 export const makeScheduleEdits = Effect.fnUntraced(function* makeScheduleEdits(
   ownerId: OwnerId
 ) {
@@ -44,7 +50,7 @@ export const makeScheduleEdits = Effect.fnUntraced(function* makeScheduleEdits(
 
   const updateActive = Effect.fnUntraced(function* updateActive(
     { scheduleId, kind }: Pick<ScheduleChangeRequest, "kind" | "scheduleId">,
-    values: Partial<typeof schedules.$inferInsert>
+    values: ScheduleEditValues
   ) {
     const [row] = yield* database
       .update(schedules)
