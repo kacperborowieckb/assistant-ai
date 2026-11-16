@@ -74,7 +74,7 @@ const repeatingPrefixes: ReadonlySet<string> = new Set([
   fakeRepeatingScheduledTaskPrefix,
 ]);
 
-export const fakeReminderMessage = (
+export const fakeScheduleMessage = (
   ownerText: string,
   toolResult: string | undefined,
   systemText: string

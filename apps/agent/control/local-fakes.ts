@@ -4,7 +4,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { Effect, Option, Queue, Schema } from "effect";
 
-import { scheduledTaskSection } from "../src/personal-agent/scheduled-task-section.ts";
+import { scheduledTaskMarker } from "../src/personal-agent/scheduled-task-section.ts";
 import { fakeJudgeMessage, fakeJudgeModel } from "./fake-judge.ts";
 import type { FakeJudgeVerdict } from "./fake-judge.ts";
 import { fakeNoteEditMessage, isFakeNoteEdit } from "./fake-note-edits.ts";
@@ -14,7 +14,7 @@ import {
   fakeCancelReminderPrefix,
 } from "./fake-schedule-cancel.ts";
 import {
-  fakeReminderMessage,
+  fakeScheduleMessage,
   fakeScheduledTaskMessage,
   isFakeScheduleRequest,
 } from "./fake-schedule.ts";
@@ -110,11 +110,11 @@ const fakeAssistantMessage = (
   if (isFakeTimeZoneMessage(ownerText)) {
     return fakeTimeZoneMessage(ownerText, toolResult, systemText);
   }
-  if (systemText.includes(scheduledTaskSection)) {
+  if (systemText.includes(scheduledTaskMarker)) {
     return fakeScheduledTaskMessage(ownerText);
   }
   if (isFakeScheduleRequest(ownerText)) {
-    return fakeReminderMessage(ownerText, toolResult, systemText);
+    return fakeScheduleMessage(ownerText, toolResult, systemText);
   }
   if (ownerText.startsWith(fakeCancelReminderPrefix)) {
     return fakeCancelReminderMessage(ownerText, toolResult);

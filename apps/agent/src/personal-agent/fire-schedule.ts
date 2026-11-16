@@ -30,7 +30,13 @@ export const fireSchedule = Effect.fnUntraced(function* fireSchedule(
       return yield* deliverReminder({ ownerId, behavior, event, action });
     }
     case "RunPrompt": {
-      return yield* runScheduledTask({ ownerId, behavior, event, action });
+      return yield* runScheduledTask({
+        ownerId,
+        behavior,
+        event,
+        schedule: schedule.value,
+        action,
+      });
     }
     default: {
       return action satisfies never;

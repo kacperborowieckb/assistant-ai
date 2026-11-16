@@ -12,6 +12,7 @@ import { ScheduleAlarm } from "../src/schedule/schedule-alarm.ts";
 import { Schedules } from "../src/schedule/schedules.ts";
 import type { SetScheduleRequest } from "../src/schedule/schedules.ts";
 import { setScheduleToolName } from "../src/schedule/set-schedule-tool.ts";
+import { localTimeOf } from "../src/time/local-time.ts";
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
 import {
   fakeMetrics,
@@ -191,6 +192,26 @@ describe("the tools of a Scheduled Task Turn", () => {
     const rows = await schedulesOf(ownerId);
     expect(rows).toHaveLength(1);
     expect(sentTexts()[1]).toBe("Done");
+  });
+});
+
+describe("the system prompt of a Scheduled Task Turn", () => {
+  it("says that the Owner is not present and gives the local time when the Schedule was set", async () => {
+    const ownerId = await ownerInWarsaw(9408);
+    const schedule = await seedScheduledTask(ownerId);
+
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    const system = lastModelCall().prompt.find(
+      (message) => message.role === "system"
+    );
+    const setAt = localTimeOf(
+      schedule.createdAt,
+      DateTime.zoneMakeNamedUnsafe("Europe/Warsaw")
+    );
+    expect(system?.content).toContain("The Owner is not present.");
+    expect(system?.content).toContain(`set at ${setAt} (Europe/Warsaw)`);
   });
 });
 

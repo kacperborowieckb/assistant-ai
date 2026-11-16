@@ -1,4 +1,4 @@
-import { Clock, Effect } from "effect";
+import { Clock, DateTime, Effect } from "effect";
 
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { ModelGateway } from "../model-gateway/model-gateway.ts";
@@ -8,8 +8,13 @@ import { OwnerPreferences } from "../preferences/owner-preferences.ts";
 import { Profile } from "../profile/profile.ts";
 import type { RunPrompt } from "../schedule/schedule-action.ts";
 import { ScheduleAlarm } from "../schedule/schedule-alarm.ts";
+import type { Schedule } from "../schedule/schedule.ts";
 import { Schedules } from "../schedule/schedules.ts";
-import { ownerCurrentTimeText } from "../time/owner-current-time.ts";
+import { localTimeOf } from "../time/local-time.ts";
+import {
+  ownerCurrentTimeText,
+  ownerTimeZone,
+} from "../time/owner-current-time.ts";
 import { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
 import { Conversation } from "./conversation.ts";
@@ -39,6 +44,7 @@ interface ScheduledTaskRun {
   readonly ownerId: OwnerId;
   readonly behavior: BehaviorConfig;
   readonly event: ScheduleFiredEvent;
+  readonly schedule: Schedule;
   readonly action: RunPrompt;
 }
 
@@ -46,6 +52,7 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
   ownerId,
   behavior,
   event,
+  schedule,
   action,
 }: ScheduledTaskRun) {
   const inbox = yield* Inbox;
@@ -61,12 +68,17 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
   const alarm = yield* ScheduleAlarm;
 
   const startedAt = yield* Clock.currentTimeMillis;
+  const timeZone = yield* ownerTimeZone(behavior);
+  const setAtText =
+    timeZone._tag === "Some"
+      ? `${localTimeOf(schedule.createdAt, timeZone.value)} (${DateTime.zoneToString(timeZone.value)})`
+      : DateTime.formatIso(schedule.createdAt);
   const history = yield* conversation.recent;
   const system = systemPrompt({
     behavior,
     profile: yield* profile.read,
     currentTime: yield* ownerCurrentTimeText(behavior),
-    situation: [scheduledTaskSection],
+    situation: [scheduledTaskSection(setAtText)],
   });
   const input = scheduledTaskInputMessage(action.prompt);
   const earlier = yield* progress.completedFor(event.eventId);

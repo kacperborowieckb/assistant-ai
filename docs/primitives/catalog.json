@@ -84,7 +84,8 @@
         "docs/decisions/0003-runtime-and-model-stack.md",
         "docs/decisions/0007-typed-queries-and-migrations.md",
         "docs/decisions/0013-schedules-and-time.md",
-        "docs/decisions/0014-schedule-actions.md"
+        "docs/decisions/0014-schedule-actions.md",
+        "docs/decisions/0015-scheduled-task-turn.md"
       ]
     },
     {
@@ -99,7 +100,7 @@
     },
     {
       "id": "model-gateway",
-      "purpose": "The one interface to models. It selects the model for a Model Task (reply; scheduled_task for a Scheduled Task Turn, which uses the reply route; or eval_judge for the Eval judge), each with its own route of model and thinking level, resolves the Model Credentials (token and billing mode), calls it with the AI SDK through Cloudflare AI Gateway with the Owner Id as metadata and no stored bodies, retries with a timeout for each try, and records Usage for each model call in the Personal Agent SQLite.",
+      "purpose": "The one interface to models. It selects the model for a Model Task (reply, scheduled_task, or eval_judge for the Eval judge). The scheduled_task route is the reply route by default, each with its own route of model and thinking level, resolves the Model Credentials (token and billing mode), calls it with the AI SDK through Cloudflare AI Gateway with the Owner Id as metadata and no stored bodies, retries with a timeout for each try, and records Usage for each model call in the Personal Agent SQLite.",
       "roots": ["apps/agent/src/model-gateway"],
       "adrs": [
         "docs/decisions/0003-runtime-and-model-stack.md",
@@ -113,7 +114,7 @@
     },
     {
       "id": "tracing",
-      "purpose": "The Trace and the Operator metrics of a Turn. The Trace is one append-only record for each model-answered Event, for each Scheduled Task Turn (the same model fields as a reply plus the Schedule id and the due instant), and for each Reminder delivery (a record with the Schedule id, the due instant, the text, and the result, and no model fields) in the Personal Agent SQLite: the system prompt, the messages, the model settings, tool calls, the reply or the error, Usage, and latency. That is enough to replay the Turn, and it holds private content, so it stays with the Owner. The Operator metrics are one Analytics Engine data point for each Turn and each refused request, with the Owner Id (or none), result, latency, tokens, cost, and cache hits, and with no content. The Redactor removes secret values from error text before it enters a Trace or the Journal.",
+      "purpose": "The Trace and the Operator metrics of a Turn. The Trace is one append-only record for each model-answered Event, for each Scheduled Task Turn, and for each Reminder delivery (a record with the Schedule id, the due instant, the text, and the result, and no model fields) in the Personal Agent SQLite: the system prompt, the messages, the model settings, tool calls, the reply or the error, Usage, and latency. That is enough to replay the Turn, and it holds private content, so it stays with the Owner. The Operator metrics are one Analytics Engine data point for each Turn and each refused request, with the Owner Id (or none), result, latency, tokens, cost, and cache hits, and with no content. The Redactor removes secret values from error text before it enters a Trace or the Journal.",
       "roots": ["apps/agent/src/tracing"],
       "adrs": [
         "docs/decisions/0004-owners-and-channels.md",
