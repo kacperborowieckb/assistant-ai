@@ -75,8 +75,17 @@ const seededReminders = (oneTimeDueAt: string): readonly SeededReminder[] => [
   },
 ];
 
-const requestKeyOf = ({ text, nextDueAt }: SeededReminder) =>
-  JSON.stringify([text, null, [nextDueAt]]);
+const requestKeyOf = ({
+  text,
+  nextDueAt,
+  recurrence,
+  recurrenceTimeZone,
+}: SeededReminder) =>
+  JSON.stringify([
+    text,
+    null,
+    recurrence === null ? [nextDueAt] : [recurrence, recurrenceTimeZone],
+  ]);
 
 const seedBeforeActions = (
   storage: DurableObjectStorage,
@@ -164,24 +173,34 @@ describe("the Schedule Action migration", () => {
         }))
     );
 
-    const repeatedSet = await runInDurableObject(agent, (instance) =>
+    const repeatedSets = await runInDurableObject(agent, (instance) =>
       instance.runtime.runPromise(
-        Schedules.pipe(
-          Effect.flatMap((schedules) =>
-            schedules.set({
-              action: { _tag: "SendText", text: "Buy the gift" },
-              setBy: "owner",
-              dueAt: DateTime.makeUnsafe(dueLater),
-              sourceEventId: "source-one-time",
-            })
-          )
-        )
+        Effect.gen(function* repeatSetsEffect() {
+          const schedules = yield* Schedules;
+          const oneTime = yield* schedules.set({
+            action: { _tag: "SendText", text: "Buy the gift" },
+            setBy: "owner",
+            dueAt: DateTime.makeUnsafe(dueLater),
+            sourceEventId: "source-one-time",
+          });
+          const repeating = yield* schedules.set({
+            action: { _tag: "SendText", text: "Water the plants" },
+            setBy: "owner",
+            dueAt: DateTime.makeUnsafe("2100-01-01T08:00:00.000Z"),
+            repeat: {
+              rule: { _tag: "Daily", time: "09:00" },
+              timeZone: DateTime.zoneMakeNamedUnsafe("Europe/Warsaw"),
+            },
+            sourceEventId: "source-repeating",
+          });
+          return [oneTime, repeating];
+        })
       )
     );
-    expect(repeatedSet).toMatchObject({
-      alreadySet: true,
-      schedule: { scheduleId: "one-time" },
-    });
+    expect(repeatedSets).toMatchObject([
+      { alreadySet: true, schedule: { scheduleId: "one-time" } },
+      { alreadySet: true, schedule: { scheduleId: "repeating" } },
+    ]);
 
     await runInDurableObject(agent, (instance, state) => {
       state.storage.sql.exec(
