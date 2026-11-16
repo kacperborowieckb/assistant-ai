@@ -384,6 +384,9 @@ describe("delivery of a repeating Reminder", () => {
     await fireTheAlarm(ownerId);
 
     await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    expect(fakeTelegram.sent[1]?.body.text).toContain("This Reminder is late.");
+    expect(fakeTelegram.sent[1]?.body.text).toContain("Water the plants");
+    expect(await journalTagsOf(ownerId)).toContain("ReminderLate");
     const row = await onlyScheduleOf(ownerId);
     const next = DateTime.makeUnsafe(row.next_due_at);
     expect(DateTime.isGreaterThan(next, DateTime.nowUnsafe())).toBe(true);
