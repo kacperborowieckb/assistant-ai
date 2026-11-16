@@ -241,6 +241,8 @@ export const schedules = sqliteTable(
     text: text("text").notNull(),
     noteId: text("note_id").references(() => notes.noteId),
     nextDueAt: text("next_due_at").notNull(),
+    recurrence: text("recurrence"),
+    recurrenceTimeZone: text("recurrence_time_zone"),
     state: text("state", { enum: scheduleStates }).notNull(),
     sourceEventId: text("source_event_id").notNull(),
     requestKey: text("request_key").notNull(),
@@ -254,5 +256,9 @@ export const schedules = sqliteTable(
     check("schedules_kind_check", valueIn(table.kind, scheduleKinds)),
     check("schedules_set_by_check", valueIn(table.setBy, scheduleSetBy)),
     check("schedules_state_check", valueIn(table.state, scheduleStates)),
+    check(
+      "schedules_recurrence_check",
+      sql`(${table.recurrence} IS NULL) = (${table.recurrenceTimeZone} IS NULL)`
+    ),
   ]
 );

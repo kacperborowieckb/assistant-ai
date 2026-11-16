@@ -79,7 +79,7 @@ export const ownerMessageTools = (
             event.eventId
           ),
           [setTimeZoneToolName]: setTimeZoneTool(
-            { preferences, progress, redactor },
+            { preferences, schedules, alarm, progress, redactor },
             event.eventId
           ),
           [setReminderToolName]: setReminderTool(

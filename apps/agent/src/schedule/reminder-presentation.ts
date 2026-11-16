@@ -1,4 +1,4 @@
-import type { DateTime } from "effect";
+import { DateTime } from "effect";
 
 import { localTimeOf } from "../time/local-time.ts";
 import type { Schedule } from "./schedule.ts";
@@ -10,7 +10,14 @@ export const reminderOf = (
   scheduleId: schedule.scheduleId,
   text: schedule.text,
   noteId: schedule.noteId ?? null,
-  due: localTimeOf(schedule.nextDueAt, timeZone),
+  due: localTimeOf(schedule.nextDueAt, schedule.repeat?.timeZone ?? timeZone),
+  repeats:
+    schedule.repeat === undefined
+      ? null
+      : {
+          rule: schedule.repeat.rule,
+          timeZone: DateTime.zoneToString(schedule.repeat.timeZone),
+        },
 });
 
 export const noActiveReminderMessage = (scheduleId: string) =>

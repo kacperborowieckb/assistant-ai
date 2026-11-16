@@ -2,6 +2,8 @@ import { DateTime, Option, Schema } from "effect";
 
 export const fakeReminderPrefix = "remind: ";
 
+export const fakeRepeatingReminderPrefix = "remind daily: ";
+
 const SetReminderResultSchema = Schema.fromJsonString(
   Schema.Struct({ due: Schema.String, timeZone: Schema.String })
 );
@@ -40,7 +42,14 @@ export const fakeReminderMessage = (
   systemText: string
 ) => {
   if (toolResult === undefined) {
-    const localDueTime = nextLocalMinute(systemText);
+    const isRepeating = ownerText.startsWith(fakeRepeatingReminderPrefix);
+    const localDueTime = Option.getOrElse(
+      nextLocalMinute(systemText),
+      () => ""
+    );
+    const text = ownerText.slice(
+      (isRepeating ? fakeRepeatingReminderPrefix : fakeReminderPrefix).length
+    );
     return {
       role: "assistant",
       content: null,
@@ -50,10 +59,14 @@ export const fakeReminderMessage = (
           type: "function",
           function: {
             name: "set_reminder",
-            arguments: JSON.stringify({
-              text: ownerText.slice(fakeReminderPrefix.length),
-              localDueTime: Option.getOrElse(localDueTime, () => ""),
-            }),
+            arguments: JSON.stringify(
+              isRepeating
+                ? {
+                    text,
+                    repeat: { _tag: "Daily", time: localDueTime.slice(-5) },
+                  }
+                : { text, localDueTime }
+            ),
           },
         },
       ],
