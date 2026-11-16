@@ -87,7 +87,7 @@ describe("Personal Agent migrations", () => {
 
   it("keeps the Inbox rows that existed before the Event union migration", async () => {
     const agent = await freshAgent("owner-before-event-union");
-    const eventUnionMigration = "20261115225543_schedule_fired_events";
+    const eventUnionMigration = "20261116000630_schedule_fired_events";
     const { [eventUnionMigration]: _later, ...earlier } =
       personalAgentMigrations.migrations;
 
