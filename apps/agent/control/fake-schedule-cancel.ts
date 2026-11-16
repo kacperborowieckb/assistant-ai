@@ -4,15 +4,18 @@ export const fakeCancelReminderPrefix = "cancel reminder: ";
 
 const ListedRemindersSchema = Schema.fromJsonString(
   Schema.Struct({
-    reminders: Schema.Array(
-      Schema.Struct({ scheduleId: Schema.String, text: Schema.String })
+    schedules: Schema.Array(
+      Schema.Struct({
+        scheduleId: Schema.String,
+        action: Schema.Struct({ text: Schema.String }),
+      })
     ),
   })
 );
 
 const CancelledReminderSchema = Schema.fromJsonString(
   Schema.Struct({
-    text: Schema.String,
+    action: Schema.Struct({ text: Schema.String }),
     state: Schema.Literal("cancelled"),
   })
 );
@@ -38,22 +41,22 @@ export const fakeCancelReminderMessage = (
 ) => {
   const words = ownerText.slice(fakeCancelReminderPrefix.length);
   if (toolResult === undefined) {
-    return toolCall("call-cancel-list-1", "list_reminders", {});
+    return toolCall("call-cancel-list-1", "list_schedules", {});
   }
   const cancelled = decodeCancelled(toolResult);
   if (Option.isSome(cancelled)) {
     return {
       role: "assistant",
-      content: `Cancelled Reminder: ${cancelled.value.text}`,
+      content: `Cancelled Reminder: ${cancelled.value.action.text}`,
     };
   }
   const match = decodeListed(toolResult).pipe(
-    Option.flatMapNullishOr(({ reminders }) =>
-      reminders.find(({ text }) => text.includes(words))
+    Option.flatMapNullishOr(({ schedules }) =>
+      schedules.find(({ action }) => action.text.includes(words))
     )
   );
   return Option.isSome(match)
-    ? toolCall("call-cancel-1", "cancel_reminder", {
+    ? toolCall("call-cancel-1", "cancel_schedule", {
         scheduleId: match.value.scheduleId,
       })
     : { role: "assistant", content: `No Reminder matches: ${words}` };

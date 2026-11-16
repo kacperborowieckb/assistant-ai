@@ -18,9 +18,9 @@ import { Schedules } from "../src/schedule/schedules.ts";
 import {
   dueTimeInThePastMessage,
   invalidLocalDueTimeMessage,
-  noTimeZoneForReminderMessage,
-  setReminderToolName,
-} from "../src/schedule/set-reminder-tool.ts";
+  noTimeZoneForScheduleMessage,
+  setScheduleToolName,
+} from "../src/schedule/set-schedule-tool.ts";
 import { localTimeOf } from "../src/time/local-time.ts";
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
 import {
@@ -115,9 +115,9 @@ const nextYear = DateTime.getPartUtc(DateTime.nowUnsafe(), "year") + 1;
 
 const setReminderStep = (localDueTime: string, noteId?: string) =>
   ({
-    callTool: setReminderToolName,
+    callTool: setScheduleToolName,
     input: {
-      text: "Buy the gift for Ana",
+      action: { _tag: "SendText", text: "Buy the gift for Ana" },
       localDueTime,
       ...(noteId === undefined ? {} : { noteId }),
     },
@@ -166,7 +166,7 @@ beforeEach(() => {
   resetFakes();
 });
 
-describe("set_reminder", () => {
+describe("set_schedule", () => {
   it("stores one active Schedule at the UTC instant of the Warsaw time and tells the local time", async () => {
     const ownerId = await ownerInWarsaw(9001);
     scriptModel([
@@ -202,9 +202,9 @@ describe("set_reminder", () => {
         input: { text: "buy the gift for Ana" },
       },
       {
-        callTool: setReminderToolName,
+        callTool: setScheduleToolName,
         input: ({ noteId }) => ({
-          text: "Buy the gift for Ana",
+          action: { _tag: "SendText", text: "Buy the gift for Ana" },
           localDueTime: `${nextYear}-01-14T09:00`,
           noteId,
         }),
@@ -260,7 +260,7 @@ describe("set_reminder", () => {
     const [call] = await toolCallsOf(ownerId);
     expect(call).toMatchObject({
       failed: true,
-      output: expect.stringContaining(noTimeZoneForReminderMessage),
+      output: expect.stringContaining(noTimeZoneForScheduleMessage),
     });
   });
 
@@ -290,7 +290,7 @@ describe("set_reminder", () => {
     await owner(9006, "hello");
     await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(1));
     expect(toolNamesOf(fakeModel.doGenerateCalls[0] ?? {})).toContain(
-      setReminderToolName
+      setScheduleToolName
     );
 
     scriptModel([{ say: "ok" }]);
@@ -307,7 +307,7 @@ describe("set_reminder", () => {
     );
     await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
     expect(toolNamesOf(fakeModel.doGenerateCalls[1] ?? {})).not.toContain(
-      setReminderToolName
+      setScheduleToolName
     );
   });
 });

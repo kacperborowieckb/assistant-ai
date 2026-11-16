@@ -8,16 +8,16 @@ import { storeDueScheduleEvents } from "../src/personal-agent/due-schedule-event
 import type { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 import { OwnerPreferences } from "../src/preferences/owner-preferences.ts";
-import { cancelReminderToolName } from "../src/schedule/cancel-reminder-tool.ts";
+import { cancelScheduleToolName } from "../src/schedule/cancel-schedule-tool.ts";
 import {
-  changeReminderToolName,
+  changeScheduleToolName,
   invalidNewDueTimeMessage,
   newDueTimeInThePastMessage,
   nothingToChangeMessage,
-} from "../src/schedule/change-reminder-tool.ts";
-import { listRemindersToolName } from "../src/schedule/list-reminders-tool.ts";
-import { noActiveReminderMessage } from "../src/schedule/reminder-presentation.ts";
+} from "../src/schedule/change-schedule-tool.ts";
+import { listSchedulesToolName } from "../src/schedule/list-schedules-tool.ts";
 import { ScheduleAlarm } from "../src/schedule/schedule-alarm.ts";
+import { noActiveScheduleMessage } from "../src/schedule/schedule-presentation.ts";
 import { Schedules } from "../src/schedule/schedules.ts";
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
 import { fakeModel, fakeTelegram, resetFakes, scriptModel } from "./fakes.ts";
@@ -180,7 +180,7 @@ beforeEach(() => {
   resetFakes();
 });
 
-describe("list_reminders", () => {
+describe("list_schedules", () => {
   it("lists the active Reminders in local time, earliest first, and no done or cancelled Reminder", async () => {
     const ownerId = await ownerInWarsaw(9101);
     await seedReminder(ownerId, "second", utc("02-01T08:00:00.000"));
@@ -206,7 +206,7 @@ describe("list_reminders", () => {
       })
     );
     scriptModel([
-      { callTool: listRemindersToolName, input: {} },
+      { callTool: listSchedulesToolName, input: {} },
       { say: "Here" },
     ]);
 
@@ -218,6 +218,7 @@ describe("list_reminders", () => {
     expect(output).toContain(`${nextYear}-01-14, 09:00`);
     expect(output).toContain(`${nextYear}-02-01, 09:00`);
     expect(output).toContain("Europe/Warsaw");
+    expect(output).toContain('"action":{"_tag":"SendText","text":"first"}');
     expect(output).not.toContain("finished");
     expect(output).not.toContain("dropped");
     expect(output.indexOf("first")).toBeLessThan(output.indexOf("second"));
@@ -226,18 +227,18 @@ describe("list_reminders", () => {
   it("returns an empty list when no Reminder is active", async () => {
     const ownerId = await ownerInWarsaw(9102);
     scriptModel([
-      { callTool: listRemindersToolName, input: {} },
+      { callTool: listSchedulesToolName, input: {} },
       { say: "None" },
     ]);
 
     await askAndWaitForReply(9102, "what Reminders do I have?");
 
     const [call] = await toolCallsOf(ownerId);
-    expect(call?.output).toContain('"reminders":[]');
+    expect(call?.output).toContain('"schedules":[]');
   });
 });
 
-describe("change_reminder", () => {
+describe("change_schedule", () => {
   it("moves the Reminder, arms the alarm at the earliest due instant, and writes a Journal Entry", async () => {
     const ownerId = await ownerInWarsaw(9110);
     await seedReminder(ownerId, "gift", utc("01-14T08:00:00.000"));
@@ -246,7 +247,7 @@ describe("change_reminder", () => {
     const { schedule_id: scheduleId } = await rowOf(ownerId, "gift");
     scriptModel([
       {
-        callTool: changeReminderToolName,
+        callTool: changeScheduleToolName,
         input: { scheduleId, localDueTime: `${nextYear}-03-01T10:00` },
       },
       { say: "Moved" },
@@ -271,8 +272,11 @@ describe("change_reminder", () => {
     const { schedule_id: scheduleId } = await rowOf(ownerId, "gift");
     scriptModel([
       {
-        callTool: changeReminderToolName,
-        input: { scheduleId, text: "Buy the gift and a card" },
+        callTool: changeScheduleToolName,
+        input: {
+          scheduleId,
+          action: { _tag: "SendText", text: "Buy the gift and a card" },
+        },
       },
       { say: "Reworded" },
     ]);
@@ -314,15 +318,15 @@ describe("change_reminder", () => {
     const input = { localDueTime: `${nextYear}-05-01T10:00` };
     scriptModel([
       {
-        callTool: changeReminderToolName,
+        callTool: changeScheduleToolName,
         input: { ...input, scheduleId: "nope" },
       },
       {
-        callTool: changeReminderToolName,
+        callTool: changeScheduleToolName,
         input: { ...input, scheduleId: finished.schedule_id },
       },
       {
-        callTool: changeReminderToolName,
+        callTool: changeScheduleToolName,
         input: { ...input, scheduleId: dropped.schedule_id },
       },
       { say: "Nothing changed" },
@@ -332,14 +336,14 @@ describe("change_reminder", () => {
 
     const calls = await toolCallsOf(ownerId);
     expect(calls.map((call) => [call.failed, call.output])).toEqual([
-      [true, expect.stringContaining(noActiveReminderMessage("nope"))],
+      [true, expect.stringContaining(noActiveScheduleMessage("nope"))],
       [
         true,
-        expect.stringContaining(noActiveReminderMessage(finished.schedule_id)),
+        expect.stringContaining(noActiveScheduleMessage(finished.schedule_id)),
       ],
       [
         true,
-        expect.stringContaining(noActiveReminderMessage(dropped.schedule_id)),
+        expect.stringContaining(noActiveScheduleMessage(dropped.schedule_id)),
       ],
     ]);
     expect(await schedulesOf(ownerId)).toEqual(before);
@@ -352,14 +356,14 @@ describe("change_reminder", () => {
     const { schedule_id: scheduleId } = await rowOf(ownerId, "gift");
     scriptModel([
       {
-        callTool: changeReminderToolName,
+        callTool: changeScheduleToolName,
         input: { scheduleId, localDueTime: "2020-01-14T09:00" },
       },
       {
-        callTool: changeReminderToolName,
+        callTool: changeScheduleToolName,
         input: { scheduleId, localDueTime: `${nextYear}-02-30T09:00` },
       },
-      { callTool: changeReminderToolName, input: { scheduleId } },
+      { callTool: changeScheduleToolName, input: { scheduleId } },
       { say: "Sorry" },
     ]);
 
@@ -397,13 +401,13 @@ describe("change_reminder", () => {
   });
 });
 
-describe("cancel_reminder", () => {
+describe("cancel_schedule", () => {
   it("cancels the Reminder, leaves no alarm, and writes a Journal Entry", async () => {
     const ownerId = await ownerInWarsaw(9120);
     await seedReminder(ownerId, "gift", utc("01-14T08:00:00.000"));
     const { schedule_id: scheduleId } = await rowOf(ownerId, "gift");
     scriptModel([
-      { callTool: cancelReminderToolName, input: { scheduleId } },
+      { callTool: cancelScheduleToolName, input: { scheduleId } },
       { say: "Cancelled" },
     ]);
 
@@ -422,7 +426,7 @@ describe("cancel_reminder", () => {
     await seedReminder(ownerId, "tax", utc("02-01T08:00:00.000"));
     const { schedule_id: scheduleId } = await rowOf(ownerId, "gift");
     scriptModel([
-      { callTool: cancelReminderToolName, input: { scheduleId } },
+      { callTool: cancelScheduleToolName, input: { scheduleId } },
       { say: "Cancelled" },
     ]);
 
@@ -436,9 +440,9 @@ describe("cancel_reminder", () => {
     await seedReminder(ownerId, "gift", utc("01-14T08:00:00.000"));
     const { schedule_id: scheduleId } = await rowOf(ownerId, "gift");
     scriptModel([
-      { callTool: cancelReminderToolName, input: { scheduleId } },
-      { callTool: cancelReminderToolName, input: { scheduleId } },
-      { callTool: cancelReminderToolName, input: { scheduleId: "nope" } },
+      { callTool: cancelScheduleToolName, input: { scheduleId } },
+      { callTool: cancelScheduleToolName, input: { scheduleId } },
+      { callTool: cancelScheduleToolName, input: { scheduleId: "nope" } },
       { say: "Done" },
     ]);
 
@@ -446,7 +450,7 @@ describe("cancel_reminder", () => {
 
     const calls = await toolCallsOf(ownerId);
     expect(calls.map((call) => call.failed)).toEqual([false, true, true]);
-    expect(calls[2]?.output).toContain(noActiveReminderMessage("nope"));
+    expect(calls[2]?.output).toContain(noActiveScheduleMessage("nope"));
     const tags = await journalTagsOf(ownerId);
     expect(tags.filter((tag) => tag === "ScheduleCancelled")).toHaveLength(1);
   });
@@ -484,7 +488,7 @@ describe("cancel_reminder", () => {
     await inAgent(ownerId, storeDueScheduleEvents);
     const { schedule_id: scheduleId } = await rowOf(ownerId, "too late");
     scriptModel([
-      { callTool: cancelReminderToolName, input: { scheduleId } },
+      { callTool: cancelScheduleToolName, input: { scheduleId } },
       { say: "Cancelled" },
     ]);
 
@@ -506,9 +510,9 @@ describe("the Reminder controls", () => {
     const ownerTools = toolNamesOf(fakeModel.doGenerateCalls[0] ?? {});
     expect(ownerTools).toEqual(
       expect.arrayContaining([
-        listRemindersToolName,
-        changeReminderToolName,
-        cancelReminderToolName,
+        listSchedulesToolName,
+        changeScheduleToolName,
+        cancelScheduleToolName,
       ])
     );
 
@@ -527,9 +531,9 @@ describe("the Reminder controls", () => {
     await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
     const forwardedTools = toolNamesOf(fakeModel.doGenerateCalls[1] ?? {});
     for (const name of [
-      listRemindersToolName,
-      changeReminderToolName,
-      cancelReminderToolName,
+      listSchedulesToolName,
+      changeScheduleToolName,
+      cancelScheduleToolName,
     ]) {
       expect(forwardedTools).not.toContain(name);
     }

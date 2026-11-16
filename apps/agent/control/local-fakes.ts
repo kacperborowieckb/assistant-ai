@@ -11,12 +11,12 @@ import { fakeRecallMessage, fakeRecallPrefix } from "./fake-recall.ts";
 import {
   fakeCancelReminderMessage,
   fakeCancelReminderPrefix,
-} from "./fake-reminder-cancel.ts";
+} from "./fake-schedule-cancel.ts";
 import {
   fakeReminderMessage,
   fakeReminderPrefix,
   fakeRepeatingReminderPrefix,
-} from "./fake-reminder.ts";
+} from "./fake-schedule.ts";
 import {
   fakeTimeZoneMessage,
   isFakeTimeZoneMessage,
