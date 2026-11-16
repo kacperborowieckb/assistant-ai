@@ -6,7 +6,6 @@ import {
   ToolFailed,
 } from "../model-gateway/agent-tool.ts";
 import { noteToolFailureMessage } from "../notes/note-tool-failure-message.ts";
-import type { TurnProgress } from "../personal-agent/turn-progress.ts";
 import { setTimeZoneToolName } from "../preferences/set-time-zone-tool.ts";
 import {
   instantOfLocalDueTime,
@@ -14,9 +13,7 @@ import {
   LocalDueTimeSchema,
 } from "../time/local-due-time.ts";
 import { localTimeOf } from "../time/local-time.ts";
-import type { Redactor } from "../tracing/redactor.ts";
-import type { ScheduleAlarm } from "./schedule-alarm.ts";
-import type { Schedules } from "./schedules.ts";
+import type { ReminderToolServices } from "./reminder-tool-services.ts";
 
 export const setReminderToolName = "set_reminder";
 
@@ -29,14 +26,6 @@ export const invalidLocalDueTimeMessage = `The due time is not a real local date
 
 export const dueTimeInThePastMessage =
   "The due time is in the past, so no Reminder was set. Tell the Owner that the time has passed and ask for a time in the future.";
-
-export interface ReminderToolServices {
-  readonly schedules: Schedules["Service"];
-  readonly alarm: ScheduleAlarm["Service"];
-  readonly ownerTimeZone: Effect.Effect<Option.Option<DateTime.TimeZone.Named>>;
-  readonly progress: TurnProgress["Service"];
-  readonly redactor: Redactor["Service"];
-}
 
 const SetReminderInput = Schema.Struct({
   text: Schema.String.pipe(

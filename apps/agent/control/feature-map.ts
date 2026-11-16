@@ -36,6 +36,10 @@ export const renderFeatureMap = () =>
     "",
     "`pnpm control request --contains <text>` runs steps 1 to 3 with temporary storage and checks the reply.",
     "",
+    "## Reminders in the chat",
+    "",
+    'The Owner sets, lists, changes, and cancels Reminders through the Telegram webhook, with the tools `set_reminder`, `list_reminders`, `change_reminder`, and `cancel_reminder`. In the local fake model, a message that starts with `zone: <IANA name>` sets the time zone, `remind: <text>` sets a Reminder for the next minute, and `cancel reminder: <words>` lists the Reminders and cancels the first one that contains the words. Example: `pnpm control request --message "zone: Europe/Warsaw" --message "remind: buy the gift" --message "cancel reminder: buy the gift" --contains "Cancelled Reminder: buy the gift" --wait-for-later-message`.',
+    "",
   ].join("\n");
 
 export const featureMapIsCurrent = () =>

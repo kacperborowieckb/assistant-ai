@@ -30,6 +30,8 @@ export const JournalRecordSchema = Schema.TaggedUnion({
   },
   ProfileEntryRemoved: { eventId: Schema.String, entryId: Schema.String },
   ScheduleSet: { eventId: Schema.String, scheduleId: Schema.String },
+  ScheduleChanged: { eventId: Schema.String, scheduleId: Schema.String },
+  ScheduleCancelled: { eventId: Schema.String, scheduleId: Schema.String },
   ScheduleFired: {
     eventId: Schema.String,
     scheduleId: Schema.String,
