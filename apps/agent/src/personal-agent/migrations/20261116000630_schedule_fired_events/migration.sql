@@ -36,4 +36,5 @@ INSERT INTO `__new_inbox_events`(`sequence`, `event_id`, `channel`, `channel_upd
 DROP TABLE `inbox_events`;--> statement-breakpoint
 ALTER TABLE `__new_inbox_events` RENAME TO `inbox_events`;--> statement-breakpoint
 PRAGMA foreign_keys=ON;--> statement-breakpoint
-CREATE INDEX `inbox_events_state` ON `inbox_events` (`state`,`received_at`);
+CREATE INDEX `inbox_events_state` ON `inbox_events` (`state`,`received_at`);--> statement-breakpoint
+INSERT INTO `owner_channel_conversations` (`slot`, `channel`, `conversation_id`, `recorded_at`) SELECT 0, `channel`, `conversation_id`, `received_at` FROM `inbox_events` WHERE `kind` = 'OwnerMessage' ORDER BY `sequence` DESC LIMIT 1;

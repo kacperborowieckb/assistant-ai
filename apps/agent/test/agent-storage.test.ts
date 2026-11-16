@@ -85,7 +85,7 @@ describe("Personal Agent migrations", () => {
     });
   });
 
-  it("keeps the Inbox rows that existed before the Event union migration", async () => {
+  it("keeps the Inbox rows and the Owner conversation that existed before the Event union migration", async () => {
     const agent = await freshAgent("owner-before-event-union");
     const eventUnionMigration = "20261116000630_schedule_fired_events";
     const { [eventUnionMigration]: _later, ...earlier } =
@@ -101,11 +101,20 @@ describe("Personal Agent migrations", () => {
         "INSERT INTO inbox_events (event_id, channel, channel_update_id, conversation_id, channel_message_id, text, sent_at, received_at, state) VALUES ('kept-event', 'telegram', '11', '7', '12', 'kept text', '2026-11-15T10:00:00.000Z', '2026-11-15T10:00:01.000Z', 'done')"
       );
 
+      state.storage.sql.exec(
+        "INSERT INTO inbox_events (event_id, channel, channel_update_id, conversation_id, channel_message_id, text, sent_at, received_at, state) VALUES ('latest-event', 'telegram', '12', '8', '13', 'latest text', '2026-11-15T11:00:00.000Z', '2026-11-15T11:00:01.000Z', 'done')"
+      );
+
       const upgraded = await runWithMigrations(
         state.storage,
         undefined,
         columnsOf("inbox_events")
       );
+      const conversation = state.storage.sql
+        .exec(
+          "SELECT channel, conversation_id FROM owner_channel_conversations"
+        )
+        .toArray();
       const rows = state.storage.sql
         .exec<{
           event_id: string;
@@ -117,15 +126,15 @@ describe("Personal Agent migrations", () => {
         .toArray();
 
       expect(Exit.isSuccess(upgraded)).toBe(true);
-      expect(rows).toEqual([
-        {
-          event_id: "kept-event",
-          kind: "OwnerMessage",
-          text: "kept text",
-          state: "done",
-          sequence: 1,
-        },
+      expect(conversation).toEqual([
+        { channel: "telegram", conversation_id: "8" },
       ]);
+      expect(rows.map((row) => [row.event_id, row.kind, row.sequence])).toEqual(
+        [
+          ["kept-event", "OwnerMessage", 1],
+          ["latest-event", "OwnerMessage", 2],
+        ]
+      );
     });
   });
 
