@@ -51,6 +51,9 @@ const ReminderDeliveryTraceBodySchema = Schema.Struct({
   task: Schema.Literal("reminder_delivery"),
   scheduleId: Schema.String,
   dueAt: Schema.String,
+  late: Schema.Boolean.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(false))
+  ),
   text: Schema.String,
   channelMessageId: Schema.NullOr(Schema.String),
   error: Schema.NullOr(Schema.String),

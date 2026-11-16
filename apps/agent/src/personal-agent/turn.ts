@@ -196,7 +196,7 @@ export const takeTurn = (
       const outcome = yield* settleFromJournal(event);
       if (outcome === "unanswered") {
         yield* event._tag === "ScheduleFired"
-          ? deliverReminder(ownerId, event)
+          ? deliverReminder(ownerId, behavior, event)
           : answer(ownerId, { behavior, tools }, event);
       }
     }
