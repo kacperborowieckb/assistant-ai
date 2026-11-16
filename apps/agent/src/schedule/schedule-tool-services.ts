@@ -5,7 +5,7 @@ import type { Redactor } from "../tracing/redactor.ts";
 import type { ScheduleAlarm } from "./schedule-alarm.ts";
 import type { Schedules } from "./schedules.ts";
 
-export interface ReminderToolServices {
+export interface ScheduleToolServices {
   readonly schedules: Schedules["Service"];
   readonly alarm: ScheduleAlarm["Service"];
   readonly ownerTimeZone: Effect.Effect<Option.Option<DateTime.TimeZone.Named>>;

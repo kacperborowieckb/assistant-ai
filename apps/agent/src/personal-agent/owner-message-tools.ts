@@ -14,23 +14,23 @@ import {
   updateProfileToolName,
 } from "../profile/update-profile-tool.ts";
 import {
-  cancelReminderTool,
-  cancelReminderToolName,
-} from "../schedule/cancel-reminder-tool.ts";
+  cancelScheduleTool,
+  cancelScheduleToolName,
+} from "../schedule/cancel-schedule-tool.ts";
 import {
-  changeReminderTool,
-  changeReminderToolName,
-} from "../schedule/change-reminder-tool.ts";
+  changeScheduleTool,
+  changeScheduleToolName,
+} from "../schedule/change-schedule-tool.ts";
 import {
-  listRemindersTool,
-  listRemindersToolName,
-} from "../schedule/list-reminders-tool.ts";
+  listSchedulesTool,
+  listSchedulesToolName,
+} from "../schedule/list-schedules-tool.ts";
 import type { ScheduleAlarm } from "../schedule/schedule-alarm.ts";
 import type { Schedules } from "../schedule/schedules.ts";
 import {
-  setReminderTool,
-  setReminderToolName,
-} from "../schedule/set-reminder-tool.ts";
+  setScheduleTool,
+  setScheduleToolName,
+} from "../schedule/set-schedule-tool.ts";
 import { ownerTimeZone } from "../time/owner-current-time.ts";
 import { trustLevelOfEvent } from "./event-trust.ts";
 import type { OwnerMessageEvent } from "./inbox.ts";
@@ -55,7 +55,7 @@ export const ownerMessageTools = (
   }: OwnerMessageToolServices
 ) => {
   const { progress, redactor } = noteServices;
-  const reminderServices = {
+  const scheduleServices = {
     schedules,
     alarm,
     ownerTimeZone: ownerTimeZone(behavior).pipe(
@@ -82,20 +82,20 @@ export const ownerMessageTools = (
             { preferences, schedules, alarm, progress, redactor },
             event.eventId
           ),
-          [setReminderToolName]: setReminderTool(
-            reminderServices,
+          [setScheduleToolName]: setScheduleTool(
+            scheduleServices,
             event.eventId
           ),
-          [listRemindersToolName]: listRemindersTool(
-            reminderServices,
+          [listSchedulesToolName]: listSchedulesTool(
+            scheduleServices,
             event.eventId
           ),
-          [changeReminderToolName]: changeReminderTool(
-            reminderServices,
+          [changeScheduleToolName]: changeScheduleTool(
+            scheduleServices,
             event.eventId
           ),
-          [cancelReminderToolName]: cancelReminderTool(
-            reminderServices,
+          [cancelScheduleToolName]: cancelScheduleTool(
+            scheduleServices,
             event.eventId
           ),
         }

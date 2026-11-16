@@ -58,14 +58,14 @@ export const fakeReminderMessage = (
           id: "call-reminder-1",
           type: "function",
           function: {
-            name: "set_reminder",
+            name: "set_schedule",
             arguments: JSON.stringify(
               isRepeating
                 ? {
-                    text,
+                    action: { _tag: "SendText", text },
                     repeat: { _tag: "Daily", time: localDueTime.slice(-5) },
                   }
-                : { text, localDueTime }
+                : { action: { _tag: "SendText", text }, localDueTime }
             ),
           },
         },

@@ -6,40 +6,40 @@ import { nextOccurrence } from "../time/next-occurrence.ts";
 import type { RecurrenceRule } from "../time/recurrence-rule.ts";
 import type { Repeat } from "./schedule.ts";
 
-export interface ReminderDueRequest {
+export interface ScheduleDueRequest {
   readonly localDueTime?: string | undefined;
   readonly repeat?: RecurrenceRule | undefined;
 }
 
-export interface ReminderDueMessages {
+export interface ScheduleDueMessages {
   readonly bothGiven: string;
   readonly invalidLocalDueTime: string;
   readonly localDueTimeInThePast: string;
 }
 
-export interface ReminderDue {
+export interface ScheduleDue {
   readonly dueAt: DateTime.Utc;
   readonly repeat: Repeat | undefined;
 }
 
-export const resolveReminderDue = Effect.fnUntraced(
-  function* resolveReminderDue(
-    { localDueTime, repeat }: ReminderDueRequest,
+export const resolveScheduleDue = Effect.fnUntraced(
+  function* resolveScheduleDue(
+    { localDueTime, repeat }: ScheduleDueRequest,
     timeZone: DateTime.TimeZone.Named,
-    messages: ReminderDueMessages
+    messages: ScheduleDueMessages
   ) {
     if (localDueTime !== undefined && repeat !== undefined) {
       return yield* new ToolFailed({ message: messages.bothGiven });
     }
     const now = yield* DateTime.now;
     if (repeat !== undefined) {
-      return Option.some<ReminderDue>({
+      return Option.some<ScheduleDue>({
         dueAt: nextOccurrence(repeat, now, timeZone),
         repeat: { rule: repeat, timeZone },
       });
     }
     if (localDueTime === undefined) {
-      return Option.none<ReminderDue>();
+      return Option.none<ScheduleDue>();
     }
     const dueAt = instantOfLocalDueTime(localDueTime, timeZone);
     if (Option.isNone(dueAt)) {
@@ -50,7 +50,7 @@ export const resolveReminderDue = Effect.fnUntraced(
         message: messages.localDueTimeInThePast,
       });
     }
-    return Option.some<ReminderDue>({
+    return Option.some<ScheduleDue>({
       dueAt: dueAt.value,
       repeat: undefined,
     });

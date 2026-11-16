@@ -9,17 +9,17 @@ import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 import { OwnerPreferences } from "../src/preferences/owner-preferences.ts";
 import { setTimeZoneToolName } from "../src/preferences/set-time-zone-tool.ts";
 import {
-  changeReminderToolName,
+  changeScheduleToolName,
   newDueAndRepeatGivenMessage,
-} from "../src/schedule/change-reminder-tool.ts";
-import { listRemindersToolName } from "../src/schedule/list-reminders-tool.ts";
+} from "../src/schedule/change-schedule-tool.ts";
+import { listSchedulesToolName } from "../src/schedule/list-schedules-tool.ts";
 import { ScheduleAlarm } from "../src/schedule/schedule-alarm.ts";
 import { Schedules } from "../src/schedule/schedules.ts";
 import {
   dueAndRepeatGivenMessage,
   noDueGivenMessage,
-  setReminderToolName,
-} from "../src/schedule/set-reminder-tool.ts";
+  setScheduleToolName,
+} from "../src/schedule/set-schedule-tool.ts";
 import { nextOccurrence } from "../src/time/next-occurrence.ts";
 import type { RecurrenceRule } from "../src/time/recurrence-rule.ts";
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
@@ -181,13 +181,16 @@ beforeEach(() => {
   resetFakes();
 });
 
-describe("set_reminder with a repeat rule", () => {
+describe("set_schedule with a repeat rule", () => {
   it("stores the rule and its time zone and tells the first local due time and the rule", async () => {
     const ownerId = await ownerIn(9101, "Europe/Warsaw");
     scriptModel([
       {
-        callTool: setReminderToolName,
-        input: { text: "Water the plants", repeat: weeklyMondayAtNine },
+        callTool: setScheduleToolName,
+        input: {
+          action: { _tag: "SendText", text: "Water the plants" },
+          repeat: weeklyMondayAtNine,
+        },
       },
       { say: "Set" },
     ]);
@@ -222,17 +225,21 @@ describe("set_reminder with a repeat rule", () => {
     [
       "both a due time and a rule",
       {
-        text: "x",
+        action: { _tag: "SendText", text: "x" },
         localDueTime: "2099-01-01T09:00",
         repeat: weeklyMondayAtNine,
       },
       dueAndRepeatGivenMessage,
     ],
-    ["neither a due time nor a rule", { text: "x" }, noDueGivenMessage],
+    [
+      "neither a due time nor a rule",
+      { action: { _tag: "SendText", text: "x" } },
+      noDueGivenMessage,
+    ],
   ])("sets no Reminder with %s", async (_name, input, message) => {
     const ownerId = await ownerIn(9102 + message.length, "Europe/Warsaw");
     scriptModel([
-      { callTool: setReminderToolName, input },
+      { callTool: setScheduleToolName, input },
       { say: "Could not" },
     ]);
 
@@ -246,7 +253,7 @@ describe("set_reminder with a repeat rule", () => {
   });
 });
 
-describe("a repeated set_reminder call with a rule", () => {
+describe("a repeated set_schedule call with a rule", () => {
   it("creates one Schedule when the same call arrives again after an occurrence", async () => {
     const ownerId = await ownerIn(9103, "Europe/Warsaw");
     const request = (dueAt: DateTime.Utc) =>
@@ -274,7 +281,7 @@ describe("a repeated set_reminder call with a rule", () => {
   });
 });
 
-describe("list_reminders and change_reminder", () => {
+describe("list_schedules and change_schedule", () => {
   it("lists the rule with the next local due time", async () => {
     const ownerId = await ownerIn(9110, "Europe/Warsaw");
     await seedRepeating(
@@ -283,7 +290,7 @@ describe("list_reminders and change_reminder", () => {
       nextOccurrence(weeklyMondayAtNine, DateTime.nowUnsafe(), warsaw)
     );
     scriptModel([
-      { callTool: listRemindersToolName, input: {} },
+      { callTool: listSchedulesToolName, input: {} },
       { say: "Listed" },
     ]);
 
@@ -305,7 +312,7 @@ describe("list_reminders and change_reminder", () => {
     const { schedule_id: scheduleId } = await onlyScheduleOf(ownerId);
     scriptModel([
       {
-        callTool: changeReminderToolName,
+        callTool: changeScheduleToolName,
         input: { scheduleId, repeat: dailyAtQuarterPastThree },
       },
       { say: "Changed" },
@@ -323,7 +330,7 @@ describe("list_reminders and change_reminder", () => {
 
     scriptModel([
       {
-        callTool: changeReminderToolName,
+        callTool: changeScheduleToolName,
         input: { scheduleId, localDueTime: "2099-01-04T10:00" },
       },
       { say: "Changed again" },
@@ -348,7 +355,7 @@ describe("list_reminders and change_reminder", () => {
     const before = await onlyScheduleOf(ownerId);
     scriptModel([
       {
-        callTool: changeReminderToolName,
+        callTool: changeScheduleToolName,
         input: {
           scheduleId: before.schedule_id,
           localDueTime: "2099-01-04T10:00",
