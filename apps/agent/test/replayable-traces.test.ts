@@ -36,7 +36,7 @@ const textOf = (
 const tracesOf = (ownerId: string) =>
   inPersonalAgent(
     ownerId,
-    TurnTraces.pipe(Effect.flatMap((traces) => traces.read))
+    TurnTraces.pipe(Effect.flatMap((traces) => traces.readReplies))
   );
 
 const waitForTraces = (ownerId: string, count: number) =>
@@ -49,7 +49,7 @@ const everythingStoredFor = async (ownerId: string) =>
     await inPersonalAgent(
       ownerId,
       Effect.all({
-        traces: TurnTraces.pipe(Effect.flatMap((traces) => traces.read)),
+        traces: TurnTraces.pipe(Effect.flatMap((traces) => traces.readReplies)),
         journal: Journal.pipe(Effect.flatMap((journal) => journal.read)),
         usage: UsageLedger.pipe(Effect.flatMap((ledger) => ledger.read)),
       })

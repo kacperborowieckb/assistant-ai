@@ -28,7 +28,7 @@ const TraceStepSchema = Schema.Struct({
   usage: TraceUsageSchema,
 });
 
-const TraceBodySchema = Schema.Struct({
+const ReplyTraceBodySchema = Schema.Struct({
   task: Schema.Literal("reply"),
   modelId: Schema.String,
   modelSettings: Schema.Struct({
@@ -47,20 +47,56 @@ const TraceBodySchema = Schema.Struct({
   modelLatencyMillis: Schema.Number,
 });
 
-export const TurnTraceSchema = Schema.Struct({
+const ReminderDeliveryTraceBodySchema = Schema.Struct({
+  task: Schema.Literal("reminder_delivery"),
+  scheduleId: Schema.String,
+  dueAt: Schema.String,
+  text: Schema.String,
+  channelMessageId: Schema.NullOr(Schema.String),
+  error: Schema.NullOr(Schema.String),
+  latencyMillis: Schema.Number,
+});
+
+const TraceBodySchema = Schema.Union([
+  ReplyTraceBodySchema,
+  ReminderDeliveryTraceBodySchema,
+]);
+
+const traceFields = {
   eventId: Schema.String,
   result: Schema.Literals(turnResults),
-  ...TraceBodySchema.fields,
+};
+
+export const ReplyTurnTraceSchema = Schema.Struct({
+  ...traceFields,
+  ...ReplyTraceBodySchema.fields,
 });
+
+export const ReminderDeliveryTurnTraceSchema = Schema.Struct({
+  ...traceFields,
+  ...ReminderDeliveryTraceBodySchema.fields,
+});
+
+export const TurnTraceSchema = Schema.Union([
+  ReplyTurnTraceSchema,
+  ReminderDeliveryTurnTraceSchema,
+]);
+
+export type ReplyTurnTrace = typeof ReplyTurnTraceSchema.Type;
+
+export type ReminderDeliveryTurnTrace =
+  typeof ReminderDeliveryTurnTraceSchema.Type;
 
 export type TurnTrace = typeof TurnTraceSchema.Type;
 
-export interface StoredTurnTrace {
+export interface StoredTurnTrace<Trace extends TurnTrace = TurnTrace> {
   readonly sequence: number;
   readonly ownerId: OwnerId;
   readonly recordedAt: string;
-  readonly trace: TurnTrace;
+  readonly trace: Trace;
 }
+
+export type StoredReplyTurnTrace = StoredTurnTrace<ReplyTurnTrace>;
 
 const BodyJsonSchema = Schema.fromJsonString(TraceBodySchema);
 
@@ -102,7 +138,15 @@ const makeTurnTraces = (ownerId: OwnerId) =>
       .orderBy(asc(turnTraces.sequence))
       .pipe(Effect.map((rows) => rows.map(toStoredTrace)));
 
-    return { record, read };
+    const readReplies = read.pipe(
+      Effect.map((stored) =>
+        stored.flatMap(({ trace, ...rest }) =>
+          trace.task === "reply" ? [{ ...rest, trace }] : []
+        )
+      )
+    );
+
+    return { record, read, readReplies };
   });
 
 export class TurnTraces extends Context.Service<

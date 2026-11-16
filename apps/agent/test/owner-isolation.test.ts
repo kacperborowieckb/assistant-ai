@@ -21,7 +21,9 @@ const readEverything = async (ownerId: string) =>
         Effect.all({
           events: Inbox.pipe(Effect.flatMap((inbox) => inbox.pending)),
           journal: Journal.pipe(Effect.flatMap((journal) => journal.read)),
-          traces: TurnTraces.pipe(Effect.flatMap((traces) => traces.read)),
+          traces: TurnTraces.pipe(
+            Effect.flatMap((traces) => traces.readReplies)
+          ),
           usage: UsageLedger.pipe(Effect.flatMap((ledger) => ledger.read)),
         })
       )

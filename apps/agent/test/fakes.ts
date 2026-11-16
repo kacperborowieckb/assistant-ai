@@ -86,8 +86,28 @@ export type ScriptedModelStep =
   | { readonly error: string }
   | {
       readonly callTool: string;
-      readonly input: Record<string, unknown>;
+      readonly input:
+        | Record<string, unknown>
+        | ((
+            previousToolOutput: Record<string, unknown>
+          ) => Record<string, unknown>);
     };
+
+type ModelPrompt = MockLanguageModelV4["doGenerateCalls"][number]["prompt"];
+
+const lastToolOutput = (prompt: ModelPrompt): Record<string, unknown> => {
+  const message = prompt.findLast((candidate) => candidate.role === "tool");
+  const part = message?.content.find(
+    (candidate) => candidate.type === "tool-result"
+  );
+  return part?.type === "tool-result" &&
+    part.output.type === "json" &&
+    typeof part.output.value === "object" &&
+    part.output.value !== null &&
+    !Array.isArray(part.output.value)
+    ? { ...part.output.value }
+    : {};
+};
 
 const modelScript: ScriptedModelStep[] = [];
 
@@ -96,7 +116,8 @@ export const scriptModel = (steps: readonly ScriptedModelStep[]) => {
 };
 
 const scriptedContent = (
-  step: Exclude<ScriptedModelStep, { readonly error: string }>
+  step: Exclude<ScriptedModelStep, { readonly error: string }>,
+  prompt: ModelPrompt
 ) =>
   "say" in step
     ? ([{ type: "text", text: step.say }] as const)
@@ -105,7 +126,11 @@ const scriptedContent = (
           type: "tool-call",
           toolCallId: `call-${modelScript.length}`,
           toolName: step.callTool,
-          input: JSON.stringify(step.input),
+          input: JSON.stringify(
+            typeof step.input === "function"
+              ? step.input(lastToolOutput(prompt))
+              : step.input
+          ),
         },
       ] as const);
 
@@ -141,7 +166,7 @@ export const fakeModel = new MockLanguageModelV4({
                 text: `${fakeReplyPrefix}${lastOwnerText(options.prompt)}`,
               },
             ]
-          : [...scriptedContent(scripted)],
+          : [...scriptedContent(scripted, options.prompt)],
       finishReason: callsTool
         ? { unified: "tool-calls", raw: "tool_calls" }
         : { unified: "stop", raw: "stop" },

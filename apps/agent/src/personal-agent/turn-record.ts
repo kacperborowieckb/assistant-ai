@@ -15,7 +15,7 @@ import type { OwnerId } from "../owner-id.ts";
 import { OperatorMetrics } from "../tracing/operator-metrics.ts";
 import type { OperatorMetric } from "../tracing/operator-metrics.ts";
 import type { Redactor } from "../tracing/redactor.ts";
-import type { TurnTrace } from "../tracing/turn-trace.ts";
+import type { ReplyTurnTrace } from "../tracing/turn-trace.ts";
 import type { InboxEvent } from "./inbox.ts";
 
 export type ModelFailure = ModelUnavailable | StepLimitReached;
@@ -56,7 +56,7 @@ const usageOfOutcome = (outcome: ModelOutcome): Usage | undefined => {
     : sumUsage(outcome.error.steps.map((step) => step.usage));
 };
 
-const traceUsageOf = (usage: Usage): TurnTrace["usage"] => ({
+const traceUsageOf = (usage: Usage): ReplyTurnTrace["usage"] => ({
   inputTokens: usage.inputTokens ?? null,
   outputTokens: usage.outputTokens ?? null,
   cachedInputTokens: usage.cachedInputTokens ?? null,
@@ -66,7 +66,7 @@ const traceUsageOf = (usage: Usage): TurnTrace["usage"] => ({
 const traceStepsOf = (
   outcome: ModelOutcome,
   redactor: Redactor["Service"]
-): TurnTrace["steps"] =>
+): ReplyTurnTrace["steps"] =>
   stepsOf(outcome).map((step) => ({
     toolCalls: step.toolCalls.map((call) => ({
       callId: call.callId,
@@ -94,7 +94,7 @@ export const traceOf = ({
   outcome,
   modelLatencyMillis,
   redactor,
-}: TraceInput): TurnTrace => {
+}: TraceInput): ReplyTurnTrace => {
   const reasoningEffort =
     outcome._tag === "Replied"
       ? outcome.reply.reasoningEffort

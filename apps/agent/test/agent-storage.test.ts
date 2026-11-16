@@ -88,8 +88,11 @@ describe("Personal Agent migrations", () => {
   it("keeps the Inbox rows and the Owner conversation that existed before the Event union migration", async () => {
     const agent = await freshAgent("owner-before-event-union");
     const eventUnionMigration = "20261116000630_schedule_fired_events";
-    const { [eventUnionMigration]: _later, ...earlier } =
-      personalAgentMigrations.migrations;
+    const earlier = Object.fromEntries(
+      Object.entries(personalAgentMigrations.migrations).filter(
+        ([name]) => name < eventUnionMigration
+      )
+    );
 
     await runInDurableObject(agent, async (_instance, state) => {
       await runWithMigrations(

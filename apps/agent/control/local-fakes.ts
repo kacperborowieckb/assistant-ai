@@ -8,6 +8,7 @@ import { fakeJudgeMessage, fakeJudgeModel } from "./fake-judge.ts";
 import type { FakeJudgeVerdict } from "./fake-judge.ts";
 import { fakeNoteEditMessage, isFakeNoteEdit } from "./fake-note-edits.ts";
 import { fakeRecallMessage, fakeRecallPrefix } from "./fake-recall.ts";
+import { fakeReminderMessage, fakeReminderPrefix } from "./fake-reminder.ts";
 import {
   fakeTimeZoneMessage,
   isFakeTimeZoneMessage,
@@ -99,6 +100,9 @@ const fakeAssistantMessage = (
 ) => {
   if (isFakeTimeZoneMessage(ownerText)) {
     return fakeTimeZoneMessage(ownerText, toolResult, systemText);
+  }
+  if (ownerText.startsWith(fakeReminderPrefix)) {
+    return fakeReminderMessage(ownerText, toolResult, systemText);
   }
   if (ownerText.startsWith(fakeRecallPrefix)) {
     return fakeRecallMessage(ownerText, toolResult);

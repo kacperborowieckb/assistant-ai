@@ -94,10 +94,16 @@ const request = Command.make(
       ),
       Flag.atLeast(0)
     ),
+    waitForLaterMessage: Flag.Boolean("wait-for-later-message").pipe(
+      Flag.withDescription(
+        "When the last reply lacks the text, wait up to 100 seconds for a later message from the agent that contains it, for example a Reminder."
+      )
+    ),
   },
-  ({ contains, message }) =>
+  ({ contains, message, waitForLaterMessage }) =>
     requestReply({
       contains,
+      waitForLaterMessage,
       messages: message.length === 0 ? ["Hello agent"] : message,
     }).pipe(Effect.flatMap(Console.log))
 ).pipe(

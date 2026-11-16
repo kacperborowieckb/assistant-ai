@@ -4,12 +4,14 @@ import { startLocalFakes } from "./local-fakes.ts";
 import type { FakeTelegramMessage } from "./local-fakes.ts";
 import { startLocalWorker, temporarySecrets } from "./local-worker.ts";
 import { addOwner, renderAddedOwner } from "./operator.ts";
+import { selectReplyTo } from "./reply-selection.ts";
 import { sendTelegramUpdate } from "./telegram-update.ts";
 
 const sampleTelegramUserId = 424_242;
 const sampleMessageId = 7;
 const replyTimeout = "30 seconds";
 const nextPartTimeout = "1 second";
+const laterMessageTimeout = "100 seconds";
 
 const collapseWhitespace = (text: string) => text.replaceAll(/\s+/gu, " ");
 
@@ -32,9 +34,11 @@ export class ReplyMissing extends Data.TaggedError("ReplyMissing")<{
 export const requestReply = ({
   messages,
   contains,
+  waitForLaterMessage,
 }: {
   readonly messages: readonly string[];
   readonly contains: string;
+  readonly waitForLaterMessage: boolean;
 }) =>
   Effect.gen(function* requestReplyEffect() {
     const fakes = yield* startLocalFakes();
@@ -58,6 +62,7 @@ export const requestReply = ({
     lines.push(renderAddedOwner(owner));
 
     let replyParts: readonly string[] = [];
+    const unprompted: FakeTelegramMessage[] = [];
     for (const [index, message] of messages.entries()) {
       const webhook = yield* sendTelegramUpdate({
         workerUrl: url,
@@ -72,26 +77,41 @@ export const requestReply = ({
       lines.push(
         `Webhook answered ${webhook.status} for the message "${message}"`
       );
-      const sentParts: FakeTelegramMessage[] = [
-        yield* fakes.nextTelegramMessage.pipe(Effect.timeout(replyTimeout)),
-      ];
-      for (;;) {
-        const nextPart = yield* fakes.nextTelegramMessage.pipe(
-          Effect.timeoutOption(nextPartTimeout)
-        );
-        if (
-          Option.isNone(nextPart) ||
-          nextPart.value.replyToMessageId !== sentParts[0]?.replyToMessageId
-        ) {
-          break;
-        }
-        sentParts.push(nextPart.value);
+      const selection = yield* selectReplyTo({
+        inputMessageId: sampleMessageId + index + 1,
+        take: (timeout) =>
+          fakes.nextTelegramMessage.pipe(Effect.timeoutOption(timeout)),
+        firstReplyTimeout: replyTimeout,
+        nextPartTimeout,
+      });
+      const [sent] = selection.replyParts;
+      if (sent === undefined) {
+        return yield* new ReplyMissing({ contains, reply: "" });
       }
-      const [sent] = sentParts;
-      replyParts = sentParts.map((part) => part.text);
+      unprompted.push(...selection.unprompted);
+      replyParts = selection.replyParts.map((part) => part.text);
       lines.push(
-        `Telegram sendMessage to chat ${sent?.chatId ?? "none"}, reply to message ${sent?.replyToMessageId ?? "none"}: "${replyParts.join("")}"`
+        `Telegram sendMessage to chat ${sent.chatId}, reply to message ${sent.replyToMessageId ?? "none"}: "${replyParts.join("")}"`
       );
+    }
+    let waiting =
+      waitForLaterMessage && !replyPartsContain(replyParts, contains);
+    while (waiting) {
+      const queued = Option.fromNullishOr(unprompted.shift());
+      const later = Option.isSome(queued)
+        ? queued
+        : yield* fakes.nextTelegramMessage.pipe(
+            Effect.timeoutOption(laterMessageTimeout)
+          );
+      if (Option.isNone(later)) {
+        waiting = false;
+      } else {
+        replyParts = [later.value.text];
+        lines.push(
+          `Telegram sendMessage to chat ${later.value.chatId}, no message to reply to: "${later.value.text}"`
+        );
+        waiting = !replyPartsContain(replyParts, contains);
+      }
     }
     for (const call of fakes.modelCalls()) {
       lines.push(

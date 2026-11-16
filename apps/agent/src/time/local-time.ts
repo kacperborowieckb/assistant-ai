@@ -15,7 +15,10 @@ const weekdayNames = [
 
 const twoDigits = (value: number) => String(value).padStart(2, "0");
 
-const localTimeOf = (instant: DateTime.Utc, timeZone: DateTime.TimeZone) => {
+export const localTimeOf = (
+  instant: DateTime.Utc,
+  timeZone: DateTime.TimeZone
+) => {
   const local = DateTime.setZone(instant, timeZone);
   const { year, month, day, hour, minute, weekDay } = DateTime.toParts(local);
   return `${weekdayNames[weekDay]} ${year}-${twoDigits(month)}-${twoDigits(day)}, ${twoDigits(hour)}:${twoDigits(minute)}`;

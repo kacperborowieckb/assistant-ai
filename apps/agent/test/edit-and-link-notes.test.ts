@@ -79,7 +79,7 @@ const toolCallNamesOfTraces = async (ownerId: string) =>
   runInDurableObject(await agentOf(ownerId), (instance) =>
     instance.runtime.runPromise(
       TurnTraces.pipe(
-        Effect.flatMap((traces) => traces.read),
+        Effect.flatMap((traces) => traces.readReplies),
         Effect.map((stored) =>
           stored.flatMap(({ trace }) =>
             trace.steps.flatMap((step) =>

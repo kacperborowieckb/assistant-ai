@@ -1,5 +1,5 @@
 import { env, runInDurableObject } from "cloudflare:test";
-import { Effect } from "effect";
+import { DateTime, Effect } from "effect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Event } from "../src/event.ts";
@@ -10,6 +10,7 @@ import type { StoreResult } from "../src/personal-agent/inbox.ts";
 import { OwnerChannelConversation } from "../src/personal-agent/owner-channel-conversation.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 import { noOwnerConversationReason } from "../src/personal-agent/turn-delivery.ts";
+import { Schedules } from "../src/schedule/schedules.ts";
 import { fakeTelegram, holdModel, resetFakes } from "./fakes.ts";
 import { addOwner, telegramWebhook, textUpdate } from "./telegram-requests.ts";
 
@@ -29,9 +30,25 @@ const ownerMessage = (updateId: string, text: string): Event => ({
   sentAt: "2026-11-15T10:00:00.000Z",
 });
 
+const reminderDueAt = "2026-11-19T08:00:00.000Z";
+
+const setReminder = (text: string) =>
+  Schedules.pipe(
+    Effect.flatMap((schedules) =>
+      schedules.set({
+        kind: "reminder",
+        setBy: "owner",
+        text,
+        dueAt: DateTime.makeUnsafe(reminderDueAt),
+        sourceEventId: "test-source",
+      })
+    ),
+    Effect.map(({ schedule }) => schedule.scheduleId)
+  );
+
 const inPersonalAgent = async <A, E>(
   ownerId: string,
-  effect: Effect.Effect<A, E, Inbox | OwnerChannelConversation>
+  effect: Effect.Effect<A, E, Inbox | OwnerChannelConversation | Schedules>
 ) =>
   runInDurableObject(
     await personalAgentFor(env.PERSONAL_AGENT, OwnerIdSchema.make(ownerId)),
@@ -56,15 +73,14 @@ beforeEach(() => {
 describe("ScheduleFired Event", () => {
   it("keeps one Inbox Event for the same Schedule id and due instant", async () => {
     const ownerId = "owner-schedule-duplicate";
-    const dueAt = "2026-11-19T08:00:00.000Z";
 
     const results = await inPersonalAgent(
       ownerId,
       Effect.gen(function* duplicateEffect() {
         const inbox = yield* Inbox;
         const stored = yield* storeAll([
-          scheduleFired("schedule-1", dueAt),
-          scheduleFired("schedule-1", dueAt),
+          scheduleFired("schedule-1", reminderDueAt),
+          scheduleFired("schedule-1", reminderDueAt),
           scheduleFired("schedule-1", "2026-11-26T08:00:00.000Z"),
         ]);
         return { stored, pending: yield* inbox.pending };
@@ -134,11 +150,14 @@ describe("Owner Channel Conversation", () => {
       env.PERSONAL_AGENT,
       OwnerIdSchema.make(ownerId)
     );
-    await agent.receive(
-      scheduleFired("schedule-4", "2026-11-19T08:00:00.000Z")
+    const scheduleId = await inPersonalAgent(
+      ownerId,
+      setReminder("buy the gift")
     );
+    await agent.receive(scheduleFired(scheduleId, reminderDueAt));
 
     await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    expect(fakeTelegram.sent[1]?.body.text).toBe("buy the gift");
     expect(fakeTelegram.sent[1]?.body.chat_id).toBe(8003);
     expect(fakeTelegram.sent[1]?.body.reply_parameters).toBeUndefined();
   });
@@ -149,9 +168,8 @@ describe("Owner Channel Conversation", () => {
       env.PERSONAL_AGENT,
       OwnerIdSchema.make(ownerId)
     );
-    await agent.receive(
-      scheduleFired("schedule-5", "2026-11-19T08:00:00.000Z")
-    );
+    const scheduleId = await inPersonalAgent(ownerId, setReminder("call Ana"));
+    await agent.receive(scheduleFired(scheduleId, reminderDueAt));
 
     await vi.waitFor(async () => {
       const pending = await inPersonalAgent(
@@ -178,7 +196,7 @@ describe("Owner Channel Conversation", () => {
           const inbox = yield* Inbox;
           const journal = yield* Journal;
           yield* inbox.store(
-            scheduleFired("schedule-6", "2026-11-19T08:00:00.000Z")
+            scheduleFired(yield* setReminder("x"), reminderDueAt)
           );
           const pending = yield* inbox.pending;
           const eventId = pending[0]?.eventId ?? "";
