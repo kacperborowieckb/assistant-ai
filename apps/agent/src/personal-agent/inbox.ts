@@ -1,5 +1,5 @@
-import { asc, eq, sql } from "drizzle-orm";
-import { Context, Effect, Layer, Schema } from "effect";
+import { asc, eq } from "drizzle-orm";
+import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { ownerMessageFields, scheduleFiredFields } from "../event.ts";
 import type { Event, OwnerMessage, ScheduleFired } from "../event.ts";
@@ -40,36 +40,48 @@ const toInboxEvent = (row: typeof inboxEvents.$inferSelect): InboxEvent =>
     _tag: row.kind,
   });
 
-const ownerMessagesFirst = sql`CASE ${inboxEvents.kind} WHEN 'OwnerMessage' THEN 0 ELSE 1 END`;
+const ownerMessagesFirst = (events: readonly InboxEvent[]) => [
+  ...events.filter((event) => event._tag === "OwnerMessage"),
+  ...events.filter((event) => event._tag !== "OwnerMessage"),
+];
 
-const stored = () =>
-  ({
+const newPendingRow = Effect.fnUntraced(function* newPendingRow() {
+  return {
     eventId: crypto.randomUUID(),
-    receivedAt: new Date().toISOString(),
+    receivedAt: DateTime.formatIso(yield* DateTime.now),
     state: "pending",
-  }) as const;
+  } as const;
+});
 
 const makeInbox = Effect.gen(function* makeInboxEffect() {
   const { database } = yield* AgentStorage;
   const journal = yield* Journal;
 
-  const insertOwnerMessage = ({ _tag, ...message }: OwnerMessage) =>
-    database
+  const insertOwnerMessage = Effect.fnUntraced(function* insertOwnerMessage({
+    _tag,
+    ...message
+  }: OwnerMessage) {
+    return yield* database
       .insert(inboxEvents)
-      .values({ ...stored(), kind: _tag, ...message })
+      .values({ ...(yield* newPendingRow()), kind: _tag, ...message })
       .onConflictDoNothing({
         target: [inboxEvents.channel, inboxEvents.channelUpdateId],
       })
       .returning({ eventId: inboxEvents.eventId });
+  });
 
-  const insertScheduleFired = ({ _tag, ...fired }: ScheduleFired) =>
-    database
+  const insertScheduleFired = Effect.fnUntraced(function* insertScheduleFired({
+    _tag,
+    ...fired
+  }: ScheduleFired) {
+    return yield* database
       .insert(inboxEvents)
-      .values({ ...stored(), kind: _tag, ...fired })
+      .values({ ...(yield* newPendingRow()), kind: _tag, ...fired })
       .onConflictDoNothing({
         target: [inboxEvents.scheduleId, inboxEvents.dueAt],
       })
       .returning({ eventId: inboxEvents.eventId });
+  });
 
   const insert = (event: Event) =>
     (event._tag === "OwnerMessage"
@@ -91,8 +103,8 @@ const makeInbox = Effect.gen(function* makeInboxEffect() {
     .select()
     .from(inboxEvents)
     .where(eq(inboxEvents.state, "pending"))
-    .orderBy(ownerMessagesFirst, asc(inboxEvents.sequence))
-    .pipe(Effect.map((rows) => rows.map(toInboxEvent)));
+    .orderBy(asc(inboxEvents.sequence))
+    .pipe(Effect.map((rows) => ownerMessagesFirst(rows.map(toInboxEvent))));
 
   const settle =
     (state: "done" | "failed") => (events: readonly InboxEvent[]) =>

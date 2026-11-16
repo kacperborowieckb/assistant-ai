@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { Context, Effect, Layer } from "effect";
+import { Context, DateTime, Effect, Layer } from "effect";
 
 import type { OwnerMessage } from "../event.ts";
 import { AgentStorage } from "./agent-storage.ts";
@@ -16,21 +16,22 @@ const makeOwnerChannelConversation = Effect.gen(
   function* makeOwnerChannelConversationEffect() {
     const { database } = yield* AgentStorage;
 
-    const remember = (message: OwnerMessage) => {
+    const remember = Effect.fnUntraced(function* remember(
+      message: OwnerMessage
+    ) {
       const conversation = {
         channel: message.channel,
         conversationId: message.conversationId,
-        recordedAt: new Date().toISOString(),
+        recordedAt: DateTime.formatIso(yield* DateTime.now),
       };
-      return database
+      yield* database
         .insert(ownerChannelConversations)
         .values({ slot: onlySlot, ...conversation })
         .onConflictDoUpdate({
           target: ownerChannelConversations.slot,
           set: conversation,
-        })
-        .pipe(Effect.asVoid);
-    };
+        });
+    });
 
     const current = database
       .select({

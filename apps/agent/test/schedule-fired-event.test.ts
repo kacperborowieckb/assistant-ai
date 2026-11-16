@@ -36,15 +36,16 @@ const inPersonalAgent = async <A, E>(
     (instance) => instance.runtime.runPromise(effect)
   );
 
-const storeAll = (events: readonly Event[]) =>
-  Effect.gen(function* storeAllEffect() {
-    const inbox = yield* Inbox;
-    const results: StoreResult[] = [];
-    for (const event of events) {
-      results.push(yield* inbox.store(event));
-    }
-    return results;
-  });
+const storeAll = Effect.fnUntraced(function* storeAll(
+  events: readonly Event[]
+) {
+  const inbox = yield* Inbox;
+  const results: StoreResult[] = [];
+  for (const event of events) {
+    results.push(yield* inbox.store(event));
+  }
+  return results;
+});
 
 beforeEach(() => {
   resetFakes();

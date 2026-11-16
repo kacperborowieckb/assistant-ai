@@ -13,20 +13,21 @@ export const honestFailureText =
 export const noOwnerConversationReason =
   "The Owner has no Channel conversation to send to yet";
 
-const destinationOf = (event: InboxEvent) =>
-  Effect.gen(function* destinationOfEffect() {
-    if (event._tag === "OwnerMessage") {
-      return {
-        conversationId: event.conversationId,
-        inReplyTo: event.channelMessageId,
-      };
-    }
-    const ownerConversation = yield* OwnerChannelConversation;
-    const current = yield* ownerConversation.current;
-    return current === undefined
-      ? undefined
-      : { conversationId: current.conversationId };
-  });
+const destinationOf = Effect.fnUntraced(function* destinationOf(
+  event: InboxEvent
+) {
+  if (event._tag === "OwnerMessage") {
+    return {
+      conversationId: event.conversationId,
+      inReplyTo: event.channelMessageId,
+    };
+  }
+  const ownerConversation = yield* OwnerChannelConversation;
+  const current = yield* ownerConversation.current;
+  return current === undefined
+    ? undefined
+    : { conversationId: current.conversationId };
+});
 
 export const deliver = (event: InboxEvent, text: string) =>
   Effect.gen(function* deliverEffect() {
