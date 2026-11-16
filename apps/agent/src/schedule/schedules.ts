@@ -8,7 +8,7 @@ import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { inboxEvents, schedules } from "../personal-agent/storage-schema.ts";
 import { nextOccurrence } from "../time/next-occurrence.ts";
 import { makeRepeatingSchedules } from "./repeating-schedules.ts";
-import { columnsOfAction, textOfAction } from "./schedule-action.ts";
+import { columnsOfAction } from "./schedule-action.ts";
 import type { ScheduleAction } from "./schedule-action.ts";
 import { makeScheduleEdits, recurrenceValuesOf } from "./schedule-edits.ts";
 import { encodeRule, toSchedule } from "./schedule.ts";
@@ -32,8 +32,7 @@ export interface ScheduleSet {
 
 const requestKeyOf = ({ action, dueAt, noteId, repeat }: SetScheduleRequest) =>
   JSON.stringify([
-    action._tag,
-    textOfAction(action),
+    action._tag === "SendText" ? action.text : { prompt: action.prompt },
     noteId ?? null,
     repeat === undefined
       ? [DateTime.formatIso(dueAt)]

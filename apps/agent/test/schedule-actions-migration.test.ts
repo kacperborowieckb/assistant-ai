@@ -7,6 +7,7 @@ import { OwnerIdSchema } from "../src/owner-id.ts";
 import { AgentStorage } from "../src/personal-agent/agent-storage.ts";
 import personalAgentMigrations from "../src/personal-agent/migrations/migrations.js";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
+import { Schedules } from "../src/schedule/schedules.ts";
 import { fakeTelegram, resetFakes } from "./fakes.ts";
 import { addOwner, telegramWebhook, textUpdate } from "./telegram-requests.ts";
 
@@ -74,6 +75,9 @@ const seededReminders = (oneTimeDueAt: string): readonly SeededReminder[] => [
   },
 ];
 
+const requestKeyOf = ({ text, nextDueAt }: SeededReminder) =>
+  JSON.stringify([text, null, [nextDueAt]]);
+
 const seedBeforeActions = (
   storage: DurableObjectStorage,
   ownerId: string,
@@ -84,7 +88,7 @@ const seedBeforeActions = (
       const { database } = yield* AgentStorage;
       for (const reminder of reminders) {
         yield* database.run(
-          sql`INSERT INTO schedules (schedule_id, owner_id, kind, set_by, text, next_due_at, recurrence, recurrence_time_zone, state, source_event_id, request_key, created_at, changed_at) VALUES (${reminder.scheduleId}, ${ownerId}, 'reminder', 'owner', ${reminder.text}, ${reminder.nextDueAt}, ${reminder.recurrence}, ${reminder.recurrenceTimeZone}, ${reminder.state}, ${`source-${reminder.scheduleId}`}, ${reminder.scheduleId}, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`
+          sql`INSERT INTO schedules (schedule_id, owner_id, kind, set_by, text, next_due_at, recurrence, recurrence_time_zone, state, source_event_id, request_key, created_at, changed_at) VALUES (${reminder.scheduleId}, ${ownerId}, 'reminder', 'owner', ${reminder.text}, ${reminder.nextDueAt}, ${reminder.recurrence}, ${reminder.recurrenceTimeZone}, ${reminder.state}, ${`source-${reminder.scheduleId}`}, ${requestKeyOf(reminder)}, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`
         );
       }
     }).pipe(
@@ -159,6 +163,25 @@ describe("the Schedule Action migration", () => {
           state: reminder.state,
         }))
     );
+
+    const repeatedSet = await runInDurableObject(agent, (instance) =>
+      instance.runtime.runPromise(
+        Schedules.pipe(
+          Effect.flatMap((schedules) =>
+            schedules.set({
+              action: { _tag: "SendText", text: "Buy the gift" },
+              setBy: "owner",
+              dueAt: DateTime.makeUnsafe(dueLater),
+              sourceEventId: "source-one-time",
+            })
+          )
+        )
+      )
+    );
+    expect(repeatedSet).toMatchObject({
+      alreadySet: true,
+      schedule: { scheduleId: "one-time" },
+    });
 
     await runInDurableObject(agent, (instance, state) => {
       state.storage.sql.exec(
