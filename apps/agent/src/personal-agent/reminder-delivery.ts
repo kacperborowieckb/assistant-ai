@@ -4,7 +4,11 @@ import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { Journal } from "../journal/journal.ts";
 import type { JournalRecord } from "../journal/journal.ts";
 import type { OwnerId } from "../owner-id.ts";
-import { lateReminderText } from "../schedule/late-reminder-text.ts";
+import {
+  isLate,
+  lateByMillisOf,
+  lateReminderText,
+} from "../schedule/late-reminder.ts";
 import { Schedules } from "../schedule/schedules.ts";
 import { ownerTimeZone } from "../time/owner-current-time.ts";
 import { OperatorMetrics } from "../tracing/operator-metrics.ts";
@@ -153,9 +157,8 @@ const reminderTextFor = Effect.fnUntraced(function* reminderTextFor(
   const journal = yield* Journal;
   const now = yield* DateTime.now;
   const dueAt = DateTime.makeUnsafe(event.dueAt);
-  const lateByMillis =
-    DateTime.toEpochMillis(now) - DateTime.toEpochMillis(dueAt);
-  if (lateByMillis <= behavior.reminderGraceMillis) {
+  const lateByMillis = lateByMillisOf(now, dueAt);
+  if (!isLate(lateByMillis, behavior.reminderGraceMillis)) {
     return { text: savedText, late: false };
   }
   const recorded = yield* journal.readForEvent(event.eventId);
