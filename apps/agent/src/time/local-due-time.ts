@@ -17,14 +17,29 @@ interface LocalParts {
   readonly minute: number;
 }
 
+const LocalPartsSchema = Schema.TemplateLiteralParser([
+  Schema.NumberFromString,
+  "-",
+  Schema.NumberFromString,
+  "-",
+  Schema.NumberFromString,
+  "T",
+  Schema.NumberFromString,
+  ":",
+  Schema.NumberFromString,
+]);
+
+const decodeLocalParts = Schema.decodeUnknownOption(LocalPartsSchema);
+
 const partsOf = (local: string): Option.Option<LocalParts> =>
-  Option.fromNullishOr(localDueTimePattern.exec(local)?.groups).pipe(
-    Option.map(({ year, month, day, hour, minute }) => ({
-      year: Number(year),
-      month: Number(month),
-      day: Number(day),
-      hour: Number(hour),
-      minute: Number(minute),
+  Option.liftPredicate(local, Schema.is(LocalDueTimeSchema)).pipe(
+    Option.flatMap(decodeLocalParts),
+    Option.map(([year, , month, , day, , hour, , minute]) => ({
+      year,
+      month,
+      day,
+      hour,
+      minute,
     }))
   );
 

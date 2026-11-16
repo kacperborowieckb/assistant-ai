@@ -64,142 +64,143 @@ const hasNoInboxEventForDueInstant = (
       )
   );
 
-const makeSchedules = (ownerId: OwnerId) =>
-  Effect.gen(function* makeSchedulesEffect() {
-    const { database } = yield* AgentStorage;
-    const journal = yield* Journal;
-    const { requireOwnNotes } = yield* makeNoteLinks(ownerId);
+const makeSchedules = Effect.fnUntraced(function* makeSchedules(
+  ownerId: OwnerId
+) {
+  const { database } = yield* AgentStorage;
+  const journal = yield* Journal;
+  const { requireOwnNotes } = yield* makeNoteLinks(ownerId);
 
-    const writeSchedule = Effect.fnUntraced(function* writeSchedule(
-      request: SetScheduleRequest
-    ) {
-      yield* requireOwnNotes(
-        request.noteId === undefined ? [] : [request.noteId]
-      );
-      const requestKey = requestKeyOf(request);
-      const now = DateTime.formatIso(yield* DateTime.now);
-      const [inserted] = yield* database
-        .insert(schedules)
-        .values({
-          scheduleId: crypto.randomUUID(),
-          ownerId,
-          kind: request.kind,
-          setBy: request.setBy,
-          text: request.text,
-          noteId: request.noteId ?? null,
-          nextDueAt: DateTime.formatIso(request.dueAt),
-          state: "active",
-          sourceEventId: request.sourceEventId,
-          requestKey,
-          createdAt: now,
-          changedAt: now,
-        })
-        .onConflictDoNothing({
-          target: [schedules.sourceEventId, schedules.requestKey],
-        })
-        .returning();
-      if (inserted !== undefined) {
-        yield* journal.append({
-          _tag: "ScheduleSet",
-          eventId: request.sourceEventId,
-          scheduleId: inserted.scheduleId,
-        });
-        return { schedule: toSchedule(inserted), alreadySet: false };
-      }
-      const [existing] = yield* database
-        .select()
-        .from(schedules)
-        .where(
-          and(
-            eq(schedules.sourceEventId, request.sourceEventId),
-            eq(schedules.requestKey, requestKey)
-          )
-        );
-      if (existing === undefined) {
-        return yield* Effect.die("The Schedule is neither written nor found");
-      }
-      return { schedule: toSchedule(existing), alreadySet: true };
-    });
-
-    const set = (request: SetScheduleRequest) =>
-      database.transaction(() => writeSchedule(request));
-
-    const byId = (scheduleId: string) =>
-      database
-        .select()
-        .from(schedules)
-        .where(
-          and(
-            eq(schedules.ownerId, ownerId),
-            eq(schedules.scheduleId, scheduleId)
-          )
-        )
-        .pipe(
-          Effect.map(([row]) =>
-            Option.fromNullishOr(row).pipe(Option.map(toSchedule))
-          )
-        );
-
-    const unfiredActive = and(
-      eq(schedules.ownerId, ownerId),
-      eq(schedules.state, "active"),
-      hasNoInboxEventForDueInstant(database)
+  const writeSchedule = Effect.fnUntraced(function* writeSchedule(
+    request: SetScheduleRequest
+  ) {
+    yield* requireOwnNotes(
+      request.noteId === undefined ? [] : [request.noteId]
     );
-
-    const earliestUnfiredDueAt = database
-      .select({ nextDueAt: schedules.nextDueAt })
+    const requestKey = requestKeyOf(request);
+    const now = DateTime.formatIso(yield* DateTime.now);
+    const [inserted] = yield* database
+      .insert(schedules)
+      .values({
+        scheduleId: crypto.randomUUID(),
+        ownerId,
+        kind: request.kind,
+        setBy: request.setBy,
+        text: request.text,
+        noteId: request.noteId ?? null,
+        nextDueAt: DateTime.formatIso(request.dueAt),
+        state: "active",
+        sourceEventId: request.sourceEventId,
+        requestKey,
+        createdAt: now,
+        changedAt: now,
+      })
+      .onConflictDoNothing({
+        target: [schedules.sourceEventId, schedules.requestKey],
+      })
+      .returning();
+    if (inserted !== undefined) {
+      yield* journal.append({
+        _tag: "ScheduleSet",
+        eventId: request.sourceEventId,
+        scheduleId: inserted.scheduleId,
+      });
+      return { schedule: toSchedule(inserted), alreadySet: false };
+    }
+    const [existing] = yield* database
+      .select()
       .from(schedules)
-      .where(unfiredActive)
-      .orderBy(asc(schedules.nextDueAt))
-      .limit(1)
+      .where(
+        and(
+          eq(schedules.sourceEventId, request.sourceEventId),
+          eq(schedules.requestKey, requestKey)
+        )
+      );
+    if (existing === undefined) {
+      return yield* Effect.die("The Schedule is neither written nor found");
+    }
+    return { schedule: toSchedule(existing), alreadySet: true };
+  });
+
+  const set = (request: SetScheduleRequest) =>
+    database.transaction(() => writeSchedule(request));
+
+  const byId = (scheduleId: string) =>
+    database
+      .select()
+      .from(schedules)
+      .where(
+        and(
+          eq(schedules.ownerId, ownerId),
+          eq(schedules.scheduleId, scheduleId)
+        )
+      )
       .pipe(
         Effect.map(([row]) =>
-          Option.fromNullishOr(row).pipe(
-            Option.map(({ nextDueAt }) => DateTime.makeUnsafe(nextDueAt))
-          )
+          Option.fromNullishOr(row).pipe(Option.map(toSchedule))
         )
       );
 
-    const unfiredDueBy = (now: DateTime.Utc) =>
-      database
-        .select()
-        .from(schedules)
-        .where(
-          and(unfiredActive, lte(schedules.nextDueAt, DateTime.formatIso(now)))
-        )
-        .orderBy(asc(schedules.nextDueAt), asc(schedules.createdAt))
-        .pipe(Effect.map((rows) => rows.map(toSchedule)));
+  const unfiredActive = and(
+    eq(schedules.ownerId, ownerId),
+    eq(schedules.state, "active"),
+    hasNoInboxEventForDueInstant(database)
+  );
 
-    const complete = (scheduleId: string, dueAt: string, eventId: string) =>
-      database.transaction(() =>
-        Effect.gen(function* completeEffect() {
-          const [row] = yield* database
-            .update(schedules)
-            .set({
-              state: "done",
-              changedAt: DateTime.formatIso(yield* DateTime.now),
-            })
-            .where(
-              and(
-                eq(schedules.ownerId, ownerId),
-                eq(schedules.scheduleId, scheduleId),
-                eq(schedules.state, "active"),
-                eq(schedules.nextDueAt, dueAt)
-              )
+  const earliestUnfiredDueAt = database
+    .select({ nextDueAt: schedules.nextDueAt })
+    .from(schedules)
+    .where(unfiredActive)
+    .orderBy(asc(schedules.nextDueAt))
+    .limit(1)
+    .pipe(
+      Effect.map(([row]) =>
+        Option.fromNullishOr(row).pipe(
+          Option.map(({ nextDueAt }) => DateTime.makeUnsafe(nextDueAt))
+        )
+      )
+    );
+
+  const unfiredDueBy = (now: DateTime.Utc) =>
+    database
+      .select()
+      .from(schedules)
+      .where(
+        and(unfiredActive, lte(schedules.nextDueAt, DateTime.formatIso(now)))
+      )
+      .orderBy(asc(schedules.nextDueAt), asc(schedules.createdAt))
+      .pipe(Effect.map((rows) => rows.map(toSchedule)));
+
+  const complete = (scheduleId: string, dueAt: string, eventId: string) =>
+    database.transaction(() =>
+      Effect.gen(function* completeEffect() {
+        const [row] = yield* database
+          .update(schedules)
+          .set({
+            state: "done",
+            changedAt: DateTime.formatIso(yield* DateTime.now),
+          })
+          .where(
+            and(
+              eq(schedules.ownerId, ownerId),
+              eq(schedules.scheduleId, scheduleId),
+              eq(schedules.state, "active"),
+              eq(schedules.nextDueAt, dueAt)
             )
-            .returning({ scheduleId: schedules.scheduleId });
-          if (row !== undefined) {
-            yield* journal.append({
-              _tag: "ScheduleCompleted",
-              eventId,
-              scheduleId,
-            });
-          }
-        })
-      );
+          )
+          .returning({ scheduleId: schedules.scheduleId });
+        if (row !== undefined) {
+          yield* journal.append({
+            _tag: "ScheduleCompleted",
+            eventId,
+            scheduleId,
+          });
+        }
+      })
+    );
 
-    return { set, byId, earliestUnfiredDueAt, unfiredDueBy, complete };
-  });
+  return { set, byId, earliestUnfiredDueAt, unfiredDueBy, complete };
+});
 
 export class Schedules extends Context.Service<
   Schedules,

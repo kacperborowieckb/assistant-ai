@@ -7,16 +7,17 @@ export interface AlarmClock {
   readonly setAt: (dueAt: Option.Option<DateTime.Utc>) => Promise<void>;
 }
 
-const makeScheduleAlarm = (clock: AlarmClock) =>
-  Effect.gen(function* makeScheduleAlarmEffect() {
-    const schedules = yield* Schedules;
+const makeScheduleAlarm = Effect.fnUntraced(function* makeScheduleAlarm(
+  clock: AlarmClock
+) {
+  const schedules = yield* Schedules;
 
-    const rearm = schedules.earliestUnfiredDueAt.pipe(
-      Effect.flatMap((dueAt) => Effect.promise(() => clock.setAt(dueAt)))
-    );
+  const rearm = schedules.earliestUnfiredDueAt.pipe(
+    Effect.flatMap((dueAt) => Effect.promise(() => clock.setAt(dueAt)))
+  );
 
-    return { rearm };
-  });
+  return { rearm };
+});
 
 export class ScheduleAlarm extends Context.Service<
   ScheduleAlarm,
