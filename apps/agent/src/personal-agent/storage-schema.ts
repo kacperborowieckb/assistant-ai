@@ -239,9 +239,7 @@ export const schedules = sqliteTable(
     kind: text("kind", { enum: scheduleKinds }).notNull(),
     setBy: text("set_by", { enum: scheduleSetBy }).notNull(),
     text: text("text").notNull(),
-    noteId: text("note_id").references(() => notes.noteId, {
-      onDelete: "cascade",
-    }),
+    noteId: text("note_id").references(() => notes.noteId),
     nextDueAt: text("next_due_at").notNull(),
     state: text("state", { enum: scheduleStates }).notNull(),
     sourceEventId: text("source_event_id").notNull(),

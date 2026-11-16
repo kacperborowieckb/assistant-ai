@@ -1,4 +1,4 @@
-import { Option, Schema } from "effect";
+import { DateTime, Option, Schema } from "effect";
 
 export const fakeReminderPrefix = "remind: ";
 
@@ -18,16 +18,19 @@ const twoDigits = (value: number) => String(value).padStart(2, "0");
 const nextLocalMinute = (systemText: string) =>
   Option.fromNullishOr(currentLocalTime.exec(systemText)?.groups).pipe(
     Option.map(({ year, month, day, hour, minute }) => {
-      const next = new Date(
-        Date.UTC(
-          Number(year),
-          Number(month) - 1,
-          Number(day),
-          Number(hour),
-          Number(minute)
-        ) + 60_000
+      const next = DateTime.toParts(
+        DateTime.add(
+          DateTime.makeUnsafe({
+            year: Number(year),
+            month: Number(month),
+            day: Number(day),
+            hour: Number(hour),
+            minute: Number(minute),
+          }),
+          { minutes: 1 }
+        )
       );
-      return `${next.getUTCFullYear()}-${twoDigits(next.getUTCMonth() + 1)}-${twoDigits(next.getUTCDate())}T${twoDigits(next.getUTCHours())}:${twoDigits(next.getUTCMinutes())}`;
+      return `${next.year}-${twoDigits(next.month)}-${twoDigits(next.day)}T${twoDigits(next.hour)}:${twoDigits(next.minute)}`;
     })
   );
 

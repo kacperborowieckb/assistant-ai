@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "e20e6dc0-4aea-4a6a-aa7a-031cc14eb1e8",
+  "id": "0c23d1a8-aa2b-4a3c-b154-ce933a5f3558",
   "prevIds": ["b86559f8-f364-4509-a57f-6c9233c91a9f"],
   "ddl": [
     {
@@ -1051,7 +1051,7 @@
       "tableTo": "notes",
       "columnsTo": ["note_id"],
       "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
+      "onDelete": "NO ACTION",
       "nameExplicit": false,
       "entityType": "fks"
     },

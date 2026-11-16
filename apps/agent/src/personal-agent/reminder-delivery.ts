@@ -12,83 +12,138 @@ import { Inbox } from "./inbox.ts";
 import type { ScheduleFiredEvent } from "./inbox.ts";
 import { deliver, recordTurnFailed } from "./turn-delivery.ts";
 
-export const completeScheduleIfDelivered = (event: ScheduleFiredEvent) =>
-  Effect.gen(function* completeScheduleIfDeliveredEffect() {
+interface DeliveryRecord {
+  readonly ownerId: OwnerId;
+  readonly event: ScheduleFiredEvent;
+  readonly text: string;
+  readonly latencyMillis: number;
+}
+
+const recordDelivered = Effect.fnUntraced(function* recordDelivered(
+  { ownerId, event, text, latencyMillis }: DeliveryRecord,
+  channelMessageId: string
+) {
+  const traces = yield* TurnTraces;
+  const metrics = yield* OperatorMetrics;
+  yield* traces.record({
+    eventId: event.eventId,
+    task: "reminder_delivery",
+    result: "reminder_delivered",
+    scheduleId: event.scheduleId,
+    dueAt: event.dueAt,
+    text,
+    channelMessageId,
+    error: null,
+    latencyMillis,
+  });
+  yield* metrics.record({
+    kind: "reminder",
+    ownerId,
+    result: "delivered",
+    latencyMillis,
+  });
+});
+
+const recordDeliveryFailed = Effect.fnUntraced(function* recordDeliveryFailed(
+  { ownerId, event, text, latencyMillis }: DeliveryRecord,
+  reason: string
+) {
+  const traces = yield* TurnTraces;
+  const metrics = yield* OperatorMetrics;
+  yield* recordTurnFailed(event, reason);
+  yield* traces.record({
+    eventId: event.eventId,
+    task: "reminder_delivery",
+    result: "reminder_delivery_failed",
+    scheduleId: event.scheduleId,
+    dueAt: event.dueAt,
+    text,
+    channelMessageId: null,
+    error: reason,
+    latencyMillis,
+  });
+  yield* metrics.record({
+    kind: "reminder",
+    ownerId,
+    result: "delivery_failed",
+    latencyMillis,
+  });
+});
+
+export const recoverDeliveredReminder = Effect.fnUntraced(
+  function* recoverDeliveredReminder(
+    ownerId: OwnerId,
+    event: ScheduleFiredEvent
+  ) {
     const journal = yield* Journal;
     const schedules = yield* Schedules;
-    const tags = new Set(
-      (yield* journal.readForEvent(event.eventId)).map(
-        (entry) => entry.record._tag
-      )
-    );
-    if (tags.has("ReplySent") && !tags.has("TurnFailed")) {
-      yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
-    }
-  });
-
-export const deliverReminder = (ownerId: OwnerId, event: ScheduleFiredEvent) =>
-  Effect.gen(function* deliverReminderEffect() {
-    const inbox = yield* Inbox;
-    const schedules = yield* Schedules;
-    const conversation = yield* Conversation;
     const traces = yield* TurnTraces;
-    const metrics = yield* OperatorMetrics;
-    const redactor = yield* Redactor;
-    const startedAt = yield* Clock.currentTimeMillis;
-
-    const schedule = yield* schedules.byId(event.scheduleId);
-    const stillDue =
-      schedule._tag === "Some" &&
-      schedule.value.state === "active" &&
-      DateTime.formatIso(schedule.value.nextDueAt) === event.dueAt;
-    if (!stillDue) {
-      yield* inbox.markDone([event]);
-      return;
-    }
-    const text = redactor.redact(schedule.value.text);
-    const delivery = yield* deliver(event, text);
-    const latencyMillis = (yield* Clock.currentTimeMillis) - startedAt;
-    const traced = {
-      eventId: event.eventId,
-      task: "reminder_delivery",
-      scheduleId: event.scheduleId,
-      dueAt: event.dueAt,
-      text,
-      latencyMillis,
-    } as const;
-
-    if (delivery._tag === "Failed") {
-      yield* recordTurnFailed(event, delivery.reason);
-      yield* traces.record({
-        ...traced,
-        result: "reminder_delivery_failed",
-        channelMessageId: null,
-        error: delivery.reason,
-      });
-      yield* metrics.record({
-        kind: "reminder",
-        ownerId,
-        result: "delivery_failed",
-        latencyMillis,
-      });
+    const entries = yield* journal.readForEvent(event.eventId);
+    const planned = entries.findLast(
+      (entry) => entry.record._tag === "ReplyPlanned"
+    );
+    const sent = entries.findLast((entry) => entry.record._tag === "ReplySent");
+    const failed = entries.some((entry) => entry.record._tag === "TurnFailed");
+    if (
+      failed ||
+      planned?.record._tag !== "ReplyPlanned" ||
+      sent?.record._tag !== "ReplySent"
+    ) {
       return;
     }
     yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
-    yield* conversation.append(event.eventId, [
-      eventMessage(event),
-      { role: "assistant", content: text },
-    ]);
+    const recorded = yield* traces.read;
+    if (!recorded.some(({ trace }) => trace.eventId === event.eventId)) {
+      yield* recordDelivered(
+        {
+          ownerId,
+          event,
+          text: planned.record.text,
+          latencyMillis: 0,
+        },
+        sent.record.channelMessageId
+      );
+    }
+  }
+);
+
+export const deliverReminder = Effect.fnUntraced(function* deliverReminder(
+  ownerId: OwnerId,
+  event: ScheduleFiredEvent
+) {
+  const inbox = yield* Inbox;
+  const schedules = yield* Schedules;
+  const conversation = yield* Conversation;
+  const redactor = yield* Redactor;
+  const startedAt = yield* Clock.currentTimeMillis;
+
+  const schedule = yield* schedules.byId(event.scheduleId);
+  const stillDue =
+    schedule._tag === "Some" &&
+    schedule.value.state === "active" &&
+    DateTime.formatIso(schedule.value.nextDueAt) === event.dueAt;
+  if (!stillDue) {
     yield* inbox.markDone([event]);
-    yield* traces.record({
-      ...traced,
-      result: "reminder_delivered",
-      channelMessageId: delivery.channelMessageId,
-      error: null,
-    });
-    yield* metrics.record({
-      kind: "reminder",
-      ownerId,
-      result: "delivered",
-      latencyMillis,
-    });
-  });
+    return;
+  }
+  const text = redactor.redact(schedule.value.text);
+  const delivery = yield* deliver(event, text);
+  const record = {
+    ownerId,
+    event,
+    text,
+    latencyMillis: (yield* Clock.currentTimeMillis) - startedAt,
+  };
+
+  if (delivery._tag === "Failed") {
+    yield* recordDeliveryFailed(record, delivery.reason);
+    return;
+  }
+  yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
+  yield* recordDelivered(record, delivery.channelMessageId);
+  yield* conversation.append(event.eventId, [
+    eventMessage(event),
+    { role: "assistant", content: text },
+  ]);
+  yield* inbox.markDone([event]);
+});

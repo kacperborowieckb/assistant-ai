@@ -20,8 +20,8 @@ import { Inbox } from "./inbox.ts";
 import type { InboxEvent, OwnerMessageEvent } from "./inbox.ts";
 import { ownerMessageTools } from "./owner-message-tools.ts";
 import {
-  completeScheduleIfDelivered,
   deliverReminder,
+  recoverDeliveredReminder,
 } from "./reminder-delivery.ts";
 import { systemPrompt } from "./system-prompt.ts";
 import {
@@ -193,13 +193,14 @@ export const takeTurn = (
     const inbox = yield* Inbox;
     const events = yield* inbox.pending;
     for (const event of events) {
-      const outcome = yield* settleFromJournal(event);
       if (event._tag === "ScheduleFired") {
-        yield* outcome === "unanswered"
+        yield* recoverDeliveredReminder(ownerId, event);
+      }
+      const outcome = yield* settleFromJournal(event);
+      if (outcome === "unanswered") {
+        yield* event._tag === "ScheduleFired"
           ? deliverReminder(ownerId, event)
-          : completeScheduleIfDelivered(event);
-      } else if (outcome === "unanswered") {
-        yield* answer(ownerId, { behavior, tools }, event);
+          : answer(ownerId, { behavior, tools }, event);
       }
     }
   });

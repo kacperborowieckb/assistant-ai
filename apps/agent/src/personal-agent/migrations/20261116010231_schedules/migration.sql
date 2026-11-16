@@ -11,7 +11,7 @@ CREATE TABLE `schedules` (
 	`request_key` text NOT NULL,
 	`created_at` text NOT NULL,
 	`changed_at` text NOT NULL,
-	CONSTRAINT `fk_schedules_note_id_notes_note_id_fk` FOREIGN KEY (`note_id`) REFERENCES `notes`(`note_id`) ON DELETE CASCADE,
+	CONSTRAINT `fk_schedules_note_id_notes_note_id_fk` FOREIGN KEY (`note_id`) REFERENCES `notes`(`note_id`),
 	CONSTRAINT `schedules_source_event_id_request_key_unique` UNIQUE(`source_event_id`,`request_key`),
 	CONSTRAINT "schedules_kind_check" CHECK("kind" IN ('reminder')),
 	CONSTRAINT "schedules_set_by_check" CHECK("set_by" IN ('owner', 'agent')),

@@ -110,7 +110,7 @@ const ownerInWarsaw = async (telegramUserId: number) => {
   return ownerId;
 };
 
-const nextYear = new Date().getUTCFullYear() + 1;
+const nextYear = DateTime.getPartUtc(DateTime.nowUnsafe(), "year") + 1;
 
 const setReminderStep = (localDueTime: string, noteId?: string) =>
   ({
@@ -323,7 +323,9 @@ describe("the alarm", () => {
 
     await vi.waitFor(async () =>
       expect(await alarmsOf(ownerId)).toEqual([
-        Date.parse(`${nextYear}-01-14T08:00:00.000Z`) / 1000,
+        DateTime.toEpochMillis(
+          DateTime.makeUnsafe(`${nextYear}-01-14T08:00:00.000Z`)
+        ) / 1000,
       ])
     );
   });
@@ -489,6 +491,14 @@ describe("Reminder delivery", () => {
       expect(await firstScheduleState(ownerId)).toBe("done")
     );
     expect(sentTexts()).toEqual(["You said: hello"]);
+    const traces = await inAgent(
+      ownerId,
+      TurnTraces.pipe(Effect.flatMap((stored) => stored.read))
+    );
+    expect(traces.at(-1)?.trace).toMatchObject({
+      result: "reminder_delivered",
+      channelMessageId: "1",
+    });
   });
 
   it("records a failed send honestly, keeps the Schedule active, and does not arm a hot alarm", async () => {
