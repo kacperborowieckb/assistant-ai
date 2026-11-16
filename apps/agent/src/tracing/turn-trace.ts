@@ -28,8 +28,7 @@ const TraceStepSchema = Schema.Struct({
   usage: TraceUsageSchema,
 });
 
-const ReplyTraceBodySchema = Schema.Struct({
-  task: Schema.Literal("reply"),
+const modelTraceFields = {
   modelId: Schema.String,
   modelSettings: Schema.Struct({
     attempts: Schema.Number,
@@ -45,6 +44,18 @@ const ReplyTraceBodySchema = Schema.Struct({
   error: Schema.NullOr(Schema.String),
   usage: TraceUsageSchema,
   modelLatencyMillis: Schema.Number,
+};
+
+const ReplyTraceBodySchema = Schema.Struct({
+  task: Schema.Literal("reply"),
+  ...modelTraceFields,
+});
+
+const ScheduledTaskTraceBodySchema = Schema.Struct({
+  task: Schema.Literal("scheduled_task"),
+  scheduleId: Schema.String,
+  dueAt: Schema.String,
+  ...modelTraceFields,
 });
 
 const ReminderDeliveryTraceBodySchema = Schema.Struct({
@@ -62,6 +73,7 @@ const ReminderDeliveryTraceBodySchema = Schema.Struct({
 
 const TraceBodySchema = Schema.Union([
   ReplyTraceBodySchema,
+  ScheduledTaskTraceBodySchema,
   ReminderDeliveryTraceBodySchema,
 ]);
 
@@ -75,6 +87,11 @@ export const ReplyTurnTraceSchema = Schema.Struct({
   ...ReplyTraceBodySchema.fields,
 });
 
+export const ScheduledTaskTurnTraceSchema = Schema.Struct({
+  ...traceFields,
+  ...ScheduledTaskTraceBodySchema.fields,
+});
+
 export const ReminderDeliveryTurnTraceSchema = Schema.Struct({
   ...traceFields,
   ...ReminderDeliveryTraceBodySchema.fields,
@@ -82,10 +99,13 @@ export const ReminderDeliveryTurnTraceSchema = Schema.Struct({
 
 export const TurnTraceSchema = Schema.Union([
   ReplyTurnTraceSchema,
+  ScheduledTaskTurnTraceSchema,
   ReminderDeliveryTurnTraceSchema,
 ]);
 
 export type ReplyTurnTrace = typeof ReplyTurnTraceSchema.Type;
+
+export type ScheduledTaskTurnTrace = typeof ScheduledTaskTurnTraceSchema.Type;
 
 export type ReminderDeliveryTurnTrace =
   typeof ReminderDeliveryTurnTraceSchema.Type;

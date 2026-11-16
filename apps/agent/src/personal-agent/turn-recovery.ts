@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import { Journal } from "../journal/journal.ts";
 import type { JournalEntry, JournalRecord } from "../journal/journal.ts";
 import { Conversation } from "./conversation.ts";
-import { eventMessage } from "./event-message.ts";
+import { inputMessageOf } from "./event-message.ts";
 import { Inbox } from "./inbox.ts";
 import type { InboxEvent } from "./inbox.ts";
 import { recordTurnFailed, sendHonestFailure } from "./turn-delivery.ts";
@@ -33,7 +33,7 @@ const recordConversation = (
 
     if (earlier.length + reply.length > 0) {
       yield* conversation.append(event.eventId, [
-        eventMessage(event),
+        yield* inputMessageOf(event),
         ...earlier,
         ...reply,
       ]);

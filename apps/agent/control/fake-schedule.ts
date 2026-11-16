@@ -4,6 +4,27 @@ export const fakeReminderPrefix = "remind: ";
 
 export const fakeRepeatingReminderPrefix = "remind daily: ";
 
+export const fakeScheduledTaskPrefix = "task: ";
+
+export const fakeRepeatingScheduledTaskPrefix = "task daily: ";
+
+export const fakeScheduledTaskResultPrefix = "Scheduled task result: ";
+
+const prefixes = [
+  fakeReminderPrefix,
+  fakeRepeatingReminderPrefix,
+  fakeScheduledTaskPrefix,
+  fakeRepeatingScheduledTaskPrefix,
+] as const;
+
+export const isFakeScheduleRequest = (ownerText: string) =>
+  prefixes.some((prefix) => ownerText.startsWith(prefix));
+
+export const fakeScheduledTaskMessage = (prompt: string) => ({
+  role: "assistant",
+  content: `${fakeScheduledTaskResultPrefix}${prompt}`,
+});
+
 const SetReminderResultSchema = Schema.fromJsonString(
   Schema.Struct({ due: Schema.String, timeZone: Schema.String })
 );
@@ -36,20 +57,39 @@ const nextLocalMinute = (systemText: string) =>
     })
   );
 
+const actionOf = (ownerText: string, prefix: string) => {
+  const words = ownerText.slice(prefix.length);
+  return fakeScheduledTaskPrefixes.has(prefix)
+    ? { _tag: "RunPrompt", prompt: words }
+    : { _tag: "SendText", text: words };
+};
+
+const fakeScheduledTaskPrefixes: ReadonlySet<string> = new Set([
+  fakeScheduledTaskPrefix,
+  fakeRepeatingScheduledTaskPrefix,
+]);
+
+const repeatingPrefixes: ReadonlySet<string> = new Set([
+  fakeRepeatingReminderPrefix,
+  fakeRepeatingScheduledTaskPrefix,
+]);
+
 export const fakeReminderMessage = (
   ownerText: string,
   toolResult: string | undefined,
   systemText: string
 ) => {
+  const prefix = prefixes.find((candidate) => ownerText.startsWith(candidate));
+  if (prefix === undefined) {
+    return { role: "assistant", content: ownerText };
+  }
+  const isTask = fakeScheduledTaskPrefixes.has(prefix);
   if (toolResult === undefined) {
-    const isRepeating = ownerText.startsWith(fakeRepeatingReminderPrefix);
     const localDueTime = Option.getOrElse(
       nextLocalMinute(systemText),
       () => ""
     );
-    const text = ownerText.slice(
-      (isRepeating ? fakeRepeatingReminderPrefix : fakeReminderPrefix).length
-    );
+    const action = actionOf(ownerText, prefix);
     return {
       role: "assistant",
       content: null,
@@ -60,12 +100,12 @@ export const fakeReminderMessage = (
           function: {
             name: "set_schedule",
             arguments: JSON.stringify(
-              isRepeating
+              repeatingPrefixes.has(prefix)
                 ? {
-                    action: { _tag: "SendText", text },
+                    action,
                     repeat: { _tag: "Daily", time: localDueTime.slice(-5) },
                   }
-                : { action: { _tag: "SendText", text }, localDueTime }
+                : { action, localDueTime }
             ),
           },
         },
@@ -73,10 +113,11 @@ export const fakeReminderMessage = (
     };
   }
   const set = decodeSetReminderResult(toolResult);
+  const noun = isTask ? "Scheduled task" : "Reminder";
   return {
     role: "assistant",
     content: Option.isSome(set)
-      ? `Reminder set for ${set.value.due} (${set.value.timeZone})`
-      : "Sorry, I could not set that Reminder.",
+      ? `${noun} set for ${set.value.due} (${set.value.timeZone})`
+      : `Sorry, I could not set that ${noun}.`,
   };
 };

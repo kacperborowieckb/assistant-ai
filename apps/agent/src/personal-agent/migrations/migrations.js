@@ -14,6 +14,7 @@ import m0012 from "./20261116000630_schedule_fired_events/migration.sql";
 import m0013 from "./20261116010231_schedules/migration.sql";
 import m0014 from "./20261116083044_repeating_schedules/migration.sql";
 import m0015 from "./20261116152927_schedule_actions/migration.sql";
+import m0016 from "./20261116183440_scheduled_task/migration.sql";
 
 export default {
   migrations: {
@@ -33,5 +34,6 @@ export default {
     "20261116010231_schedules": m0013,
     "20261116083044_repeating_schedules": m0014,
     "20261116152927_schedule_actions": m0015,
+    "20261116183440_scheduled_task": m0016,
   },
 };

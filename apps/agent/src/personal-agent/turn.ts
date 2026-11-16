@@ -1,4 +1,3 @@
-import type { ModelMessage } from "ai";
 import { Clock, Effect } from "effect";
 
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
@@ -18,8 +17,9 @@ import { Conversation } from "./conversation.ts";
 import { eventMessage } from "./event-message.ts";
 import { fireSchedule } from "./fire-schedule.ts";
 import { Inbox } from "./inbox.ts";
-import type { InboxEvent, OwnerMessageEvent } from "./inbox.ts";
+import type { OwnerMessageEvent } from "./inbox.ts";
 import { ownerMessageTools } from "./owner-message-tools.ts";
+import { rememberCompletedSteps } from "./remember-completed-steps.ts";
 import { recoverReminderRecord } from "./reminder-delivery.ts";
 import { systemPrompt } from "./system-prompt.ts";
 import {
@@ -32,31 +32,11 @@ import {
   modelFailureReason,
   stepLimitReason,
   responseMessagesOf,
-  toolMessagesOf,
   recordTurnMetric,
   traceOf,
 } from "./turn-record.ts";
 import type { ModelOutcome } from "./turn-record.ts";
 import { settleFromJournal } from "./turn-recovery.ts";
-
-const rememberCompletedSteps = (
-  event: InboxEvent,
-  earlier: readonly ModelMessage[],
-  outcome: ModelOutcome
-) =>
-  Effect.gen(function* rememberCompletedStepsEffect() {
-    const conversation = yield* Conversation;
-    const redactor = yield* Redactor;
-    const completed = toolMessagesOf(outcome);
-
-    if (earlier.length + completed.length > 0) {
-      yield* conversation.append(event.eventId, [
-        eventMessage(event),
-        ...earlier,
-        ...completed.map((message) => redactor.redactMessage(message)),
-      ]);
-    }
-  });
 
 interface TurnSettings {
   readonly behavior: BehaviorConfig;
@@ -83,11 +63,11 @@ const answer = (
 
     const startedAt = yield* Clock.currentTimeMillis;
     const history = yield* conversation.recent;
-    const system = systemPrompt(
+    const system = systemPrompt({
       behavior,
-      yield* profile.read,
-      yield* ownerCurrentTimeText(behavior)
-    );
+      profile: yield* profile.read,
+      currentTime: yield* ownerCurrentTimeText(behavior),
+    });
     const earlier = yield* progress.completedFor(event.eventId);
     const stepsLeft =
       behavior.maxToolSteps - (yield* progress.usedStepCount(event.eventId));
@@ -145,7 +125,12 @@ const answer = (
     );
 
     if (outcome._tag === "ModelFailed") {
-      yield* rememberCompletedSteps(event, earlier, outcome);
+      yield* rememberCompletedSteps({
+        eventId: event.eventId,
+        input: eventMessage(event),
+        earlier,
+        outcome,
+      });
       yield* failTurnWithHonestMessage(
         event,
         modelFailureReason(outcome.error, redactor)
@@ -161,7 +146,12 @@ const answer = (
     const replyText = redactor.redact(outcome.reply.text);
     const delivery = yield* deliver(event, replyText);
     if (delivery._tag === "Failed") {
-      yield* rememberCompletedSteps(event, earlier, outcome);
+      yield* rememberCompletedSteps({
+        eventId: event.eventId,
+        input: eventMessage(event),
+        earlier,
+        outcome,
+      });
       yield* recordTurnFailed(event, delivery.reason);
       yield* recordTurnMetric({
         ownerId,
