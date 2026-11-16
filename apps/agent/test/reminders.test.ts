@@ -692,3 +692,109 @@ describe("Late Reminders", () => {
     });
   });
 });
+
+const lateFireWithJournal = async (
+  ownerId: string,
+  records: readonly ("ReplyPlanned" | "SendStarted" | "ReplySent")[]
+) => {
+  const schedule = await inAgent(ownerId, dueAgo("Buy the gift", { hours: 2 }));
+  await inAgent(ownerId, storeDueScheduleEvents);
+  await inAgent(
+    ownerId,
+    Effect.gen(function* seedLateFireEffect() {
+      const journal = yield* Journal;
+      const entries = yield* journal.read;
+      const eventId =
+        entries.find(
+          (entry) =>
+            entry.record._tag === "ScheduleFired" &&
+            entry.record.scheduleId === schedule.scheduleId
+        )?.record.eventId ?? "";
+      yield* journal.append({
+        _tag: "ReminderLate",
+        eventId,
+        scheduleId: schedule.scheduleId,
+        dueAt: DateTime.formatIso(schedule.nextDueAt),
+        lateByMillis: 2 * 3_600_000,
+      });
+      if (records.includes("ReplyPlanned")) {
+        yield* journal.append({
+          _tag: "ReplyPlanned",
+          eventId,
+          text: "late text",
+        });
+      }
+      if (records.includes("SendStarted")) {
+        yield* journal.append({ _tag: "SendStarted", eventId });
+      }
+      if (records.includes("ReplySent")) {
+        yield* journal.append({
+          _tag: "ReplySent",
+          eventId,
+          channelMessageId: "1",
+        });
+      }
+    })
+  );
+};
+
+const lateEntriesOf = (ownerId: string) =>
+  inAgent(
+    ownerId,
+    Journal.pipe(
+      Effect.flatMap((journal) => journal.read),
+      Effect.map((entries) =>
+        entries.filter((entry) => entry.record._tag === "ReminderLate")
+      )
+    )
+  );
+
+describe("Late Reminders after a reset", () => {
+  it("writes the Trace with late: true and sends nothing again when the Durable Object resets after the send", async () => {
+    const ownerId = await ownerInWarsaw(9033);
+    await owner(9033, "hello");
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(1));
+    await lateFireWithJournal(ownerId, [
+      "ReplyPlanned",
+      "SendStarted",
+      "ReplySent",
+    ]);
+
+    await abortAllDurableObjects();
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(async () =>
+      expect(await firstScheduleState(ownerId)).toBe("done")
+    );
+    expect(sentTexts()).toEqual(["You said: hello"]);
+    expect(await lateEntriesOf(ownerId)).toHaveLength(1);
+    const traces = await inAgent(
+      ownerId,
+      TurnTraces.pipe(Effect.flatMap((stored) => stored.read))
+    );
+    expect(traces.at(-1)?.trace).toMatchObject({
+      result: "reminder_delivered",
+      late: true,
+      text: "late text",
+    });
+  });
+
+  it("sends the late text once and writes one ReminderLate entry when the Durable Object resets before the send", async () => {
+    const ownerId = await ownerInWarsaw(9034);
+    await owner(9034, "hello");
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(1));
+    await lateFireWithJournal(ownerId, []);
+
+    await abortAllDurableObjects();
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    expect(sentTexts()[1]).toContain("This Reminder is late.");
+    expect(await lateEntriesOf(ownerId)).toHaveLength(1);
+    const traces = await inAgent(
+      ownerId,
+      TurnTraces.pipe(Effect.flatMap((stored) => stored.read))
+    );
+    expect(traces.at(-1)?.trace).toMatchObject({ late: true });
+  });
+});
