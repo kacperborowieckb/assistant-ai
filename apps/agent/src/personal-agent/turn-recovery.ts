@@ -50,7 +50,7 @@ const settleEntries = (event: InboxEvent, entries: readonly JournalEntry[]) =>
     const tags = tagsOf(entries);
 
     if (tags.has("TurnFailed")) {
-      if (!tags.has("SendStarted")) {
+      if (!tags.has("SendStarted") && !tags.has("ReplyFailed")) {
         yield* sendHonestFailure(event);
         return "settled" as const;
       }

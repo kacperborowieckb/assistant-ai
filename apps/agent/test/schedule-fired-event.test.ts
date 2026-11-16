@@ -3,11 +3,13 @@ import { Effect } from "effect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Event } from "../src/event.ts";
+import { Journal } from "../src/journal/journal.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
 import { Inbox } from "../src/personal-agent/inbox.ts";
 import type { StoreResult } from "../src/personal-agent/inbox.ts";
 import { OwnerChannelConversation } from "../src/personal-agent/owner-channel-conversation.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
+import { noOwnerConversationReason } from "../src/personal-agent/turn-delivery.ts";
 import { fakeTelegram, holdModel, resetFakes } from "./fakes.ts";
 import { addOwner, telegramWebhook, textUpdate } from "./telegram-requests.ts";
 
@@ -159,5 +161,50 @@ describe("Owner Channel Conversation", () => {
       expect(pending).toHaveLength(0);
     });
     expect(fakeTelegram.sent).toEqual([]);
+  });
+
+  it("sends no apology for a ScheduleFired Event whose failed delivery was already recorded", async () => {
+    const ownerId = await addOwner(8004);
+    await telegramWebhook(textUpdate({ fromUserId: 8004, text: "hello" }));
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(1));
+    const agent = await personalAgentFor(
+      env.PERSONAL_AGENT,
+      OwnerIdSchema.make(ownerId)
+    );
+
+    await runInDurableObject(agent, async (instance) => {
+      await instance.runtime.runPromise(
+        Effect.gen(function* seedEffect() {
+          const inbox = yield* Inbox;
+          const journal = yield* Journal;
+          yield* inbox.store(
+            scheduleFired("schedule-6", "2026-11-19T08:00:00.000Z")
+          );
+          const pending = yield* inbox.pending;
+          const eventId = pending[0]?.eventId ?? "";
+          yield* journal.append({ _tag: "ReplyPlanned", eventId, text: "x" });
+          yield* journal.append({
+            _tag: "ReplyFailed",
+            eventId,
+            reason: noOwnerConversationReason,
+          });
+          yield* journal.append({
+            _tag: "TurnFailed",
+            eventId,
+            reason: noOwnerConversationReason,
+          });
+        })
+      );
+      await instance.schedule(0, "runTurn");
+    });
+
+    await vi.waitFor(async () => {
+      const pending = await inPersonalAgent(
+        ownerId,
+        Inbox.pipe(Effect.flatMap((inbox) => inbox.pending))
+      );
+      expect(pending).toHaveLength(0);
+    });
+    expect(fakeTelegram.sent).toHaveLength(1);
   });
 });
