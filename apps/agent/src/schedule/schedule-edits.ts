@@ -77,6 +77,13 @@ export const makeScheduleEdits = Effect.fnUntraced(function* makeScheduleEdits(
     }
   );
 
+  const activeScheduleOf = (scheduleId: string) =>
+    and(
+      eq(schedules.ownerId, ownerId),
+      eq(schedules.scheduleId, scheduleId),
+      eq(schedules.state, "active")
+    );
+
   const updateActive = Effect.fnUntraced(function* updateActive(
     scheduleId: string,
     values: ScheduleEditValues
@@ -87,13 +94,7 @@ export const makeScheduleEdits = Effect.fnUntraced(function* makeScheduleEdits(
         ...values,
         changedAt: DateTime.formatIso(yield* DateTime.now),
       })
-      .where(
-        and(
-          eq(schedules.ownerId, ownerId),
-          eq(schedules.scheduleId, scheduleId),
-          eq(schedules.state, "active")
-        )
-      )
+      .where(activeScheduleOf(scheduleId))
       .returning();
     return Option.fromNullishOr(row).pipe(Option.map(toSchedule));
   });
@@ -103,16 +104,13 @@ export const makeScheduleEdits = Effect.fnUntraced(function* makeScheduleEdits(
       Effect.gen(function* changeEffect() {
         if (request.action?._tag === "RunPrompt") {
           const [current] = yield* database
-            .select({ action: schedules.action })
+            .select()
             .from(schedules)
-            .where(
-              and(
-                eq(schedules.ownerId, ownerId),
-                eq(schedules.scheduleId, request.scheduleId),
-                eq(schedules.state, "active")
-              )
-            );
-          if (current !== undefined && current.action !== "run_prompt") {
+            .where(activeScheduleOf(request.scheduleId));
+          if (
+            current !== undefined &&
+            toSchedule(current).action._tag !== "RunPrompt"
+          ) {
             yield* requireRoomForScheduledTask(
               request.activeScheduledTaskLimit
             );

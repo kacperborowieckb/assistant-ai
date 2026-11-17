@@ -83,7 +83,7 @@ export const changeScheduleTool = (
 ) =>
   agentTool({
     description:
-      "Change the Action, the local due time or the repeat rule, or both the Action and one of those, of an active Schedule of the Owner. The Action can change between SendText and RunPrompt, or keep its kind with new text or a new prompt. The Schedule fires at the new time and not at the old time. Fails with a message, and changes nothing, when no active Schedule has the id, the time zone is not known, the new time is in the past, the new time is not real, or the change would make a new Scheduled Task and the limit of active Scheduled Tasks is reached. Say that the Schedule is changed only after this succeeded, and give the local date, weekday, and time that it returns.",
+      "Change the Action, the local due time or the repeat rule, or both the Action and one of those, of an active Schedule of the Owner. The Action can change between SendText and RunPrompt, or keep its kind with new text or a new prompt. The Schedule fires at the new time and not at the old time. Fails with a message, and changes nothing, in these cases. No active Schedule has the id. The time zone is not known. The new time is in the past or is not real. The change would make a new Scheduled Task, and the limit of active Scheduled Tasks is reached. Say that the Schedule is changed only after this succeeded, and give the local date, weekday, and time that it returns.",
     inputSchema: effectInputSchema(ChangeScheduleInput),
     execute: (
       { scheduleId, action, localDueTime, repeat },
