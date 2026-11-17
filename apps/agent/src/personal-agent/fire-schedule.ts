@@ -6,6 +6,7 @@ import { Schedules } from "../schedule/schedules.ts";
 import { Inbox } from "./inbox.ts";
 import type { ScheduleFiredEvent } from "./inbox.ts";
 import { deliverReminder } from "./reminder-delivery.ts";
+import { runScheduledTask } from "./scheduled-task-turn.ts";
 
 export const fireSchedule = Effect.fnUntraced(function* fireSchedule(
   ownerId: OwnerId,
@@ -29,7 +30,13 @@ export const fireSchedule = Effect.fnUntraced(function* fireSchedule(
       return yield* deliverReminder({ ownerId, behavior, event, action });
     }
     case "RunPrompt": {
-      return yield* Effect.die("No handler exists yet for a RunPrompt Action");
+      return yield* runScheduledTask({
+        ownerId,
+        behavior,
+        event,
+        schedule: schedule.value,
+        action,
+      });
     }
     default: {
       return action satisfies never;

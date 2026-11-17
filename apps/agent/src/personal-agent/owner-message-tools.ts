@@ -26,6 +26,7 @@ import {
   listSchedulesToolName,
 } from "../schedule/list-schedules-tool.ts";
 import type { ScheduleAlarm } from "../schedule/schedule-alarm.ts";
+import type { ScheduleToolServices } from "../schedule/schedule-tool-services.ts";
 import type { Schedules } from "../schedule/schedules.ts";
 import {
   setScheduleTool,
@@ -43,6 +44,27 @@ export interface OwnerMessageToolServices extends NoteToolServices {
   readonly behavior: BehaviorConfig;
 }
 
+export const scheduleToolServicesOf = ({
+  schedules,
+  alarm,
+  preferences,
+  behavior,
+  progress,
+  redactor,
+}: Pick<
+  OwnerMessageToolServices,
+  "alarm" | "behavior" | "preferences" | "progress" | "redactor" | "schedules"
+>): ScheduleToolServices => ({
+  schedules,
+  alarm,
+  ownerTimeZone: ownerTimeZone(behavior).pipe(
+    Effect.provideService(OwnerPreferences, preferences),
+    Effect.orDie
+  ),
+  progress,
+  redactor,
+});
+
 export const ownerMessageTools = (
   event: OwnerMessageEvent,
   {
@@ -55,16 +77,14 @@ export const ownerMessageTools = (
   }: OwnerMessageToolServices
 ) => {
   const { progress, redactor } = noteServices;
-  const scheduleServices = {
+  const scheduleServices = scheduleToolServicesOf({
     schedules,
     alarm,
-    ownerTimeZone: ownerTimeZone(behavior).pipe(
-      Effect.provideService(OwnerPreferences, preferences),
-      Effect.orDie
-    ),
+    preferences,
+    behavior,
     progress,
     redactor,
-  };
+  });
   return {
     ...noteToolsFor(noteServices, event),
     ...(trustLevelOfEvent(event) === "owner"

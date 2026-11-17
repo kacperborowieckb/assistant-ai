@@ -15,8 +15,11 @@ import type { OwnerId } from "../owner-id.ts";
 import { OperatorMetrics } from "../tracing/operator-metrics.ts";
 import type { OperatorMetric } from "../tracing/operator-metrics.ts";
 import type { Redactor } from "../tracing/redactor.ts";
-import type { ReplyTurnTrace } from "../tracing/turn-trace.ts";
-import type { InboxEvent } from "./inbox.ts";
+import type {
+  ReplyTurnTrace,
+  ScheduledTaskTurnTrace,
+} from "../tracing/turn-trace.ts";
+import type { InboxEvent, ScheduleFiredEvent } from "./inbox.ts";
 
 export type ModelFailure = ModelUnavailable | StepLimitReached;
 
@@ -78,8 +81,7 @@ const traceStepsOf = (
     usage: traceUsageOf(step.usage),
   }));
 
-interface TraceInput {
-  readonly event: InboxEvent;
+interface ModelTraceInput {
   readonly system: string;
   readonly messages: readonly ModelMessage[];
   readonly outcome: ModelOutcome;
@@ -87,21 +89,18 @@ interface TraceInput {
   readonly redactor: Redactor["Service"];
 }
 
-export const traceOf = ({
-  event,
+const modelTraceOf = ({
   system,
   messages,
   outcome,
   modelLatencyMillis,
   redactor,
-}: TraceInput): ReplyTurnTrace => {
+}: ModelTraceInput) => {
   const reasoningEffort =
     outcome._tag === "Replied"
       ? outcome.reply.reasoningEffort
       : outcome.error.reasoningEffort;
   const base = {
-    eventId: event.eventId,
-    task: "reply",
     modelSettings: {
       attempts: modelAttempts,
       attemptTimeoutMillis,
@@ -115,7 +114,6 @@ export const traceOf = ({
   if (outcome._tag === "Replied") {
     return {
       ...base,
-      result: "model_replied",
       modelId: outcome.reply.modelId,
       reply: redactor.redact(outcome.reply.text),
       error: null,
@@ -124,13 +122,42 @@ export const traceOf = ({
   }
   return {
     ...base,
-    result: "model_failed",
     modelId: outcome.error.modelId,
     reply: null,
     error: modelFailureReason(outcome.error, redactor),
     usage: traceUsageOf(usageOfOutcome(outcome) ?? unknownUsage),
   };
 };
+
+interface TraceInput extends ModelTraceInput {
+  readonly event: InboxEvent;
+}
+
+export const traceOf = ({ event, ...input }: TraceInput): ReplyTurnTrace => ({
+  ...modelTraceOf(input),
+  eventId: event.eventId,
+  task: "reply",
+  result: input.outcome._tag === "Replied" ? "model_replied" : "model_failed",
+});
+
+interface ScheduledTaskTraceInput extends ModelTraceInput {
+  readonly event: ScheduleFiredEvent;
+}
+
+export const scheduledTaskTraceOf = ({
+  event,
+  ...input
+}: ScheduledTaskTraceInput): ScheduledTaskTurnTrace => ({
+  ...modelTraceOf(input),
+  eventId: event.eventId,
+  task: "scheduled_task",
+  scheduleId: event.scheduleId,
+  dueAt: event.dueAt,
+  result:
+    input.outcome._tag === "Replied"
+      ? "scheduled_task_replied"
+      : "scheduled_task_failed",
+});
 
 interface TurnMetricInput {
   readonly ownerId: OwnerId;

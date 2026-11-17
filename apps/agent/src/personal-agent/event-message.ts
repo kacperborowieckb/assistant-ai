@@ -1,6 +1,8 @@
 import type { ModelMessage } from "ai";
+import { Effect } from "effect";
 
 import { markUntrustedContent } from "../notes/note.ts";
+import { Schedules } from "../schedule/schedules.ts";
 import { InboxEventSchema } from "./inbox.ts";
 import type { InboxEvent } from "./inbox.ts";
 
@@ -21,4 +23,25 @@ const textOf = (event: InboxEvent) =>
 export const eventMessage = (event: InboxEvent): ModelMessage => ({
   role: "user",
   content: textOf(event),
+});
+
+export const scheduledTaskInputMessage = (prompt: string): ModelMessage => ({
+  role: "user",
+  content: prompt,
+});
+
+export const inputMessageOf = Effect.fnUntraced(function* inputMessageOf(
+  event: InboxEvent
+) {
+  if (event._tag === "ScheduleFired") {
+    const schedules = yield* Schedules;
+    const schedule = yield* schedules.byId(event.scheduleId);
+    if (
+      schedule._tag === "Some" &&
+      schedule.value.action._tag === "RunPrompt"
+    ) {
+      return scheduledTaskInputMessage(schedule.value.action.prompt);
+    }
+  }
+  return eventMessage(event);
 });

@@ -31,6 +31,8 @@ export const turnResults = [
   "model_failed",
   "reminder_delivered",
   "reminder_delivery_failed",
+  "scheduled_task_replied",
+  "scheduled_task_failed",
 ] as const;
 
 export const scheduleActions = ["send_text", "run_prompt"] as const;
@@ -39,7 +41,7 @@ export const scheduleSetBy = ["owner", "agent"] as const;
 
 export const scheduleStates = ["active", "done", "cancelled"] as const;
 
-export const modelTasks = ["reply", "eval_judge"] as const;
+export const modelTasks = ["reply", "scheduled_task", "eval_judge"] as const;
 
 export const inboxEvents = sqliteTable(
   "inbox_events",

@@ -22,6 +22,7 @@ export interface Schedule {
   readonly action: ScheduleAction;
   readonly noteId: string | undefined;
   readonly nextDueAt: DateTime.Utc;
+  readonly createdAt: DateTime.Utc;
   readonly repeat: Repeat | undefined;
   readonly state: (typeof scheduleStates)[number];
 }
@@ -52,6 +53,7 @@ export const toSchedule = (row: typeof schedules.$inferSelect): Schedule => ({
   action: actionOfColumns({ action: row.action, text: row.text }),
   noteId: row.noteId ?? undefined,
   nextDueAt: DateTime.makeUnsafe(row.nextDueAt),
+  createdAt: DateTime.makeUnsafe(row.createdAt),
   repeat: repeatOf(row),
   state: row.state,
 });
