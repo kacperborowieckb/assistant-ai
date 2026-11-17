@@ -6,6 +6,7 @@ import { Conversation } from "./conversation.ts";
 import { inputMessageOf } from "./event-message.ts";
 import { Inbox } from "./inbox.ts";
 import type { InboxEvent } from "./inbox.ts";
+import { honestFailureTextOf } from "./scheduled-task-failure.ts";
 import { recordTurnFailed, sendHonestFailure } from "./turn-delivery.ts";
 import { TurnProgress } from "./turn-progress.ts";
 
@@ -51,7 +52,7 @@ const settleEntries = (event: InboxEvent, entries: readonly JournalEntry[]) =>
 
     if (tags.has("TurnFailed")) {
       if (!tags.has("SendStarted") && !tags.has("ReplyFailed")) {
-        yield* sendHonestFailure(event);
+        yield* sendHonestFailure(event, yield* honestFailureTextOf(event));
         return "settled" as const;
       }
       if (!tags.has("ReplySent") && !tags.has("ReplyFailed")) {

@@ -82,11 +82,14 @@ export const recordTurnFailed = (event: InboxEvent, reason: string) =>
     yield* inbox.markFailed([event]);
   });
 
-export const sendHonestFailure = (event: InboxEvent) =>
+export const sendHonestFailure = (
+  event: InboxEvent,
+  text: string = honestFailureText
+) =>
   Effect.gen(function* sendHonestFailureEffect() {
     const inbox = yield* Inbox;
 
-    yield* deliver(event, honestFailureText);
+    yield* deliver(event, text);
     yield* inbox.markFailed([event]);
   });
 

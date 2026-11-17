@@ -1,4 +1,4 @@
-import { Clock, DateTime, Effect } from "effect";
+import { Clock, DateTime, Effect, Option } from "effect";
 
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { ModelGateway } from "../model-gateway/model-gateway.ts";
@@ -6,6 +6,7 @@ import { Notes } from "../notes/notes.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { OwnerPreferences } from "../preferences/owner-preferences.ts";
 import { Profile } from "../profile/profile.ts";
+import { lateScheduledTaskText } from "../schedule/late-reminder.ts";
 import type { RunPrompt } from "../schedule/schedule-action.ts";
 import { ScheduleAlarm } from "../schedule/schedule-alarm.ts";
 import type { Schedule } from "../schedule/schedule.ts";
@@ -22,14 +23,12 @@ import { scheduledTaskInputMessage } from "./event-message.ts";
 import { Inbox } from "./inbox.ts";
 import type { ScheduleFiredEvent } from "./inbox.ts";
 import { rememberCompletedSteps } from "./remember-completed-steps.ts";
+import { lateNoticeFor } from "./reminder-delivery.ts";
+import { failScheduledTask } from "./scheduled-task-failure.ts";
 import { scheduledTaskSection } from "./scheduled-task-section.ts";
 import { scheduledTaskTools } from "./scheduled-task-tools.ts";
 import { systemPrompt } from "./system-prompt.ts";
-import {
-  deliver,
-  failTurnWithHonestMessage,
-  recordTurnFailed,
-} from "./turn-delivery.ts";
+import { deliver, recordTurnFailed } from "./turn-delivery.ts";
 import { TurnProgress } from "./turn-progress.ts";
 import {
   modelFailureReason,
@@ -68,6 +67,7 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
   const alarm = yield* ScheduleAlarm;
 
   const startedAt = yield* Clock.currentTimeMillis;
+  const lateNotice = yield* lateNoticeFor(behavior, event);
   const timeZone = yield* ownerTimeZone(behavior);
   const setAtText =
     timeZone._tag === "Some"
@@ -86,10 +86,11 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
     behavior.maxToolSteps - (yield* progress.usedStepCount(event.eventId));
   if (stepsLeft <= 0) {
     yield* conversation.append(event.eventId, [input, ...earlier]);
-    yield* failTurnWithHonestMessage(
+    yield* failScheduledTask({
       event,
-      stepLimitReason(behavior.maxToolSteps)
-    );
+      action,
+      reason: stepLimitReason(behavior.maxToolSteps),
+    });
     return;
   }
   const messages = [...history, input, ...earlier];
@@ -137,10 +138,11 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
       earlier,
       outcome,
     });
-    yield* failTurnWithHonestMessage(
+    yield* failScheduledTask({
       event,
-      modelFailureReason(outcome.error, redactor)
-    );
+      action,
+      reason: modelFailureReason(outcome.error, redactor),
+    });
     yield* recordTurnMetric({
       ownerId,
       outcome,
@@ -149,7 +151,17 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
     });
     return;
   }
-  const delivery = yield* deliver(event, redactor.redact(outcome.reply.text));
+  const resultText = redactor.redact(outcome.reply.text);
+  const delivery = yield* deliver(
+    event,
+    Option.isNone(lateNotice)
+      ? resultText
+      : lateScheduledTaskText(
+          resultText,
+          lateNotice.value.dueAt,
+          lateNotice.value.timeZone
+        )
+  );
   if (delivery._tag === "Failed") {
     yield* rememberCompletedSteps({
       eventId: event.eventId,

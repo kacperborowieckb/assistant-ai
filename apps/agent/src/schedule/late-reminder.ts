@@ -9,6 +9,13 @@ export const lateReminderText = (
 ) =>
   `This Reminder is late. It was due ${localTimeOf(dueAt, timeZone)} (${DateTime.zoneToString(timeZone)}): ${text}`;
 
+export const lateScheduledTaskText = (
+  text: string,
+  dueAt: DateTime.Utc,
+  timeZone: DateTime.TimeZone
+) =>
+  `This Scheduled Task is late. It was due ${localTimeOf(dueAt, timeZone)} (${DateTime.zoneToString(timeZone)}): ${text}`;
+
 export const lateByMillisOf = (now: DateTime.Utc, dueAt: DateTime.Utc) =>
   DateTime.toEpochMillis(now) - DateTime.toEpochMillis(dueAt);
 

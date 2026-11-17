@@ -150,17 +150,16 @@ export const recoverReminderRecord = Effect.fnUntraced(
   }
 );
 
-const reminderTextFor = Effect.fnUntraced(function* reminderTextFor(
+export const lateNoticeFor = Effect.fnUntraced(function* lateNoticeFor(
   behavior: BehaviorConfig,
-  event: ScheduleFiredEvent,
-  savedText: string
+  event: ScheduleFiredEvent
 ) {
   const journal = yield* Journal;
   const now = yield* DateTime.now;
   const dueAt = DateTime.makeUnsafe(event.dueAt);
   const lateByMillis = lateByMillisOf(now, dueAt);
   if (!isLate(lateByMillis, behavior.reminderGraceMillis)) {
-    return { text: savedText, late: false };
+    return Option.none();
   }
   const recorded = yield* journal.readForEvent(event.eventId);
   if (!recorded.some((entry) => entry.record._tag === "ReminderLate")) {
@@ -175,7 +174,25 @@ const reminderTextFor = Effect.fnUntraced(function* reminderTextFor(
   const timeZone = (yield* ownerTimeZone(behavior)).pipe(
     Option.getOrElse(() => DateTime.zoneMakeOffset(0))
   );
-  return { text: lateReminderText(savedText, dueAt, timeZone), late: true };
+  return Option.some({ dueAt, timeZone });
+});
+
+const reminderTextFor = Effect.fnUntraced(function* reminderTextFor(
+  behavior: BehaviorConfig,
+  event: ScheduleFiredEvent,
+  savedText: string
+) {
+  const notice = yield* lateNoticeFor(behavior, event);
+  return Option.isNone(notice)
+    ? { text: savedText, late: false }
+    : {
+        text: lateReminderText(
+          savedText,
+          notice.value.dueAt,
+          notice.value.timeZone
+        ),
+        late: true,
+      };
 });
 
 interface ReminderDelivery {
