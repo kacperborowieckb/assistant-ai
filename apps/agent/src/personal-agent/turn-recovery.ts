@@ -2,17 +2,13 @@ import { Effect } from "effect";
 
 import { Journal } from "../journal/journal.ts";
 import type { JournalEntry, JournalRecord } from "../journal/journal.ts";
-import { Schedules } from "../schedule/schedules.ts";
-import { Redactor } from "../tracing/redactor.ts";
+import type { OwnerId } from "../owner-id.ts";
 import { Conversation } from "./conversation.ts";
 import { inputMessageOf } from "./event-message.ts";
 import { Inbox } from "./inbox.ts";
-import type { InboxEvent, ScheduleFiredEvent } from "./inbox.ts";
+import type { InboxEvent } from "./inbox.ts";
 import { honestFailureTextOf } from "./scheduled-task-failure.ts";
-import {
-  finishSkippedScheduledTask,
-  scheduledTaskSkipText,
-} from "./scheduled-task-skip.ts";
+import { resumeSkippedScheduledTask } from "./scheduled-task-skip.ts";
 import { recordTurnFailed, sendHonestFailure } from "./turn-delivery.ts";
 import { TurnProgress } from "./turn-progress.ts";
 
@@ -50,33 +46,26 @@ const recordConversation = (
 export const unconfirmedSendReason =
   "A send started but Telegram did not confirm it, so the agent did not send again";
 
-const finishSkipAfterReset = Effect.fnUntraced(function* finishSkipAfterReset(
-  event: ScheduleFiredEvent
-) {
-  const schedules = yield* Schedules;
-  const redactor = yield* Redactor;
-  const schedule = yield* schedules.byId(event.scheduleId);
-  if (schedule._tag === "Some" && schedule.value.action._tag === "RunPrompt") {
-    yield* finishSkippedScheduledTask(
-      event,
-      scheduledTaskSkipText(redactor.redact(schedule.value.action.prompt))
-    );
-  }
-});
-
-const settleEntries = (event: InboxEvent, entries: readonly JournalEntry[]) =>
+const settleEntries = (
+  ownerId: OwnerId,
+  event: InboxEvent,
+  entries: readonly JournalEntry[]
+) =>
   Effect.gen(function* settleEntriesEffect() {
     const inbox = yield* Inbox;
     const journal = yield* Journal;
     const tags = tagsOf(entries);
 
+    const skipped = entries.find(
+      (entry) => entry.record._tag === "ScheduledTaskSkipped"
+    );
     if (
       event._tag === "ScheduleFired" &&
-      tags.has("ScheduledTaskSkipped") &&
+      skipped?.record._tag === "ScheduledTaskSkipped" &&
       !tags.has("SendStarted") &&
       !tags.has("ReplyFailed")
     ) {
-      yield* finishSkipAfterReset(event);
+      yield* resumeSkippedScheduledTask(ownerId, event, skipped.record);
       return "settled" as const;
     }
     if (tags.has("TurnFailed")) {
@@ -124,7 +113,7 @@ const settlingTags: readonly JournalRecord["_tag"][] = [
   "SendStarted",
 ];
 
-export const settleFromJournal = (event: InboxEvent) =>
+export const settleFromJournal = (ownerId: OwnerId, event: InboxEvent) =>
   Effect.gen(function* settleFromJournalEffect() {
     const journal = yield* Journal;
     const entries = yield* journal.readForEvent(event.eventId);
@@ -133,5 +122,5 @@ export const settleFromJournal = (event: InboxEvent) =>
     if (settlingTags.some((tag) => tags.has(tag))) {
       yield* recordConversation(event, entries);
     }
-    return yield* settleEntries(event, entries);
+    return yield* settleEntries(ownerId, event, entries);
   });

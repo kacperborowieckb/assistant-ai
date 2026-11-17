@@ -702,6 +702,8 @@ describe("the daily Token Budget of Scheduled Tasks", () => {
             eventId,
             scheduleId: schedule.scheduleId,
             dueAt: DateTime.formatIso(schedule.nextDueAt),
+            dailyTokenBudget: scheduledTaskDailyTokenBudget,
+            tokensSpent: scheduledTaskDailyTokenBudget,
           })
         )
       )
@@ -714,6 +716,15 @@ describe("the daily Token Budget of Scheduled Tasks", () => {
     await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
     expect(sentTexts()[1]).toBe(skipMessage);
     expect(fakeModel.doGenerateCalls).toHaveLength(1);
+    expect(await lastTraceOf(ownerId)).toMatchObject({
+      result: "scheduled_task_skipped",
+      tokensSpent: scheduledTaskDailyTokenBudget,
+    });
+    expect(
+      fakeMetrics.dataPoints.filter(
+        (point) => point.blobs?.[0] === "scheduled_task_skipped"
+      )
+    ).toHaveLength(1);
     const [row] = await schedulesOf(ownerId);
     expect(row?.next_due_at).not.toBe(DateTime.formatIso(schedule.nextDueAt));
     expect(fakeTelegram.sent).toHaveLength(2);

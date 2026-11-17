@@ -14,10 +14,10 @@ Spec #66 (Schedule Actions), ticket #71. Builds on [0014](0014-schedule-actions.
 - **Check.** Code checks the Budget once, before the first model step of a Turn. If the spent tokens are at or above the Budget, code makes no model call.
 - **Started Turn.** A Turn that already has a recorded model step is not checked again. It finishes, and its tokens count.
 - **Skip.** The Owner gets one message: the Scheduled Task, named by its redacted prompt, was skipped because of the daily limit. The Schedule completes at once, so a repeating Scheduled Task moves to its next occurrence.
-- **Skip records.** The Journal has a `ScheduledTaskSkipped` entry. The Trace has the result `scheduled_task_skipped`, the Budget, and the spent tokens. It has no model fields. One Operator metric of the kind `scheduled_task_skipped` has no content.
+- **Skip records.** The Journal has a `ScheduledTaskSkipped` entry with the Budget and the spent tokens. The Trace has the result `scheduled_task_skipped`, the Budget, and the spent tokens. It has no model fields. One Operator metric of the kind `scheduled_task_skipped` has no content.
 - **Active limit.** The Behavior Config has `maxActiveScheduledTasks`, default 10. `set_schedule` refuses a new `RunPrompt` Schedule when the Owner has that many active ones. It returns a message for the model. A `SendText` Schedule is not limited.
 - **Same limit on change.** `change_schedule` refuses to change a `SendText` Schedule into a `RunPrompt` Schedule at the limit. Without this rule, the limit has a gap.
-- **Reset after a skip.** A reset after the `ScheduledTaskSkipped` entry and before the send makes the next Turn finish the skip. It completes the Schedule and sends the message once, under the rule for unconfirmed sends.
+- **Reset after a skip.** A reset after the `ScheduledTaskSkipped` entry and before the send makes the next Turn finish the skip. It writes the Trace and metric if they are missing, completes the Schedule, and sends the message once, under the rule for unconfirmed sends.
 - **Replay.** A repeated `set_schedule` call that finds its stored Schedule returns it before the limit check. A reset cannot make a stored Schedule look like a new one.
 - **Defaults.** Both default values are first guesses. The Operator may change them in the Behavior Config.
 

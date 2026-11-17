@@ -42,25 +42,35 @@ export const finishSkippedScheduledTask = Effect.fnUntraced(
   }
 );
 
-export const skipScheduledTask = Effect.fnUntraced(function* skipScheduledTask({
+interface SkipRecord {
+  readonly ownerId: OwnerId;
+  readonly event: ScheduleFiredEvent;
+  readonly text: string;
+  readonly dailyTokenBudget: number;
+  readonly tokensSpent: number;
+  readonly latencyMillis: number;
+}
+
+const recordSkip = Effect.fnUntraced(function* recordSkip({
   ownerId,
   event,
-  action,
+  text,
   dailyTokenBudget,
   tokensSpent,
-  startedAt,
-}: SkippedScheduledTask) {
-  const journal = yield* Journal;
+  latencyMillis,
+}: SkipRecord) {
   const traces = yield* TurnTraces;
   const metrics = yield* OperatorMetrics;
-  const redactor = yield* Redactor;
 
-  const text = scheduledTaskSkipText(redactor.redact(action.prompt));
-  yield* journal.append({
-    _tag: "ScheduledTaskSkipped",
-    eventId: event.eventId,
-    scheduleId: event.scheduleId,
-    dueAt: event.dueAt,
+  const recorded = yield* traces.read;
+  if (recorded.some(({ trace }) => trace.eventId === event.eventId)) {
+    return;
+  }
+  yield* metrics.record({
+    kind: "scheduled_task_skipped",
+    ownerId,
+    result: "daily_token_budget_spent",
+    latencyMillis,
   });
   yield* traces.record({
     eventId: event.eventId,
@@ -72,11 +82,59 @@ export const skipScheduledTask = Effect.fnUntraced(function* skipScheduledTask({
     tokensSpent,
     text,
   });
-  yield* metrics.record({
-    kind: "scheduled_task_skipped",
+});
+
+export const skipScheduledTask = Effect.fnUntraced(function* skipScheduledTask({
+  ownerId,
+  event,
+  action,
+  dailyTokenBudget,
+  tokensSpent,
+  startedAt,
+}: SkippedScheduledTask) {
+  const journal = yield* Journal;
+  const redactor = yield* Redactor;
+
+  const text = scheduledTaskSkipText(redactor.redact(action.prompt));
+  yield* journal.append({
+    _tag: "ScheduledTaskSkipped",
+    eventId: event.eventId,
+    scheduleId: event.scheduleId,
+    dueAt: event.dueAt,
+    dailyTokenBudget,
+    tokensSpent,
+  });
+  yield* recordSkip({
     ownerId,
-    result: "daily_token_budget_spent",
+    event,
+    text,
+    dailyTokenBudget,
+    tokensSpent,
     latencyMillis: (yield* Clock.currentTimeMillis) - startedAt,
   });
   yield* finishSkippedScheduledTask(event, text);
 });
+
+export const resumeSkippedScheduledTask = Effect.fnUntraced(
+  function* resumeSkippedScheduledTask(
+    ownerId: OwnerId,
+    event: ScheduleFiredEvent,
+    skipped: Pick<SkippedScheduledTask, "dailyTokenBudget" | "tokensSpent">
+  ) {
+    const schedules = yield* Schedules;
+    const redactor = yield* Redactor;
+
+    const schedule = yield* schedules.byId(event.scheduleId);
+    if (
+      schedule._tag === "None" ||
+      schedule.value.action._tag !== "RunPrompt"
+    ) {
+      return;
+    }
+    const text = scheduledTaskSkipText(
+      redactor.redact(schedule.value.action.prompt)
+    );
+    yield* recordSkip({ ownerId, event, text, latencyMillis: 0, ...skipped });
+    yield* finishSkippedScheduledTask(event, text);
+  }
+);

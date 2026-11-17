@@ -186,7 +186,7 @@ export const takeTurn = (
         yield* recoverReminderRecord(ownerId, event);
         yield* completeScheduleOfUnsentFailure(event);
       }
-      const outcome = yield* settleFromJournal(event);
+      const outcome = yield* settleFromJournal(ownerId, event);
       if (outcome === "unanswered") {
         yield* event._tag === "ScheduleFired"
           ? fireSchedule(ownerId, behavior, event)
