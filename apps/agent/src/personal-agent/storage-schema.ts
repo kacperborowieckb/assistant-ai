@@ -33,6 +33,7 @@ export const turnResults = [
   "reminder_delivery_failed",
   "scheduled_task_replied",
   "scheduled_task_failed",
+  "scheduled_task_skipped",
 ] as const;
 
 export const scheduleActions = ["send_text", "run_prompt"] as const;

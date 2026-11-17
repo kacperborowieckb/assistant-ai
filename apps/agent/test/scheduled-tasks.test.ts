@@ -15,6 +15,7 @@ import { storeDueScheduleEvents } from "../src/personal-agent/due-schedule-event
 import type { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 import { OwnerPreferences } from "../src/preferences/owner-preferences.ts";
+import { changeScheduleToolName } from "../src/schedule/change-schedule-tool.ts";
 import { ScheduleAlarm } from "../src/schedule/schedule-alarm.ts";
 import { Schedules } from "../src/schedule/schedules.ts";
 import type { SetScheduleRequest } from "../src/schedule/schedules.ts";
@@ -627,6 +628,239 @@ describe("the failure message of a Scheduled Task with a secret in its prompt", 
     expect(sentTexts()[1]).toBe(redactedFailureMessage);
     expect(JSON.stringify(await journalOf(ownerId))).not.toContain(
       env.TELEGRAM_BOT_TOKEN
+    );
+  });
+});
+
+const { scheduledTaskDailyTokenBudget, maxActiveScheduledTasks } =
+  defaultBehaviorConfig;
+
+const skipMessage = `Your Scheduled Task "${prompt}" was skipped because of the daily limit for Scheduled Tasks.`;
+
+const recordUsage = (
+  ownerId: string,
+  task: "reply" | "scheduled_task",
+  inputTokens: number
+) =>
+  inAgent(
+    ownerId,
+    UsageLedger.pipe(
+      Effect.flatMap((ledger) =>
+        ledger.record(task, "model", {
+          inputTokens,
+          outputTokens: 0,
+          cachedInputTokens: undefined,
+          costUsd: undefined,
+        })
+      )
+    )
+  );
+
+describe("the daily Token Budget of Scheduled Tasks", () => {
+  it("makes no model call when the Budget is spent, sends the skip message, and moves a Daily Schedule on", async () => {
+    const ownerId = await ownerInWarsaw(9440);
+    await recordUsage(ownerId, "scheduled_task", scheduledTaskDailyTokenBudget);
+    const calls = fakeModel.doGenerateCalls.length;
+    await seedScheduledTask(ownerId, {
+      rule: { _tag: "Daily", time: "08:00" },
+      timeZone: DateTime.zoneMakeNamedUnsafe("Europe/Warsaw"),
+    });
+    const [before] = await schedulesOf(ownerId);
+
+    await fireTheAlarm(ownerId);
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    expect(sentTexts()[1]).toBe(skipMessage);
+    expect(fakeModel.doGenerateCalls).toHaveLength(calls);
+    const [after] = await schedulesOf(ownerId);
+    expect(after?.state).toBe("active");
+    expect(after?.next_due_at).not.toBe(before?.next_due_at);
+    expect((after?.next_due_at ?? "") > (before?.next_due_at ?? "")).toBe(true);
+    expect(await journalTagsOf(ownerId)).toContain("ScheduledTaskSkipped");
+    expect(await lastTraceOf(ownerId)).toMatchObject({
+      result: "scheduled_task_skipped",
+      dailyTokenBudget: scheduledTaskDailyTokenBudget,
+      tokensSpent: scheduledTaskDailyTokenBudget,
+    });
+  });
+
+  it("completes a one-time Scheduled Task that is skipped", async () => {
+    const ownerId = await ownerInWarsaw(9441);
+    await recordUsage(ownerId, "scheduled_task", scheduledTaskDailyTokenBudget);
+    await seedScheduledTask(ownerId);
+
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    const [row] = await schedulesOf(ownerId);
+    expect(row?.state).toBe("done");
+  });
+
+  it("does not count the tokens of reply Turns, and runs the task below the Budget", async () => {
+    const ownerId = await ownerInWarsaw(9442);
+    await recordUsage(ownerId, "reply", scheduledTaskDailyTokenBudget * 5);
+    await recordUsage(
+      ownerId,
+      "scheduled_task",
+      scheduledTaskDailyTokenBudget - 1
+    );
+    await seedScheduledTask(ownerId);
+
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    expect(sentTexts()[1]).toBe(`You said: ${prompt}`);
+  });
+
+  it("puts the prompt of a skipped task through the Redactor", async () => {
+    const ownerId = await ownerInWarsaw(9443);
+    await recordUsage(ownerId, "scheduled_task", scheduledTaskDailyTokenBudget);
+    await inAgent(
+      ownerId,
+      Effect.gen(function* seedSecretEffect() {
+        const schedules = yield* Schedules;
+        yield* schedules.set({
+          action: {
+            _tag: "RunPrompt",
+            prompt: `Use ${env.TELEGRAM_BOT_TOKEN}`,
+          },
+          setBy: "owner",
+          dueAt: DateTime.subtract(yield* DateTime.now, { seconds: 5 }),
+          sourceEventId: "seed-secret-task",
+        });
+        yield* (yield* ScheduleAlarm).rearm;
+      })
+    );
+
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    expect(sentTexts()[1]).toContain(redactedMark);
+    expect(sentTexts()[1]).not.toContain(env.TELEGRAM_BOT_TOKEN);
+  });
+});
+
+const seedActiveScheduledTasks = (ownerId: string, howMany: number) =>
+  inAgent(
+    ownerId,
+    Effect.gen(function* seedManyEffect() {
+      const schedules = yield* Schedules;
+      const now = yield* DateTime.now;
+      for (let index = 0; index < howMany; index += 1) {
+        yield* schedules.set({
+          action: { _tag: "RunPrompt", prompt: `Task ${index}` },
+          setBy: "owner",
+          dueAt: DateTime.add(now, { days: 30 + index }),
+          sourceEventId: `seed-many-${index}`,
+        });
+      }
+    })
+  );
+
+describe("the limit of active Scheduled Tasks", () => {
+  it("refuses a new RunPrompt Schedule at the limit with a message for the model", async () => {
+    const ownerId = await ownerInWarsaw(9444);
+    await seedActiveScheduledTasks(ownerId, maxActiveScheduledTasks);
+    scriptModel([
+      {
+        callTool: setScheduleToolName,
+        input: {
+          action: { _tag: "RunPrompt", prompt },
+          localDueTime: "2099-01-01T09:00",
+        },
+      },
+      { say: "Too many" },
+    ]);
+
+    await telegramWebhook(textUpdate({ fromUserId: 9444, text: "add one" }));
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    expect(await schedulesOf(ownerId)).toHaveLength(maxActiveScheduledTasks);
+    const trace = await lastTraceOf(ownerId);
+    const call =
+      trace?.task === "reply" ? trace.steps[0]?.toolCalls[0] : undefined;
+    expect(call?.failed).toBe(true);
+    expect(call?.output).toContain(
+      `${maxActiveScheduledTasks} active Scheduled Tasks`
+    );
+  });
+
+  it("accepts a SendText Schedule at the limit", async () => {
+    const ownerId = await ownerInWarsaw(9445);
+    await seedActiveScheduledTasks(ownerId, maxActiveScheduledTasks);
+    scriptModel([
+      {
+        callTool: setScheduleToolName,
+        input: {
+          action: { _tag: "SendText", text: "Call mom" },
+          localDueTime: "2099-01-01T09:00",
+        },
+      },
+      { say: "Set" },
+    ]);
+
+    await telegramWebhook(textUpdate({ fromUserId: 9445, text: "remind me" }));
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    expect(await schedulesOf(ownerId)).toHaveLength(
+      maxActiveScheduledTasks + 1
+    );
+  });
+
+  it("accepts a RunPrompt Schedule below the limit", async () => {
+    const ownerId = await ownerInWarsaw(9446);
+    await seedActiveScheduledTasks(ownerId, maxActiveScheduledTasks - 1);
+    scriptModel([
+      {
+        callTool: setScheduleToolName,
+        input: {
+          action: { _tag: "RunPrompt", prompt },
+          localDueTime: "2099-01-01T09:00",
+        },
+      },
+      { say: "Set" },
+    ]);
+
+    await telegramWebhook(textUpdate({ fromUserId: 9446, text: "add one" }));
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    expect(await schedulesOf(ownerId)).toHaveLength(maxActiveScheduledTasks);
+  });
+
+  it("refuses to change a SendText Schedule into a Scheduled Task at the limit", async () => {
+    const ownerId = await ownerInWarsaw(9447);
+    await seedActiveScheduledTasks(ownerId, maxActiveScheduledTasks);
+    const reminder = await inAgent(
+      ownerId,
+      Effect.gen(function* seedReminderEffect() {
+        const schedules = yield* Schedules;
+        const { schedule } = yield* schedules.set({
+          action: { _tag: "SendText", text: "Call mom" },
+          setBy: "owner",
+          dueAt: DateTime.add(yield* DateTime.now, { days: 5 }),
+          sourceEventId: "seed-reminder",
+        });
+        return schedule;
+      })
+    );
+    scriptModel([
+      {
+        callTool: changeScheduleToolName,
+        input: {
+          scheduleId: reminder.scheduleId,
+          action: { _tag: "RunPrompt", prompt },
+        },
+      },
+      { say: "Too many" },
+    ]);
+
+    await telegramWebhook(textUpdate({ fromUserId: 9447, text: "change it" }));
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    const rows = await schedulesOf(ownerId);
+    expect(rows.filter((row) => row.action === "run_prompt")).toHaveLength(
+      maxActiveScheduledTasks
     );
   });
 });

@@ -24,8 +24,10 @@ import { Inbox } from "./inbox.ts";
 import type { ScheduleFiredEvent } from "./inbox.ts";
 import { rememberCompletedSteps } from "./remember-completed-steps.ts";
 import { lateNoticeFor } from "./reminder-delivery.ts";
+import { scheduledTaskTokensSpentToday } from "./scheduled-task-budget.ts";
 import { failScheduledTask } from "./scheduled-task-failure.ts";
 import { scheduledTaskSection } from "./scheduled-task-section.ts";
+import { skipScheduledTask } from "./scheduled-task-skip.ts";
 import { scheduledTaskTools } from "./scheduled-task-tools.ts";
 import { systemPrompt } from "./system-prompt.ts";
 import { deliver, recordTurnFailed } from "./turn-delivery.ts";
@@ -67,6 +69,21 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
   const alarm = yield* ScheduleAlarm;
 
   const startedAt = yield* Clock.currentTimeMillis;
+  const stepsUsed = yield* progress.usedStepCount(event.eventId);
+  if (stepsUsed === 0) {
+    const tokensSpent = yield* scheduledTaskTokensSpentToday(behavior);
+    if (tokensSpent >= behavior.scheduledTaskDailyTokenBudget) {
+      yield* skipScheduledTask({
+        ownerId,
+        event,
+        action,
+        dailyTokenBudget: behavior.scheduledTaskDailyTokenBudget,
+        tokensSpent,
+        startedAt,
+      });
+      return;
+    }
+  }
   const lateNotice = yield* lateNoticeFor(behavior, event);
   const timeZone = yield* ownerTimeZone(behavior);
   const setAtText =
@@ -82,8 +99,7 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
   });
   const input = scheduledTaskInputMessage(action.prompt);
   const earlier = yield* progress.completedFor(event.eventId);
-  const stepsLeft =
-    behavior.maxToolSteps - (yield* progress.usedStepCount(event.eventId));
+  const stepsLeft = behavior.maxToolSteps - stepsUsed;
   if (stepsLeft <= 0) {
     yield* conversation.append(event.eventId, [input, ...earlier]);
     yield* failScheduledTask({

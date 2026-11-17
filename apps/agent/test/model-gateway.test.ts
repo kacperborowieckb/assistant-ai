@@ -122,6 +122,7 @@ describe("Model Gateway transport", () => {
           })
         ),
       read: Effect.succeed([]),
+      tokensSpent: () => Effect.succeed(0),
     });
     const gateway = ModelGateway.layer.pipe(
       Layer.provide(failingLedger),

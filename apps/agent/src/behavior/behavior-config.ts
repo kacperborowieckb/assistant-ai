@@ -3,6 +3,8 @@ export interface BehaviorConfig {
   readonly maxToolSteps: number;
   readonly maxProfileCharacters: number;
   readonly reminderGraceMillis: number;
+  readonly scheduledTaskDailyTokenBudget: number;
+  readonly maxActiveScheduledTasks: number;
   readonly defaultTimeZone?: string | undefined;
 }
 
@@ -12,4 +14,6 @@ export const defaultBehaviorConfig: BehaviorConfig = {
   maxToolSteps: 8,
   maxProfileCharacters: 2000,
   reminderGraceMillis: 5 * 60 * 1000,
+  scheduledTaskDailyTokenBudget: 200_000,
+  maxActiveScheduledTasks: 10,
 };

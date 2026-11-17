@@ -12,6 +12,7 @@ import {
   LocalDueTimeSchema,
 } from "../time/local-due-time.ts";
 import { RecurrenceRuleSchema } from "../time/recurrence-rule.ts";
+import { scheduledTaskLimitMessage } from "./active-scheduled-task-limit-reached.ts";
 import { ScheduleActionInputSchema } from "./schedule-action-input.ts";
 import { resolveScheduleDue } from "./schedule-due.ts";
 import { scheduleOf } from "./schedule-presentation.ts";
@@ -67,7 +68,14 @@ const failureMessageOf = (cause: Cause.Cause<unknown>) =>
   });
 
 export const setScheduleTool = (
-  { schedules, alarm, ownerTimeZone, progress, redactor }: ScheduleToolServices,
+  {
+    schedules,
+    alarm,
+    ownerTimeZone,
+    progress,
+    redactor,
+    maxActiveScheduledTasks,
+  }: ScheduleToolServices,
   eventId: string
 ) =>
   agentTool({
@@ -112,14 +120,27 @@ export const setScheduleTool = (
             if (Option.isNone(due)) {
               return yield* new ToolFailed({ message: noDueGivenMessage });
             }
-            const { schedule: stored, alreadySet } = yield* schedules.set({
-              action,
-              setBy: "owner",
-              noteId,
-              dueAt: due.value.dueAt,
-              repeat: due.value.repeat,
-              sourceEventId: eventId,
-            });
+            const { schedule: stored, alreadySet } = yield* schedules
+              .set({
+                action,
+                setBy: "owner",
+                noteId,
+                dueAt: due.value.dueAt,
+                repeat: due.value.repeat,
+                sourceEventId: eventId,
+                activeScheduledTaskLimit: maxActiveScheduledTasks,
+              })
+              .pipe(
+                Effect.catchTag(
+                  "ActiveScheduledTaskLimitReached",
+                  ({ limit }) =>
+                    Effect.fail(
+                      new ToolFailed({
+                        message: scheduledTaskLimitMessage(limit),
+                      })
+                    )
+                )
+              );
             return {
               ...scheduleOf(stored, timeZone.value),
               timeZone: DateTime.zoneToString(timeZone.value),

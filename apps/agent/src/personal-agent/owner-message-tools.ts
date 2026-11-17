@@ -63,6 +63,7 @@ export const scheduleToolServicesOf = ({
   ),
   progress,
   redactor,
+  maxActiveScheduledTasks: behavior.maxActiveScheduledTasks,
 });
 
 export const ownerMessageTools = (

@@ -11,6 +11,8 @@ export const turnMetricResults = [
 
 export const reminderMetricResults = ["delivered", "delivery_failed"] as const;
 
+export const skipMetricResults = ["daily_token_budget_spent"] as const;
+
 export const refusalReasons = [
   "bad_secret_token",
   "unknown_sender",
@@ -32,6 +34,12 @@ export type OperatorMetric =
       readonly kind: "reminder";
       readonly ownerId: OwnerId;
       readonly result: (typeof reminderMetricResults)[number];
+      readonly latencyMillis: number;
+    }
+  | {
+      readonly kind: "scheduled_task_skipped";
+      readonly ownerId: OwnerId;
+      readonly result: (typeof skipMetricResults)[number];
       readonly latencyMillis: number;
     }
   | {

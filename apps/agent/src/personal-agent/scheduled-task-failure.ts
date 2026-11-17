@@ -9,7 +9,7 @@ import { honestFailureText, sendHonestFailure } from "./turn-delivery.ts";
 
 const namedPromptLength = 80;
 
-const nameOfPrompt = (prompt: string) => {
+export const nameOfPrompt = (prompt: string) => {
   const oneLine = prompt.replaceAll(/\s+/gu, " ").trim();
   return oneLine.length > namedPromptLength
     ? `${oneLine.slice(0, namedPromptLength)}...`

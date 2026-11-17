@@ -58,6 +58,15 @@ const ScheduledTaskTraceBodySchema = Schema.Struct({
   ...modelTraceFields,
 });
 
+const ScheduledTaskSkipTraceBodySchema = Schema.Struct({
+  task: Schema.Literal("scheduled_task_skip"),
+  scheduleId: Schema.String,
+  dueAt: Schema.String,
+  dailyTokenBudget: Schema.Number,
+  tokensSpent: Schema.Number,
+  text: Schema.String,
+});
+
 const ReminderDeliveryTraceBodySchema = Schema.Struct({
   task: Schema.Literal("reminder_delivery"),
   scheduleId: Schema.String,
@@ -74,6 +83,7 @@ const ReminderDeliveryTraceBodySchema = Schema.Struct({
 const TraceBodySchema = Schema.Union([
   ReplyTraceBodySchema,
   ScheduledTaskTraceBodySchema,
+  ScheduledTaskSkipTraceBodySchema,
   ReminderDeliveryTraceBodySchema,
 ]);
 
@@ -92,6 +102,11 @@ export const ScheduledTaskTurnTraceSchema = Schema.Struct({
   ...ScheduledTaskTraceBodySchema.fields,
 });
 
+export const ScheduledTaskSkipTurnTraceSchema = Schema.Struct({
+  ...traceFields,
+  ...ScheduledTaskSkipTraceBodySchema.fields,
+});
+
 export const ReminderDeliveryTurnTraceSchema = Schema.Struct({
   ...traceFields,
   ...ReminderDeliveryTraceBodySchema.fields,
@@ -100,6 +115,7 @@ export const ReminderDeliveryTurnTraceSchema = Schema.Struct({
 export const TurnTraceSchema = Schema.Union([
   ReplyTurnTraceSchema,
   ScheduledTaskTurnTraceSchema,
+  ScheduledTaskSkipTurnTraceSchema,
   ReminderDeliveryTurnTraceSchema,
 ]);
 

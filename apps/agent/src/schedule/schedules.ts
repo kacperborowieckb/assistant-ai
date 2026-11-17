@@ -23,6 +23,7 @@ export interface SetScheduleRequest {
   readonly dueAt: DateTime.Utc;
   readonly repeat?: Repeat | undefined;
   readonly sourceEventId: string;
+  readonly activeScheduledTaskLimit?: number | undefined;
 }
 
 export interface ScheduleSet {
@@ -63,6 +64,18 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
   const scheduleEdits = yield* makeScheduleEdits(ownerId);
   const repeatingSchedules = yield* makeRepeatingSchedules(ownerId);
 
+  const findByRequest = (sourceEventId: string, requestKey: string) =>
+    database
+      .select()
+      .from(schedules)
+      .where(
+        and(
+          eq(schedules.sourceEventId, sourceEventId),
+          eq(schedules.requestKey, requestKey)
+        )
+      )
+      .pipe(Effect.map(([row]) => row));
+
   const writeSchedule = Effect.fnUntraced(function* writeSchedule(
     request: SetScheduleRequest
   ) {
@@ -70,6 +83,18 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
       request.noteId === undefined ? [] : [request.noteId]
     );
     const requestKey = requestKeyOf(request);
+    const alreadyStored = yield* findByRequest(
+      request.sourceEventId,
+      requestKey
+    );
+    if (alreadyStored !== undefined) {
+      return { schedule: toSchedule(alreadyStored), alreadySet: true };
+    }
+    if (request.action._tag === "RunPrompt") {
+      yield* scheduleEdits.requireRoomForScheduledTask(
+        request.activeScheduledTaskLimit
+      );
+    }
     const now = DateTime.formatIso(yield* DateTime.now);
     const [inserted] = yield* database
       .insert(schedules)
@@ -99,15 +124,7 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
       });
       return { schedule: toSchedule(inserted), alreadySet: false };
     }
-    const [existing] = yield* database
-      .select()
-      .from(schedules)
-      .where(
-        and(
-          eq(schedules.sourceEventId, request.sourceEventId),
-          eq(schedules.requestKey, requestKey)
-        )
-      );
+    const existing = yield* findByRequest(request.sourceEventId, requestKey);
     if (existing === undefined) {
       return yield* Effect.die("The Schedule is neither written nor found");
     }

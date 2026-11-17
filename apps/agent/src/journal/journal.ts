@@ -43,6 +43,11 @@ export const JournalRecordSchema = Schema.TaggedUnion({
     dueAt: Schema.String,
     lateByMillis: Schema.Number,
   },
+  ScheduledTaskSkipped: {
+    eventId: Schema.String,
+    scheduleId: Schema.String,
+    dueAt: Schema.String,
+  },
   ScheduleCompleted: { eventId: Schema.String, scheduleId: Schema.String },
   ScheduleRescheduled: {
     eventId: Schema.String,
