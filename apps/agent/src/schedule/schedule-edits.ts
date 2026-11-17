@@ -7,13 +7,12 @@ import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { schedules } from "../personal-agent/storage-schema.ts";
 import { ActiveScheduledTaskLimitReached } from "./active-scheduled-task-limit-reached.ts";
 import { actionColumnOfTag, columnsOfAction } from "./schedule-action.ts";
-import type { ScheduleAction, ScheduleActionTag } from "./schedule-action.ts";
+import type { ScheduleAction } from "./schedule-action.ts";
 import { encodeRule, toSchedule } from "./schedule.ts";
 import type { Repeat } from "./schedule.ts";
 
 export interface ScheduleChangeRequest {
   readonly scheduleId: string;
-  readonly actionTag: ScheduleActionTag;
   readonly action?: ScheduleAction | undefined;
   readonly dueAt?: DateTime.Utc | undefined;
   readonly repeat?: Repeat | undefined;
@@ -23,7 +22,6 @@ export interface ScheduleChangeRequest {
 
 export interface ScheduleCancelRequest {
   readonly scheduleId: string;
-  readonly actionTag: ScheduleActionTag;
   readonly eventId: string;
 }
 
@@ -48,28 +46,21 @@ export const makeScheduleEdits = Effect.fnUntraced(function* makeScheduleEdits(
   const { database } = yield* AgentStorage;
   const journal = yield* Journal;
 
-  const listActive = (actionTag: ScheduleActionTag) =>
-    database
-      .select()
-      .from(schedules)
-      .where(
-        and(
-          eq(schedules.ownerId, ownerId),
-          eq(schedules.action, actionColumnOfTag(actionTag)),
-          eq(schedules.state, "active")
-        )
-      )
-      .orderBy(asc(schedules.nextDueAt), asc(schedules.createdAt))
-      .pipe(Effect.map((rows) => rows.map(toSchedule)));
+  const listActive = database
+    .select()
+    .from(schedules)
+    .where(and(eq(schedules.ownerId, ownerId), eq(schedules.state, "active")))
+    .orderBy(asc(schedules.nextDueAt), asc(schedules.createdAt))
+    .pipe(Effect.map((rows) => rows.map(toSchedule)));
 
-  const countActive = (actionTag: ScheduleActionTag) =>
+  const countActiveScheduledTasks = () =>
     database
       .select({ active: count() })
       .from(schedules)
       .where(
         and(
           eq(schedules.ownerId, ownerId),
-          eq(schedules.action, actionColumnOfTag(actionTag)),
+          eq(schedules.action, actionColumnOfTag("RunPrompt")),
           eq(schedules.state, "active")
         )
       )
@@ -77,17 +68,24 @@ export const makeScheduleEdits = Effect.fnUntraced(function* makeScheduleEdits(
 
   const requireRoomForScheduledTask = Effect.fnUntraced(
     function* requireRoomForScheduledTask(limit: number | undefined) {
-      if (limit !== undefined && (yield* countActive("RunPrompt")) >= limit) {
+      if (
+        limit !== undefined &&
+        (yield* countActiveScheduledTasks()) >= limit
+      ) {
         return yield* new ActiveScheduledTaskLimitReached({ limit });
       }
     }
   );
 
+  const activeScheduleOf = (scheduleId: string) =>
+    and(
+      eq(schedules.ownerId, ownerId),
+      eq(schedules.scheduleId, scheduleId),
+      eq(schedules.state, "active")
+    );
+
   const updateActive = Effect.fnUntraced(function* updateActive(
-    {
-      scheduleId,
-      actionTag,
-    }: Pick<ScheduleChangeRequest, "actionTag" | "scheduleId">,
+    scheduleId: string,
     values: ScheduleEditValues
   ) {
     const [row] = yield* database
@@ -96,14 +94,7 @@ export const makeScheduleEdits = Effect.fnUntraced(function* makeScheduleEdits(
         ...values,
         changedAt: DateTime.formatIso(yield* DateTime.now),
       })
-      .where(
-        and(
-          eq(schedules.ownerId, ownerId),
-          eq(schedules.scheduleId, scheduleId),
-          eq(schedules.action, actionColumnOfTag(actionTag)),
-          eq(schedules.state, "active")
-        )
-      )
+      .where(activeScheduleOf(scheduleId))
       .returning();
     return Option.fromNullishOr(row).pipe(Option.map(toSchedule));
   });
@@ -112,9 +103,20 @@ export const makeScheduleEdits = Effect.fnUntraced(function* makeScheduleEdits(
     database.transaction(() =>
       Effect.gen(function* changeEffect() {
         if (request.action?._tag === "RunPrompt") {
-          yield* requireRoomForScheduledTask(request.activeScheduledTaskLimit);
+          const [current] = yield* database
+            .select()
+            .from(schedules)
+            .where(activeScheduleOf(request.scheduleId));
+          if (
+            current !== undefined &&
+            toSchedule(current).action._tag !== "RunPrompt"
+          ) {
+            yield* requireRoomForScheduledTask(
+              request.activeScheduledTaskLimit
+            );
+          }
         }
-        const changed = yield* updateActive(request, {
+        const changed = yield* updateActive(request.scheduleId, {
           ...(request.action === undefined
             ? {}
             : columnsOfAction(request.action)),
@@ -139,7 +141,9 @@ export const makeScheduleEdits = Effect.fnUntraced(function* makeScheduleEdits(
   const cancel = (request: ScheduleCancelRequest) =>
     database.transaction(() =>
       Effect.gen(function* cancelEffect() {
-        const cancelled = yield* updateActive(request, { state: "cancelled" });
+        const cancelled = yield* updateActive(request.scheduleId, {
+          state: "cancelled",
+        });
         if (Option.isSome(cancelled)) {
           yield* journal.append({
             _tag: "ScheduleCancelled",

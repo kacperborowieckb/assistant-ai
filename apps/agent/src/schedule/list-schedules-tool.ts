@@ -23,7 +23,7 @@ export const listSchedulesTool = (
 ) =>
   agentTool({
     description:
-      "List the active Schedules of the Owner, the earliest first. Each has its id, its Action (SendText with its text), optional Note id, and local due weekday, date, and time. A Schedule that is done or cancelled is not listed. An empty list means that the Owner has no active Schedule.",
+      "List the active Schedules of the Owner, the earliest first. Each has its id, its Action (SendText with its text, or RunPrompt with its prompt), optional Note id, and local due weekday, date, and time. A Schedule that is done or cancelled is not listed. An empty list means that the Owner has no active Schedule.",
     inputSchema: effectInputSchema(Schema.Struct({})),
     execute: (_input, { toolCallId, modelStepKey }) =>
       Effect.gen(function* listSchedulesEffect() {
@@ -43,7 +43,7 @@ export const listSchedulesTool = (
                 message: noTimeZoneForListMessage,
               });
             }
-            const active = yield* schedules.listActive("SendText");
+            const active = yield* schedules.listActive;
             return {
               timeZone: DateTime.zoneToString(timeZone.value),
               schedules: active.map((schedule) =>

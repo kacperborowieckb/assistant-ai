@@ -45,7 +45,6 @@ export const cancelScheduleTool = (
           Effect.gen(function* cancelActiveEffect() {
             const result = yield* schedules.cancel({
               scheduleId,
-              actionTag: "SendText",
               eventId,
             });
             if (result._tag === "None") {
