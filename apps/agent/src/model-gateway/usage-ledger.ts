@@ -1,5 +1,5 @@
-import { asc } from "drizzle-orm";
-import { Context, Effect, Layer, Schema } from "effect";
+import { and, asc, eq, gte, sum } from "drizzle-orm";
+import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { OwnerIdSchema } from "../owner-id.ts";
 import type { OwnerId } from "../owner-id.ts";
@@ -54,20 +54,42 @@ const makeUsageLedger = (ownerId: OwnerId) =>
   Effect.gen(function* makeUsageLedgerEffect() {
     const { database } = yield* AgentStorage;
 
-    const record = (task: ModelTask, modelId: string, usage: Usage) =>
+    const record = Effect.fnUntraced(function* record(
+      task: ModelTask,
+      modelId: string,
+      usage: Usage
+    ) {
+      yield* database.insert(modelUsage).values({
+        ownerId,
+        recordedAt: DateTime.formatIso(yield* DateTime.now),
+        task,
+        modelId,
+        inputTokens: usage.inputTokens ?? null,
+        outputTokens: usage.outputTokens ?? null,
+        cachedInputTokens: usage.cachedInputTokens ?? null,
+        costUsd: usage.costUsd ?? null,
+      });
+    });
+
+    const tokensSpent = (task: ModelTask, since: DateTime.Utc) =>
       database
-        .insert(modelUsage)
-        .values({
-          ownerId,
-          recordedAt: new Date().toISOString(),
-          task,
-          modelId,
-          inputTokens: usage.inputTokens ?? null,
-          outputTokens: usage.outputTokens ?? null,
-          cachedInputTokens: usage.cachedInputTokens ?? null,
-          costUsd: usage.costUsd ?? null,
+        .select({
+          input: sum(modelUsage.inputTokens),
+          output: sum(modelUsage.outputTokens),
         })
-        .pipe(Effect.asVoid);
+        .from(modelUsage)
+        .where(
+          and(
+            eq(modelUsage.ownerId, ownerId),
+            eq(modelUsage.task, task),
+            gte(modelUsage.recordedAt, DateTime.formatIso(since))
+          )
+        )
+        .pipe(
+          Effect.map(
+            ([row]) => Number(row?.input ?? 0) + Number(row?.output ?? 0)
+          )
+        );
 
     const read = database
       .select()
@@ -75,7 +97,7 @@ const makeUsageLedger = (ownerId: OwnerId) =>
       .orderBy(asc(modelUsage.sequence))
       .pipe(Effect.map((rows) => rows.map(toUsageRecord)));
 
-    return { record, read };
+    return { record, read, tokensSpent };
   });
 
 export class UsageLedger extends Context.Service<

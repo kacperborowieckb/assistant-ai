@@ -11,4 +11,5 @@ export interface ScheduleToolServices {
   readonly ownerTimeZone: Effect.Effect<Option.Option<DateTime.TimeZone.Named>>;
   readonly progress: TurnProgress["Service"];
   readonly redactor: Redactor["Service"];
+  readonly maxActiveScheduledTasks: number;
 }

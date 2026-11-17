@@ -11,6 +11,7 @@ import {
   LocalDueTimeSchema,
 } from "../time/local-due-time.ts";
 import { RecurrenceRuleSchema } from "../time/recurrence-rule.ts";
+import { refuseAtScheduledTaskLimit } from "./active-scheduled-task-limit-reached.ts";
 import { ScheduleActionInputSchema } from "./schedule-action-input.ts";
 import { resolveScheduleDue } from "./schedule-due.ts";
 import {
@@ -70,7 +71,14 @@ const ChangeScheduleInput = Schema.Struct({
 });
 
 export const changeScheduleTool = (
-  { schedules, alarm, ownerTimeZone, progress, redactor }: ScheduleToolServices,
+  {
+    schedules,
+    alarm,
+    ownerTimeZone,
+    progress,
+    redactor,
+    maxActiveScheduledTasks,
+  }: ScheduleToolServices,
   eventId: string
 ) =>
   agentTool({
@@ -119,22 +127,25 @@ export const changeScheduleTool = (
                 localDueTimeInThePast: newDueTimeInThePastMessage,
               }
             );
-            const result = yield* schedules.change({
-              scheduleId,
-              actionTag: "SendText",
-              action,
-              dueAt: due.pipe(
-                Option.map(({ dueAt }) => dueAt),
-                Option.getOrUndefined
-              ),
-              repeat: due.pipe(
-                Option.flatMap(({ repeat: next }) =>
-                  Option.fromNullishOr(next)
+            const result = yield* schedules
+              .change({
+                scheduleId,
+                actionTag: "SendText",
+                action,
+                dueAt: due.pipe(
+                  Option.map(({ dueAt }) => dueAt),
+                  Option.getOrUndefined
                 ),
-                Option.getOrUndefined
-              ),
-              eventId,
-            });
+                repeat: due.pipe(
+                  Option.flatMap(({ repeat: next }) =>
+                    Option.fromNullishOr(next)
+                  ),
+                  Option.getOrUndefined
+                ),
+                eventId,
+                activeScheduledTaskLimit: maxActiveScheduledTasks,
+              })
+              .pipe(refuseAtScheduledTaskLimit);
             if (result._tag === "None") {
               return yield* new ToolFailed({
                 message: noActiveScheduleMessage(scheduleId),

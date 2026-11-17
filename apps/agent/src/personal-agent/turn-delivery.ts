@@ -3,6 +3,7 @@ import { Effect } from "effect";
 import { Channel } from "../channels/channel.ts";
 import { Journal } from "../journal/journal.ts";
 import { Redactor } from "../tracing/redactor.ts";
+import { Conversation } from "./conversation.ts";
 import { Inbox } from "./inbox.ts";
 import type { InboxEvent } from "./inbox.ts";
 import { OwnerChannelConversation } from "./owner-channel-conversation.ts";
@@ -82,6 +83,17 @@ export const recordTurnFailed = (event: InboxEvent, reason: string) =>
     yield* inbox.markFailed([event]);
   });
 
+export const rememberFailureNotice = (event: InboxEvent, text: string) =>
+  Conversation.pipe(
+    Effect.flatMap((conversation) =>
+      event._tag === "ScheduleFired"
+        ? conversation.append(`${event.eventId}:failure-notice`, [
+            { role: "assistant", content: text },
+          ])
+        : Effect.void
+    )
+  );
+
 export const sendHonestFailure = (
   event: InboxEvent,
   text: string = honestFailureText
@@ -89,7 +101,10 @@ export const sendHonestFailure = (
   Effect.gen(function* sendHonestFailureEffect() {
     const inbox = yield* Inbox;
 
-    yield* deliver(event, text);
+    const delivery = yield* deliver(event, text);
+    if (delivery._tag !== "Failed") {
+      yield* rememberFailureNotice(event, text);
+    }
     yield* inbox.markFailed([event]);
   });
 

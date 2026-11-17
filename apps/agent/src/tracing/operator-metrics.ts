@@ -11,6 +11,8 @@ export const turnMetricResults = [
 
 export const reminderMetricResults = ["delivered", "delivery_failed"] as const;
 
+export const skipMetricResults = ["daily_token_budget_spent"] as const;
+
 export const refusalReasons = [
   "bad_secret_token",
   "unknown_sender",
@@ -21,6 +23,7 @@ export type OperatorMetric =
   | {
       readonly kind: "turn";
       readonly ownerId: OwnerId;
+      readonly eventId: string;
       readonly result: (typeof turnMetricResults)[number];
       readonly latencyMillis: number;
       readonly modelId: string;
@@ -31,7 +34,15 @@ export type OperatorMetric =
   | {
       readonly kind: "reminder";
       readonly ownerId: OwnerId;
+      readonly eventId: string;
       readonly result: (typeof reminderMetricResults)[number];
+      readonly latencyMillis: number;
+    }
+  | {
+      readonly kind: "scheduled_task_skipped";
+      readonly ownerId: OwnerId;
+      readonly eventId: string;
+      readonly result: (typeof skipMetricResults)[number];
       readonly latencyMillis: number;
     }
   | {
@@ -59,6 +70,7 @@ const dataPointOf = (metric: OperatorMetric): AnalyticsEngineDataPoint => {
       metric.result,
       metric.kind === "turn" ? metric.modelId : "",
       costBlob(usage),
+      "eventId" in metric ? metric.eventId : "",
     ],
     doubles: [
       metric.latencyMillis,

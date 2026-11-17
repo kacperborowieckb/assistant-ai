@@ -24,12 +24,14 @@ describe("Private metrics", () => {
 
     const [point] = fakeMetrics.dataPoints;
     expect(point?.indexes).toEqual([ownerId]);
-    expect(point?.blobs).toEqual([
+    expect(point?.blobs?.slice(0, 4)).toEqual([
       "turn",
       "replied",
       "fake-reply-model",
       "cost_unknown",
     ]);
+    expect(point?.blobs).toHaveLength(5);
+    expect(point?.blobs?.[4]).not.toBe("");
     expect(point?.doubles?.slice(1)).toEqual([42, 7, 0, 12, 1, 0]);
     expect(point?.doubles?.[0]).toBeGreaterThanOrEqual(0);
     const everything = JSON.stringify(fakeMetrics.dataPoints);
@@ -76,6 +78,7 @@ describe("Private metrics", () => {
     const [point] = fakeMetrics.dataPoints;
     expect(point?.indexes).toEqual(["none"]);
     expect(point?.blobs?.slice(0, 2)).toEqual(["refused", "bad_secret_token"]);
+    expect(point?.blobs?.[4]).toBe("");
   });
 
   it("records a refused request from an unknown sender with no content", async () => {

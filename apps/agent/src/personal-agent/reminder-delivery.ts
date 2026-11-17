@@ -50,6 +50,7 @@ const recordDelivered = Effect.fnUntraced(function* recordDelivered(
   yield* metrics.record({
     kind: "reminder",
     ownerId,
+    eventId: event.eventId,
     result: "delivered",
     latencyMillis,
   });
@@ -84,6 +85,7 @@ const recordDeliveryFailed = Effect.fnUntraced(function* recordDeliveryFailed(
   yield* metrics.record({
     kind: "reminder",
     ownerId: record.ownerId,
+    eventId: record.event.eventId,
     result: "delivery_failed",
     latencyMillis: record.latencyMillis,
   });
@@ -140,8 +142,8 @@ export const recoverReminderRecord = Effect.fnUntraced(
     if (outcome._tag === "Delivered") {
       yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
     }
-    const recorded = yield* traces.read;
-    if (recorded.some(({ trace }) => trace.eventId === event.eventId)) {
+    const recorded = yield* traces.readForEvent(event.eventId);
+    if (recorded.length > 0) {
       return;
     }
     yield* outcome._tag === "Delivered"
