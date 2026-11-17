@@ -247,6 +247,80 @@ describe("the Conversation history of a Scheduled Task", () => {
   });
 });
 
+const jsonTextOf = (text: string) => JSON.stringify(text).slice(1, -1);
+
+describe("the Conversation history of a skipped or failed Scheduled Task", () => {
+  it("gives the next reply Turn the prompt and the skip notice", async () => {
+    const ownerId = await ownerInWarsaw(9450);
+    await recordUsage(ownerId, "scheduled_task", scheduledTaskDailyTokenBudget);
+    await seedScheduledTask(ownerId);
+    await fireTheAlarm(ownerId);
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+
+    await telegramWebhook(
+      textUpdate({ fromUserId: 9450, text: "why did you skip that?" })
+    );
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(3));
+    const messages = JSON.stringify(lastModelCall().prompt);
+    expect(messages).toContain(prompt);
+    expect(messages).toContain(jsonTextOf(skipMessage));
+  });
+
+  it("gives the next reply Turn the failure notice", async () => {
+    const ownerId = await ownerInWarsaw(9451);
+    failModel(3);
+    await seedScheduledTask(ownerId);
+    await fireTheAlarm(ownerId);
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2), {
+      timeout: 10_000,
+    });
+
+    await telegramWebhook(
+      textUpdate({ fromUserId: 9451, text: "what happened?" })
+    );
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(3));
+    expect(JSON.stringify(lastModelCall().prompt)).toContain(
+      jsonTextOf(failureMessage)
+    );
+  });
+
+  it("keeps the skip notice in the history when the reset comes after the skip decision", async () => {
+    const ownerId = await ownerInWarsaw(9452);
+    const schedule = await seedScheduledTask(ownerId);
+    await inAgent(ownerId, storeDueScheduleEvents);
+    const eventId = await eventIdOfFire(ownerId, schedule.scheduleId);
+    await inAgent(
+      ownerId,
+      Journal.pipe(
+        Effect.flatMap((journal) =>
+          journal.append({
+            _tag: "ScheduledTaskSkipped",
+            eventId,
+            scheduleId: schedule.scheduleId,
+            dueAt: DateTime.formatIso(schedule.nextDueAt),
+            dailyTokenBudget: scheduledTaskDailyTokenBudget,
+            tokensSpent: scheduledTaskDailyTokenBudget,
+          })
+        )
+      )
+    );
+    await abortAllDurableObjects();
+    await fireTheAlarm(ownerId);
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+
+    await telegramWebhook(
+      textUpdate({ fromUserId: 9452, text: "why did you skip that?" })
+    );
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(3));
+    const messages = JSON.stringify(lastModelCall().prompt);
+    expect(messages).toContain(prompt);
+    expect(messages).toContain(jsonTextOf(skipMessage));
+  });
+});
+
 describe("the records of a Scheduled Task Turn", () => {
   it("writes a Trace, Usage under scheduled_task, and Journal Entries with the Schedule id", async () => {
     const ownerId = await ownerInWarsaw(9406);
@@ -980,5 +1054,26 @@ describe("the limit of active Scheduled Tasks", () => {
     expect(rows.filter((row) => row.action === "run_prompt")).toHaveLength(
       maxActiveScheduledTasks
     );
+  });
+});
+
+describe("the query of the daily Token Budget", () => {
+  it("uses the index of Owner, Model Task, and time", async () => {
+    const ownerId = await ownerInWarsaw(9453);
+
+    const plan = await runInDurableObject(await agentOf(ownerId), (_, state) =>
+      state.storage.sql
+        .exec<{ detail: string }>(
+          "EXPLAIN QUERY PLAN SELECT sum(input_tokens), sum(output_tokens) FROM model_usage WHERE owner_id = ? AND task = ? AND recorded_at >= ?",
+          ownerId,
+          "scheduled_task",
+          "2027-01-01T00:00:00.000Z"
+        )
+        .toArray()
+    );
+
+    const details = plan.map((row) => row.detail).join(" ");
+    expect(details).toContain("model_usage_budget");
+    expect(details).not.toContain("SCAN");
   });
 });

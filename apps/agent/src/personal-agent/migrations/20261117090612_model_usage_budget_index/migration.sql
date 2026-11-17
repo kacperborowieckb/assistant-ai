@@ -1,0 +1,1 @@
+CREATE INDEX `model_usage_budget` ON `model_usage` (`owner_id`,`task`,`recorded_at`);

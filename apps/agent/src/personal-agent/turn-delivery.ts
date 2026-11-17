@@ -3,6 +3,7 @@ import { Effect } from "effect";
 import { Channel } from "../channels/channel.ts";
 import { Journal } from "../journal/journal.ts";
 import { Redactor } from "../tracing/redactor.ts";
+import { Conversation } from "./conversation.ts";
 import { Inbox } from "./inbox.ts";
 import type { InboxEvent } from "./inbox.ts";
 import { OwnerChannelConversation } from "./owner-channel-conversation.ts";
@@ -88,8 +89,14 @@ export const sendHonestFailure = (
 ) =>
   Effect.gen(function* sendHonestFailureEffect() {
     const inbox = yield* Inbox;
+    const conversation = yield* Conversation;
 
-    yield* deliver(event, text);
+    const delivery = yield* deliver(event, text);
+    if (event._tag === "ScheduleFired" && delivery._tag !== "Failed") {
+      yield* conversation.append(`${event.eventId}:failure-notice`, [
+        { role: "assistant", content: text },
+      ]);
+    }
     yield* inbox.markFailed([event]);
   });
 

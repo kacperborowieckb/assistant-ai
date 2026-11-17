@@ -128,17 +128,23 @@ export const journalEntries = sqliteTable("journal_entries", {
   record: text("record").notNull(),
 });
 
-export const modelUsage = sqliteTable("model_usage", {
-  sequence: integer("sequence").primaryKey({ autoIncrement: true }),
-  ownerId: text("owner_id").$type<OwnerId>().notNull(),
-  recordedAt: text("recorded_at").notNull(),
-  task: text("task", { enum: modelTasks }).notNull(),
-  modelId: text("model_id").notNull(),
-  inputTokens: integer("input_tokens"),
-  outputTokens: integer("output_tokens"),
-  cachedInputTokens: integer("cached_input_tokens"),
-  costUsd: real("cost_usd"),
-});
+export const modelUsage = sqliteTable(
+  "model_usage",
+  {
+    sequence: integer("sequence").primaryKey({ autoIncrement: true }),
+    ownerId: text("owner_id").$type<OwnerId>().notNull(),
+    recordedAt: text("recorded_at").notNull(),
+    task: text("task", { enum: modelTasks }).notNull(),
+    modelId: text("model_id").notNull(),
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    cachedInputTokens: integer("cached_input_tokens"),
+    costUsd: real("cost_usd"),
+  },
+  (table) => [
+    index("model_usage_budget").on(table.ownerId, table.task, table.recordedAt),
+  ]
+);
 
 export const turnTraces = sqliteTable(
   "turn_traces",

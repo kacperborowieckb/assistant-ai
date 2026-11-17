@@ -14,6 +14,8 @@ Spec #66 (Schedule Actions), ticket #71. Builds on [0014](0014-schedule-actions.
 - **Check.** Code checks the Budget once, before the first model step of a Turn. If the spent tokens are at or above the Budget, code makes no model call.
 - **Started Turn.** A Turn that already has a recorded model step is not checked again. It finishes, and its tokens count.
 - **Skip.** The Owner gets one message: the Scheduled Task, named by its redacted prompt, was skipped because of the daily limit. The Schedule completes at once, so a repeating Scheduled Task moves to its next occurrence.
+- **Conversation.** The skip notice and the prompt of the task enter the Conversation history before the Event is marked done. The failure notice of a Scheduled Task enters it too. The next reply Turn then knows what the Owner saw.
+- **Index.** The Usage table has an index on Owner Id, Model Task, and time. The Budget check uses it and does not scan all Usage.
 - **Skip records.** The Journal has a `ScheduledTaskSkipped` entry with the Budget and the spent tokens. The Trace has the result `scheduled_task_skipped`, the Budget, and the spent tokens. It has no model fields. An Operator metric of the kind `scheduled_task_skipped` has no content.
 - **Active limit.** The Behavior Config has `maxActiveScheduledTasks`, default 10. `set_schedule` refuses a new `RunPrompt` Schedule when the Owner has that many active ones. It returns a message for the model. A `SendText` Schedule is not limited.
 - **Same limit on change.** `change_schedule` refuses to change a `SendText` Schedule into a `RunPrompt` Schedule at the limit. Without this rule, the limit has a gap.

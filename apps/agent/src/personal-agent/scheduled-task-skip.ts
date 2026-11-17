@@ -1,3 +1,4 @@
+import type { ModelMessage } from "ai";
 import { Clock, Effect } from "effect";
 
 import { Journal } from "../journal/journal.ts";
@@ -7,6 +8,8 @@ import { Schedules } from "../schedule/schedules.ts";
 import { OperatorMetrics } from "../tracing/operator-metrics.ts";
 import { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
+import { Conversation } from "./conversation.ts";
+import { scheduledTaskInputMessage } from "./event-message.ts";
 import { Inbox } from "./inbox.ts";
 import type { ScheduleFiredEvent } from "./inbox.ts";
 import { nameOfPrompt } from "./scheduled-task-failure.ts";
@@ -24,13 +27,27 @@ interface SkippedScheduledTask {
 export const scheduledTaskSkipText = (redactedPrompt: string) =>
   `Your Scheduled Task "${nameOfPrompt(redactedPrompt)}" was skipped because of the daily limit for Scheduled Tasks.`;
 
-export const finishSkippedScheduledTask = Effect.fnUntraced(
+interface SkipNotice {
+  readonly input: ModelMessage;
+  readonly text: string;
+}
+
+const skipNoticeOf = Effect.fnUntraced(function* skipNoticeOf(prompt: string) {
+  const redactor = yield* Redactor;
+  return {
+    input: redactor.redactMessage(scheduledTaskInputMessage(prompt)),
+    text: scheduledTaskSkipText(redactor.redact(prompt)),
+  } satisfies SkipNotice;
+});
+
+const finishSkippedScheduledTask = Effect.fnUntraced(
   function* finishSkippedScheduledTask(
     event: ScheduleFiredEvent,
-    text: string
+    { input, text }: SkipNotice
   ) {
     const inbox = yield* Inbox;
     const schedules = yield* Schedules;
+    const conversation = yield* Conversation;
 
     yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
     const delivery = yield* deliver(event, text);
@@ -38,6 +55,10 @@ export const finishSkippedScheduledTask = Effect.fnUntraced(
       yield* recordTurnFailed(event, delivery.reason);
       return;
     }
+    yield* conversation.append(event.eventId, [
+      input,
+      { role: "assistant", content: text },
+    ]);
     yield* inbox.markDone([event]);
   }
 );
@@ -94,9 +115,8 @@ export const skipScheduledTask = Effect.fnUntraced(function* skipScheduledTask({
   startedAt,
 }: SkippedScheduledTask) {
   const journal = yield* Journal;
-  const redactor = yield* Redactor;
 
-  const text = scheduledTaskSkipText(redactor.redact(action.prompt));
+  const notice = yield* skipNoticeOf(action.prompt);
   yield* journal.append({
     _tag: "ScheduledTaskSkipped",
     eventId: event.eventId,
@@ -108,12 +128,12 @@ export const skipScheduledTask = Effect.fnUntraced(function* skipScheduledTask({
   yield* recordSkip({
     ownerId,
     event,
-    text,
+    text: notice.text,
     dailyTokenBudget,
     tokensSpent,
     latencyMillis: (yield* Clock.currentTimeMillis) - startedAt,
   });
-  yield* finishSkippedScheduledTask(event, text);
+  yield* finishSkippedScheduledTask(event, notice);
 });
 
 export const resumeSkippedScheduledTask = Effect.fnUntraced(
@@ -123,7 +143,6 @@ export const resumeSkippedScheduledTask = Effect.fnUntraced(
     skipped: Pick<SkippedScheduledTask, "dailyTokenBudget" | "tokensSpent">
   ) {
     const schedules = yield* Schedules;
-    const redactor = yield* Redactor;
 
     const schedule = yield* schedules.byId(event.scheduleId);
     if (
@@ -132,10 +151,14 @@ export const resumeSkippedScheduledTask = Effect.fnUntraced(
     ) {
       return;
     }
-    const text = scheduledTaskSkipText(
-      redactor.redact(schedule.value.action.prompt)
-    );
-    yield* recordSkip({ ownerId, event, text, latencyMillis: 0, ...skipped });
-    yield* finishSkippedScheduledTask(event, text);
+    const notice = yield* skipNoticeOf(schedule.value.action.prompt);
+    yield* recordSkip({
+      ownerId,
+      event,
+      text: notice.text,
+      latencyMillis: 0,
+      ...skipped,
+    });
+    yield* finishSkippedScheduledTask(event, notice);
   }
 );
