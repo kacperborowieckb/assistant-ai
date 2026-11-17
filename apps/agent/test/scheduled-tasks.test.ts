@@ -3,7 +3,7 @@ import {
   env,
   runInDurableObject,
 } from "cloudflare:test";
-import { DateTime, Effect } from "effect";
+import { DateTime, Effect, Layer } from "effect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { defaultBehaviorConfig } from "../src/behavior/behavior-config.ts";
@@ -14,6 +14,7 @@ import { OwnerIdSchema } from "../src/owner-id.ts";
 import { storeDueScheduleEvents } from "../src/personal-agent/due-schedule-events.ts";
 import type { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
+import { skipScheduledTask } from "../src/personal-agent/scheduled-task-skip.ts";
 import { OwnerPreferences } from "../src/preferences/owner-preferences.ts";
 import { changeScheduleToolName } from "../src/schedule/change-schedule-tool.ts";
 import { ScheduleAlarm } from "../src/schedule/schedule-alarm.ts";
@@ -21,7 +22,8 @@ import { Schedules } from "../src/schedule/schedules.ts";
 import type { SetScheduleRequest } from "../src/schedule/schedules.ts";
 import { setScheduleToolName } from "../src/schedule/set-schedule-tool.ts";
 import { localTimeOf } from "../src/time/local-time.ts";
-import { redactedMark } from "../src/tracing/redactor.ts";
+import { OperatorMetrics } from "../src/tracing/operator-metrics.ts";
+import { redactedMark, Redactor } from "../src/tracing/redactor.ts";
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
 import {
   failModel,
@@ -281,9 +283,12 @@ describe("the records of a Scheduled Task Turn", () => {
     expect(completed?.record).toMatchObject({
       scheduleId: schedule.scheduleId,
     });
-    expect(
-      fakeMetrics.dataPoints.some((point) => point.blobs?.[0] === "turn")
-    ).toBe(true);
+    const turnPoint = fakeMetrics.dataPoints.find(
+      (point) =>
+        point.blobs?.[0] === "turn" &&
+        point.blobs[4] === completed?.record.eventId
+    );
+    expect(turnPoint).toBeDefined();
   });
 });
 
@@ -656,6 +661,13 @@ const recordUsage = (
     )
   );
 
+const skipPointsOf = (eventId: string) =>
+  fakeMetrics.dataPoints.filter(
+    (point) =>
+      point.blobs?.[0] === "scheduled_task_skipped" &&
+      point.blobs[4] === eventId
+  );
+
 describe("the daily Token Budget of Scheduled Tasks", () => {
   it("makes no model call when the Budget is spent, sends the skip message, and moves a Daily Schedule on", async () => {
     const ownerId = await ownerInWarsaw(9440);
@@ -678,6 +690,15 @@ describe("the daily Token Budget of Scheduled Tasks", () => {
     expect(after?.next_due_at).not.toBe(before?.next_due_at);
     expect((after?.next_due_at ?? "") > (before?.next_due_at ?? "")).toBe(true);
     expect(await journalTagsOf(ownerId)).toContain("ScheduledTaskSkipped");
+    const skipTrace = await lastTraceOf(ownerId);
+    expect(skipTrace?.eventId).not.toBe("");
+    expect(
+      fakeMetrics.dataPoints.some(
+        (point) =>
+          point.blobs?.[0] === "scheduled_task_skipped" &&
+          point.blobs[4] === skipTrace?.eventId
+      )
+    ).toBe(true);
     expect(await lastTraceOf(ownerId)).toMatchObject({
       result: "scheduled_task_skipped",
       dailyTokenBudget: scheduledTaskDailyTokenBudget,
@@ -720,14 +741,66 @@ describe("the daily Token Budget of Scheduled Tasks", () => {
       result: "scheduled_task_skipped",
       tokensSpent: scheduledTaskDailyTokenBudget,
     });
-    expect(
-      fakeMetrics.dataPoints.filter(
-        (point) => point.blobs?.[0] === "scheduled_task_skipped"
-      )
-    ).toHaveLength(1);
+    expect(skipPointsOf(eventId)).toHaveLength(1);
     const [row] = await schedulesOf(ownerId);
     expect(row?.next_due_at).not.toBe(DateTime.formatIso(schedule.nextDueAt));
     expect(fakeTelegram.sent).toHaveLength(2);
+  });
+
+  it("repeats the skip metric with the same Event id when a reset comes between the metric write and the Trace write", async () => {
+    const ownerId = await ownerInWarsaw(9449);
+    await recordUsage(ownerId, "scheduled_task", scheduledTaskDailyTokenBudget);
+    const schedule = await seedScheduledTask(ownerId, {
+      rule: { _tag: "Daily", time: "08:00" },
+      timeZone: DateTime.zoneMakeNamedUnsafe("Europe/Warsaw"),
+    });
+    await inAgent(ownerId, storeDueScheduleEvents);
+    const eventId = await eventIdOfFire(ownerId, schedule.scheduleId);
+    await inAgent(
+      ownerId,
+      TurnTraces.pipe(
+        Effect.flatMap((traces) =>
+          Effect.exit(
+            skipScheduledTask({
+              ownerId: OwnerIdSchema.make(ownerId),
+              event: {
+                _tag: "ScheduleFired",
+                eventId,
+                scheduleId: schedule.scheduleId,
+                dueAt: DateTime.formatIso(schedule.nextDueAt),
+                state: "pending",
+              },
+              action: { _tag: "RunPrompt", prompt },
+              dailyTokenBudget: scheduledTaskDailyTokenBudget,
+              tokensSpent: scheduledTaskDailyTokenBudget,
+              startedAt: 0,
+            }).pipe(
+              Effect.provideService(TurnTraces, {
+                ...traces,
+                record: () => Effect.die("The Durable Object reset"),
+              })
+            )
+          )
+        ),
+        Effect.provide(
+          Layer.mergeAll(
+            OperatorMetrics.layer(fakeMetrics.dataset),
+            Redactor.layer([])
+          )
+        )
+      ) as never
+    );
+    expect(skipPointsOf(eventId)).toHaveLength(1);
+
+    await abortAllDurableObjects();
+    await fireTheAlarm(ownerId);
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    expect(skipPointsOf(eventId)).toHaveLength(2);
+    expect(await lastTraceOf(ownerId)).toMatchObject({
+      result: "scheduled_task_skipped",
+    });
   });
 
   it("completes a one-time Scheduled Task that is skipped", async () => {

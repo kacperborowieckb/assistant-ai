@@ -418,8 +418,13 @@ describe("Reminder delivery", () => {
       text: "Buy the gift for Ana",
     });
     expect(await alarmsOf(ownerId)).toEqual([]);
+    const reminderEventId = traces.at(-1)?.trace.eventId;
+    expect(reminderEventId).not.toBe("");
     expect(
-      fakeMetrics.dataPoints.some((point) => point.blobs?.[0] === "reminder")
+      fakeMetrics.dataPoints.some(
+        (point) =>
+          point.blobs?.[0] === "reminder" && point.blobs[4] === reminderEventId
+      )
     ).toBe(true);
   });
 

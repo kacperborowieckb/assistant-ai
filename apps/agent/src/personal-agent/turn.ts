@@ -138,6 +138,7 @@ const answer = (
       );
       yield* recordTurnMetric({
         ownerId,
+        eventId: event.eventId,
         outcome,
         result: "model_failed",
         startedAt,
@@ -156,6 +157,7 @@ const answer = (
       yield* recordTurnFailed(event, delivery.reason);
       yield* recordTurnMetric({
         ownerId,
+        eventId: event.eventId,
         outcome,
         result: "send_failed",
         startedAt,
@@ -170,7 +172,13 @@ const answer = (
       ),
     ]);
     yield* inbox.markDone([event]);
-    yield* recordTurnMetric({ ownerId, outcome, result: "replied", startedAt });
+    yield* recordTurnMetric({
+      ownerId,
+      eventId: event.eventId,
+      outcome,
+      result: "replied",
+      startedAt,
+    });
   });
 
 export const takeTurn = (

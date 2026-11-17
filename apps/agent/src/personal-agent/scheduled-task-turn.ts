@@ -161,6 +161,7 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
     });
     yield* recordTurnMetric({
       ownerId,
+      eventId: event.eventId,
       outcome,
       result: "model_failed",
       startedAt,
@@ -188,6 +189,7 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
     yield* recordTurnFailed(event, delivery.reason);
     yield* recordTurnMetric({
       ownerId,
+      eventId: event.eventId,
       outcome,
       result: "send_failed",
       startedAt,
@@ -203,5 +205,11 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
     ),
   ]);
   yield* inbox.markDone([event]);
-  yield* recordTurnMetric({ ownerId, outcome, result: "replied", startedAt });
+  yield* recordTurnMetric({
+    ownerId,
+    eventId: event.eventId,
+    outcome,
+    result: "replied",
+    startedAt,
+  });
 });

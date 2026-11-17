@@ -161,6 +161,7 @@ export const scheduledTaskTraceOf = ({
 
 interface TurnMetricInput {
   readonly ownerId: OwnerId;
+  readonly eventId: string;
   readonly outcome: ModelOutcome;
   readonly result: Extract<OperatorMetric, { kind: "turn" }>["result"];
   readonly startedAt: number;
@@ -168,6 +169,7 @@ interface TurnMetricInput {
 
 export const recordTurnMetric = ({
   ownerId,
+  eventId,
   outcome,
   result,
   startedAt,
@@ -178,6 +180,7 @@ export const recordTurnMetric = ({
     yield* metrics.record({
       kind: "turn",
       ownerId,
+      eventId,
       result,
       latencyMillis: now - startedAt,
       modelId:

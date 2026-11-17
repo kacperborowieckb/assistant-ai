@@ -1,4 +1,4 @@
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { ModelMessageSchema } from "../model-gateway/model-message-schema.ts";
@@ -177,6 +177,14 @@ const makeTurnTraces = (ownerId: OwnerId) =>
       .orderBy(asc(turnTraces.sequence))
       .pipe(Effect.map((rows) => rows.map(toStoredTrace)));
 
+    const readForEvent = (eventId: string) =>
+      database
+        .select()
+        .from(turnTraces)
+        .where(eq(turnTraces.eventId, eventId))
+        .orderBy(asc(turnTraces.sequence))
+        .pipe(Effect.map((rows) => rows.map(toStoredTrace)));
+
     const readReplies = read.pipe(
       Effect.map((stored) =>
         stored.flatMap(({ trace, ...rest }) =>
@@ -185,7 +193,7 @@ const makeTurnTraces = (ownerId: OwnerId) =>
       )
     );
 
-    return { record, read, readReplies };
+    return { record, read, readForEvent, readReplies };
   });
 
 export class TurnTraces extends Context.Service<

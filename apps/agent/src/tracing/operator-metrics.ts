@@ -23,6 +23,7 @@ export type OperatorMetric =
   | {
       readonly kind: "turn";
       readonly ownerId: OwnerId;
+      readonly eventId: string;
       readonly result: (typeof turnMetricResults)[number];
       readonly latencyMillis: number;
       readonly modelId: string;
@@ -33,12 +34,14 @@ export type OperatorMetric =
   | {
       readonly kind: "reminder";
       readonly ownerId: OwnerId;
+      readonly eventId: string;
       readonly result: (typeof reminderMetricResults)[number];
       readonly latencyMillis: number;
     }
   | {
       readonly kind: "scheduled_task_skipped";
       readonly ownerId: OwnerId;
+      readonly eventId: string;
       readonly result: (typeof skipMetricResults)[number];
       readonly latencyMillis: number;
     }
@@ -67,6 +70,7 @@ const dataPointOf = (metric: OperatorMetric): AnalyticsEngineDataPoint => {
       metric.result,
       metric.kind === "turn" ? metric.modelId : "",
       costBlob(usage),
+      "eventId" in metric ? metric.eventId : "",
     ],
     doubles: [
       metric.latencyMillis,

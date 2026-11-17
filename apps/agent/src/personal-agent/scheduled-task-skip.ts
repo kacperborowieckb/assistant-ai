@@ -62,13 +62,14 @@ const recordSkip = Effect.fnUntraced(function* recordSkip({
   const traces = yield* TurnTraces;
   const metrics = yield* OperatorMetrics;
 
-  const recorded = yield* traces.read;
-  if (recorded.some(({ trace }) => trace.eventId === event.eventId)) {
+  const recorded = yield* traces.readForEvent(event.eventId);
+  if (recorded.length > 0) {
     return;
   }
   yield* metrics.record({
     kind: "scheduled_task_skipped",
     ownerId,
+    eventId: event.eventId,
     result: "daily_token_budget_spent",
     latencyMillis,
   });
