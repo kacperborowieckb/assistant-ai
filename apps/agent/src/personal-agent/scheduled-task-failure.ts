@@ -3,6 +3,7 @@ import { Effect } from "effect";
 import { Journal } from "../journal/journal.ts";
 import type { RunPrompt } from "../schedule/schedule-action.ts";
 import { Schedules } from "../schedule/schedules.ts";
+import { Redactor } from "../tracing/redactor.ts";
 import type { InboxEvent, ScheduleFiredEvent } from "./inbox.ts";
 import { honestFailureText, sendHonestFailure } from "./turn-delivery.ts";
 
@@ -15,8 +16,12 @@ const nameOfPrompt = (prompt: string) => {
     : oneLine;
 };
 
-export const scheduledTaskFailureText = (prompt: string) =>
-  `Your Scheduled Task "${nameOfPrompt(prompt)}" did not run. I could not finish it this time.`;
+export const scheduledTaskFailureText = Effect.fnUntraced(
+  function* scheduledTaskFailureText(prompt: string) {
+    const redactor = yield* Redactor;
+    return `Your Scheduled Task "${nameOfPrompt(redactor.redact(prompt))}" did not run. I could not finish it this time.`;
+  }
+);
 
 export const honestFailureTextOf = Effect.fnUntraced(
   function* honestFailureTextOf(event: InboxEvent) {
@@ -27,7 +32,7 @@ export const honestFailureTextOf = Effect.fnUntraced(
     const schedule = yield* schedules.byId(event.scheduleId);
     return schedule._tag === "Some" &&
       schedule.value.action._tag === "RunPrompt"
-      ? scheduledTaskFailureText(schedule.value.action.prompt)
+      ? yield* scheduledTaskFailureText(schedule.value.action.prompt)
       : honestFailureText;
   }
 );
@@ -52,7 +57,10 @@ export const failScheduledTask = Effect.fnUntraced(function* failScheduledTask({
     reason,
   });
   yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
-  yield* sendHonestFailure(event, scheduledTaskFailureText(action.prompt));
+  yield* sendHonestFailure(
+    event,
+    yield* scheduledTaskFailureText(action.prompt)
+  );
 });
 
 export const completeScheduleOfUnsentFailure = Effect.fnUntraced(

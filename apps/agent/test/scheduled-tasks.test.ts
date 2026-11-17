@@ -20,6 +20,7 @@ import { Schedules } from "../src/schedule/schedules.ts";
 import type { SetScheduleRequest } from "../src/schedule/schedules.ts";
 import { setScheduleToolName } from "../src/schedule/set-schedule-tool.ts";
 import { localTimeOf } from "../src/time/local-time.ts";
+import { redactedMark } from "../src/tracing/redactor.ts";
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
 import {
   failModel,
@@ -564,5 +565,68 @@ describe("a Scheduled Task after a reset of the Durable Object", () => {
     expect(fakeModel.doGenerateCalls).toHaveLength(1);
     const [row] = await schedulesOf(ownerId);
     expect(row?.next_due_at).not.toBe(DateTime.formatIso(schedule.nextDueAt));
+  });
+});
+
+const secretPrompt = () => `check ${env.TELEGRAM_BOT_TOKEN} now`;
+
+const seedSecretPrompt = (ownerId: string) =>
+  inAgent(
+    ownerId,
+    Effect.gen(function* seedEffect() {
+      const schedules = yield* Schedules;
+      const now = yield* DateTime.now;
+      const { schedule } = yield* schedules.set({
+        action: { _tag: "RunPrompt", prompt: secretPrompt() },
+        setBy: "owner",
+        dueAt: DateTime.subtract(now, { seconds: 5 }),
+        sourceEventId: "seed-secret-prompt",
+      });
+      yield* (yield* ScheduleAlarm).rearm;
+      return schedule;
+    })
+  );
+
+describe("the failure message of a Scheduled Task with a secret in its prompt", () => {
+  const redactedFailureMessage = `Your Scheduled Task "check ${redactedMark} now" did not run. I could not finish it this time.`;
+
+  it("redacts the secret when the model fails", async () => {
+    const ownerId = await ownerInWarsaw(9419);
+    failModel(3);
+    await seedSecretPrompt(ownerId);
+
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2), {
+      timeout: 10_000,
+    });
+    expect(sentTexts()[1]).toBe(redactedFailureMessage);
+    expect(JSON.stringify(await journalOf(ownerId))).not.toContain(
+      env.TELEGRAM_BOT_TOKEN
+    );
+  });
+
+  it("redacts the secret when a reset comes after TurnFailed and before the send", async () => {
+    const ownerId = await ownerInWarsaw(9420);
+    const schedule = await seedSecretPrompt(ownerId);
+    await inAgent(ownerId, storeDueScheduleEvents);
+    const eventId = await eventIdOfFire(ownerId, schedule.scheduleId);
+    await inAgent(
+      ownerId,
+      Journal.pipe(
+        Effect.flatMap((journal) =>
+          journal.append({ _tag: "TurnFailed", eventId, reason: "model down" })
+        )
+      )
+    );
+
+    await abortAllDurableObjects();
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    expect(sentTexts()[1]).toBe(redactedFailureMessage);
+    expect(JSON.stringify(await journalOf(ownerId))).not.toContain(
+      env.TELEGRAM_BOT_TOKEN
+    );
   });
 });
