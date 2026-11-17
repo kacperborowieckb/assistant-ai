@@ -85,7 +85,8 @@
         "docs/decisions/0007-typed-queries-and-migrations.md",
         "docs/decisions/0013-schedules-and-time.md",
         "docs/decisions/0014-schedule-actions.md",
-        "docs/decisions/0015-scheduled-task-turn.md"
+        "docs/decisions/0015-scheduled-task-turn.md",
+        "docs/decisions/0016-scheduled-task-failure-and-lateness.md"
       ]
     },
     {

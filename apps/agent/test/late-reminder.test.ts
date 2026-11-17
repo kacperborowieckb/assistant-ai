@@ -6,6 +6,7 @@ import {
   isLate,
   lateByMillisOf,
   lateReminderText,
+  lateScheduledTaskText,
 } from "../src/schedule/late-reminder.ts";
 
 const due = DateTime.makeUnsafe("2027-01-14T08:00:00Z");
@@ -37,6 +38,18 @@ describe("the grace period of a Reminder", () => {
       )
     ).toBe(
       "This Reminder is late. It was due Thursday 2027-01-14, 09:00 (Europe/Warsaw): Buy the gift"
+    );
+  });
+
+  it("names a late Scheduled Task and gives the local due time", () => {
+    expect(
+      lateScheduledTaskText(
+        "Your tasks",
+        due,
+        DateTime.zoneMakeNamedUnsafe("Europe/Warsaw")
+      )
+    ).toBe(
+      "This Scheduled Task is late. It was due Thursday 2027-01-14, 09:00 (Europe/Warsaw): Your tasks"
     );
   });
 });

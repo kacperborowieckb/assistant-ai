@@ -1,10 +1,17 @@
-import { env, runInDurableObject } from "cloudflare:test";
+import {
+  abortAllDurableObjects,
+  env,
+  runInDurableObject,
+} from "cloudflare:test";
 import { DateTime, Effect } from "effect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { defaultBehaviorConfig } from "../src/behavior/behavior-config.ts";
 import { Journal } from "../src/journal/journal.ts";
 import { UsageLedger } from "../src/model-gateway/usage-ledger.ts";
+import { searchNotesToolName } from "../src/notes/search-notes-tool.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
+import { storeDueScheduleEvents } from "../src/personal-agent/due-schedule-events.ts";
 import type { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 import { OwnerPreferences } from "../src/preferences/owner-preferences.ts";
@@ -15,9 +22,11 @@ import { setScheduleToolName } from "../src/schedule/set-schedule-tool.ts";
 import { localTimeOf } from "../src/time/local-time.ts";
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
 import {
+  failModel,
   fakeMetrics,
   fakeModel,
   fakeTelegram,
+  holdModel,
   resetFakes,
   scriptModel,
 } from "./fakes.ts";
@@ -85,7 +94,8 @@ const ownerInWarsaw = async (telegramUserId: number) => {
 
 const seedScheduledTask = (
   ownerId: string,
-  repeat?: SetScheduleRequest["repeat"]
+  repeat?: SetScheduleRequest["repeat"],
+  dueAgo?: Partial<DateTime.DateTime.PartsForMath>
 ) =>
   inAgent(
     ownerId,
@@ -95,7 +105,7 @@ const seedScheduledTask = (
       const { schedule } = yield* schedules.set({
         action: { _tag: "RunPrompt", prompt },
         setBy: "owner",
-        dueAt: DateTime.subtract(now, { seconds: 5 }),
+        dueAt: DateTime.subtract(now, dueAgo ?? { seconds: 5 }),
         repeat,
         sourceEventId: "seed-scheduled-task",
       });
@@ -296,5 +306,258 @@ describe("set_schedule with the RunPrompt Action", () => {
     await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
     const [row] = await schedulesOf(ownerId);
     expect(row).toMatchObject({ action: "run_prompt", state: "active" });
+  });
+});
+
+const journalOf = (ownerId: string) =>
+  inAgent(
+    ownerId,
+    Journal.pipe(
+      Effect.flatMap((journal) => journal.read),
+      Effect.map((entries) => entries.map((entry) => entry.record))
+    )
+  );
+
+const journalTagsOf = (ownerId: string) =>
+  inAgent(
+    ownerId,
+    Journal.pipe(
+      Effect.flatMap((journal) => journal.read),
+      Effect.map((entries) => entries.map((entry) => entry.record._tag))
+    )
+  );
+
+const lastTraceOf = (ownerId: string) =>
+  inAgent(
+    ownerId,
+    TurnTraces.pipe(
+      Effect.flatMap((stored) => stored.read),
+      Effect.map((traces) => traces.at(-1)?.trace)
+    )
+  );
+
+const failureMessage = `Your Scheduled Task "${prompt}" did not run. I could not finish it this time.`;
+
+describe("a Scheduled Task that fails", () => {
+  it("sends the failure message, records the failure in the Trace, and moves a Daily Schedule to its next occurrence", async () => {
+    const ownerId = await ownerInWarsaw(9410);
+    failModel(3);
+    const schedule = await seedScheduledTask(ownerId, {
+      rule: { _tag: "Daily", time: "08:00" },
+      timeZone: DateTime.zoneMakeNamedUnsafe("Europe/Warsaw"),
+    });
+
+    await fireTheAlarm(ownerId);
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2), {
+      timeout: 10_000,
+    });
+    expect(sentTexts()[1]).toBe(failureMessage);
+    expect(fakeTelegram.sent[1]?.body.reply_parameters).toBeUndefined();
+    const [row] = await schedulesOf(ownerId);
+    expect(row?.state).toBe("active");
+    expect(row?.next_due_at).not.toBe(DateTime.formatIso(schedule.nextDueAt));
+    expect(
+      DateTime.isGreaterThan(
+        DateTime.makeUnsafe(row?.next_due_at ?? ""),
+        DateTime.nowUnsafe()
+      )
+    ).toBe(true);
+    expect(await lastTraceOf(ownerId)).toMatchObject({
+      task: "scheduled_task",
+      result: "scheduled_task_failed",
+      scheduleId: schedule.scheduleId,
+      reply: null,
+    });
+    expect(await journalOf(ownerId)).toContainEqual(
+      expect.objectContaining({ _tag: "TurnFailed" })
+    );
+    expect(sentTexts()).toHaveLength(2);
+  });
+
+  it("marks a one-time Scheduled Task done after the failure message", async () => {
+    const ownerId = await ownerInWarsaw(9411);
+    failModel(3);
+    await seedScheduledTask(ownerId);
+
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2), {
+      timeout: 10_000,
+    });
+    const [row] = await schedulesOf(ownerId);
+    expect(row?.state).toBe("done");
+  });
+
+  it("sends the failure message when the model reaches the step limit", async () => {
+    const ownerId = await ownerInWarsaw(9412);
+    await seedScheduledTask(ownerId);
+    scriptModel(
+      Array.from({ length: defaultBehaviorConfig.maxToolSteps + 4 }, () => ({
+        callTool: searchNotesToolName,
+        input: { query: "tasks" },
+      }))
+    );
+
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2), {
+      timeout: 10_000,
+    });
+    expect(sentTexts()[1]).toBe(failureMessage);
+    expect(await lastTraceOf(ownerId)).toMatchObject({
+      result: "scheduled_task_failed",
+    });
+  });
+
+  it("names a long prompt in a shortened form", async () => {
+    const ownerId = await ownerInWarsaw(9413);
+    const longPrompt = `${"a".repeat(100)} end`;
+    failModel(3);
+    await inAgent(
+      ownerId,
+      Effect.gen(function* seedEffect() {
+        const schedules = yield* Schedules;
+        const now = yield* DateTime.now;
+        yield* schedules.set({
+          action: { _tag: "RunPrompt", prompt: longPrompt },
+          setBy: "owner",
+          dueAt: DateTime.subtract(now, { seconds: 5 }),
+          sourceEventId: "seed-long-prompt",
+        });
+        yield* (yield* ScheduleAlarm).rearm;
+      })
+    );
+
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2), {
+      timeout: 10_000,
+    });
+    expect(sentTexts()[1]).toBe(
+      `Your Scheduled Task "${"a".repeat(80)}..." did not run. I could not finish it this time.`
+    );
+  });
+});
+
+describe("a late Scheduled Task", () => {
+  it("sends the result with no late text inside the grace period", async () => {
+    const ownerId = await ownerInWarsaw(9414);
+    await seedScheduledTask(ownerId, undefined, { minutes: 4 });
+
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    expect(sentTexts()[1]).toBe(`You said: ${prompt}`);
+    expect(await journalTagsOf(ownerId)).not.toContain("ReminderLate");
+  });
+
+  it("starts the result with the late text after the grace period", async () => {
+    const ownerId = await ownerInWarsaw(9415);
+    const schedule = await seedScheduledTask(ownerId, undefined, { hours: 2 });
+    const dueLocal = localTimeOf(
+      schedule.nextDueAt,
+      DateTime.zoneMakeNamedUnsafe("Europe/Warsaw")
+    );
+
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    expect(sentTexts()[1]).toBe(
+      `This Scheduled Task is late. It was due ${dueLocal} (Europe/Warsaw): You said: ${prompt}`
+    );
+    expect(await journalTagsOf(ownerId)).toContain("ReminderLate");
+  });
+});
+
+const eventIdOfFire = async (ownerId: string, scheduleId: string) => {
+  const entries = await journalOf(ownerId);
+  const fired = entries.find(
+    (record) =>
+      record._tag === "ScheduleFired" && record.scheduleId === scheduleId
+  );
+  return fired?.eventId ?? "";
+};
+
+describe("a Scheduled Task after a reset of the Durable Object", () => {
+  it("sends no second message when the reset comes after the SendStarted Journal Entry", async () => {
+    const ownerId = await ownerInWarsaw(9416);
+    const schedule = await seedScheduledTask(ownerId);
+    await inAgent(ownerId, storeDueScheduleEvents);
+    const eventId = await eventIdOfFire(ownerId, schedule.scheduleId);
+    await inAgent(
+      ownerId,
+      Journal.pipe(
+        Effect.flatMap((journal) =>
+          Effect.gen(function* startedEffect() {
+            yield* journal.append({
+              _tag: "ReplyPlanned",
+              eventId,
+              text: "maybe sent",
+            });
+            yield* journal.append({ _tag: "SendStarted", eventId });
+          })
+        )
+      )
+    );
+
+    await abortAllDurableObjects();
+    await fireTheAlarm(ownerId);
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(async () =>
+      expect(await journalTagsOf(ownerId)).toContain("ReplyFailed")
+    );
+    expect(sentTexts()).toEqual(["You said: hi"]);
+    expect(fakeModel.doGenerateCalls).toHaveLength(1);
+  });
+
+  it("continues from the recorded steps and sends one message when the reset comes before the model call finishes", async () => {
+    const ownerId = await ownerInWarsaw(9417);
+    await seedScheduledTask(ownerId);
+    scriptModel([
+      { callTool: searchNotesToolName, input: { query: "tasks" } },
+      { say: "Your tasks are done" },
+    ]);
+    const callsBefore = fakeModel.doGenerateCalls.length;
+    const release = holdModel(callsBefore + 1);
+
+    await fireTheAlarm(ownerId);
+    await vi.waitFor(() =>
+      expect(fakeModel.doGenerateCalls.length).toBe(callsBefore + 2)
+    );
+    await abortAllDurableObjects();
+    release();
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    expect(sentTexts()[1]).toBe("Your tasks are done");
+    await fireTheAlarm(ownerId);
+    expect(fakeTelegram.sent).toHaveLength(2);
+    const prompts = JSON.stringify(lastModelCall().prompt);
+    expect(prompts).toContain("tool-result");
+  });
+
+  it("sends the failure message of the task when the reset comes after TurnFailed and before the send", async () => {
+    const ownerId = await ownerInWarsaw(9418);
+    const schedule = await seedScheduledTask(ownerId);
+    await inAgent(ownerId, storeDueScheduleEvents);
+    const eventId = await eventIdOfFire(ownerId, schedule.scheduleId);
+    await inAgent(
+      ownerId,
+      Journal.pipe(
+        Effect.flatMap((journal) =>
+          journal.append({ _tag: "TurnFailed", eventId, reason: "model down" })
+        )
+      )
+    );
+
+    await abortAllDurableObjects();
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    expect(sentTexts()[1]).toBe(failureMessage);
+    expect(fakeModel.doGenerateCalls).toHaveLength(1);
   });
 });
