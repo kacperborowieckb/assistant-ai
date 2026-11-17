@@ -12,7 +12,7 @@ import {
   LocalDueTimeSchema,
 } from "../time/local-due-time.ts";
 import { RecurrenceRuleSchema } from "../time/recurrence-rule.ts";
-import { scheduledTaskLimitMessage } from "./active-scheduled-task-limit-reached.ts";
+import { refuseAtScheduledTaskLimit } from "./active-scheduled-task-limit-reached.ts";
 import { ScheduleActionInputSchema } from "./schedule-action-input.ts";
 import { resolveScheduleDue } from "./schedule-due.ts";
 import { scheduleOf } from "./schedule-presentation.ts";
@@ -130,17 +130,7 @@ export const setScheduleTool = (
                 sourceEventId: eventId,
                 activeScheduledTaskLimit: maxActiveScheduledTasks,
               })
-              .pipe(
-                Effect.catchTag(
-                  "ActiveScheduledTaskLimitReached",
-                  ({ limit }) =>
-                    Effect.fail(
-                      new ToolFailed({
-                        message: scheduledTaskLimitMessage(limit),
-                      })
-                    )
-                )
-              );
+              .pipe(refuseAtScheduledTaskLimit);
             return {
               ...scheduleOf(stored, timeZone.value),
               timeZone: DateTime.zoneToString(timeZone.value),

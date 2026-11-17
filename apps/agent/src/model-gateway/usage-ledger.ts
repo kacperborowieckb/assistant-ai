@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, sum } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { OwnerIdSchema } from "../owner-id.ts";
@@ -74,7 +74,8 @@ const makeUsageLedger = (ownerId: OwnerId) =>
     const tokensSpent = (task: ModelTask, since: DateTime.Utc) =>
       database
         .select({
-          tokens: sql<number>`coalesce(sum(coalesce(${modelUsage.inputTokens}, 0) + coalesce(${modelUsage.outputTokens}, 0)), 0)`,
+          input: sum(modelUsage.inputTokens),
+          output: sum(modelUsage.outputTokens),
         })
         .from(modelUsage)
         .where(
@@ -84,7 +85,11 @@ const makeUsageLedger = (ownerId: OwnerId) =>
             gte(modelUsage.recordedAt, DateTime.formatIso(since))
           )
         )
-        .pipe(Effect.map(([row]) => row?.tokens ?? 0));
+        .pipe(
+          Effect.map(
+            ([row]) => Number(row?.input ?? 0) + Number(row?.output ?? 0)
+          )
+        );
 
     const read = database
       .select()

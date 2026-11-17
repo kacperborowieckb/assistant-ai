@@ -11,7 +11,7 @@ import {
   LocalDueTimeSchema,
 } from "../time/local-due-time.ts";
 import { RecurrenceRuleSchema } from "../time/recurrence-rule.ts";
-import { scheduledTaskLimitMessage } from "./active-scheduled-task-limit-reached.ts";
+import { refuseAtScheduledTaskLimit } from "./active-scheduled-task-limit-reached.ts";
 import { ScheduleActionInputSchema } from "./schedule-action-input.ts";
 import { resolveScheduleDue } from "./schedule-due.ts";
 import {
@@ -145,17 +145,7 @@ export const changeScheduleTool = (
                 eventId,
                 activeScheduledTaskLimit: maxActiveScheduledTasks,
               })
-              .pipe(
-                Effect.catchTag(
-                  "ActiveScheduledTaskLimitReached",
-                  ({ limit }) =>
-                    Effect.fail(
-                      new ToolFailed({
-                        message: scheduledTaskLimitMessage(limit),
-                      })
-                    )
-                )
-              );
+              .pipe(refuseAtScheduledTaskLimit);
             if (result._tag === "None") {
               return yield* new ToolFailed({
                 message: noActiveScheduleMessage(scheduleId),

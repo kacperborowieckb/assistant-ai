@@ -685,6 +685,40 @@ describe("the daily Token Budget of Scheduled Tasks", () => {
     });
   });
 
+  it("sends the skip message and moves the Schedule on when the reset comes after ScheduledTaskSkipped and before the send", async () => {
+    const ownerId = await ownerInWarsaw(9448);
+    const schedule = await seedScheduledTask(ownerId, {
+      rule: { _tag: "Daily", time: "08:00" },
+      timeZone: DateTime.zoneMakeNamedUnsafe("Europe/Warsaw"),
+    });
+    await inAgent(ownerId, storeDueScheduleEvents);
+    const eventId = await eventIdOfFire(ownerId, schedule.scheduleId);
+    await inAgent(
+      ownerId,
+      Journal.pipe(
+        Effect.flatMap((journal) =>
+          journal.append({
+            _tag: "ScheduledTaskSkipped",
+            eventId,
+            scheduleId: schedule.scheduleId,
+            dueAt: DateTime.formatIso(schedule.nextDueAt),
+          })
+        )
+      )
+    );
+
+    await abortAllDurableObjects();
+    await fireTheAlarm(ownerId);
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    expect(sentTexts()[1]).toBe(skipMessage);
+    expect(fakeModel.doGenerateCalls).toHaveLength(1);
+    const [row] = await schedulesOf(ownerId);
+    expect(row?.next_due_at).not.toBe(DateTime.formatIso(schedule.nextDueAt));
+    expect(fakeTelegram.sent).toHaveLength(2);
+  });
+
   it("completes a one-time Scheduled Task that is skipped", async () => {
     const ownerId = await ownerInWarsaw(9441);
     await recordUsage(ownerId, "scheduled_task", scheduledTaskDailyTokenBudget);
