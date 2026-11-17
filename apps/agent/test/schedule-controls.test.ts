@@ -2,6 +2,7 @@ import { env, runInDurableObject } from "cloudflare:test";
 import { DateTime, Effect } from "effect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { defaultBehaviorConfig } from "../src/behavior/behavior-config.ts";
 import { Journal } from "../src/journal/journal.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
 import { storeDueScheduleEvents } from "../src/personal-agent/due-schedule-events.ts";
@@ -33,6 +34,7 @@ type ControlServices =
 
 interface ScheduleRow extends Record<string, SqlStorageValue> {
   schedule_id: string;
+  action: string;
   text: string;
   next_due_at: string;
   state: string;
@@ -58,7 +60,7 @@ const schedulesOf = async (ownerId: string) =>
   runInDurableObject(await agentOf(ownerId), (_, state) =>
     state.storage.sql
       .exec<ScheduleRow>(
-        "SELECT schedule_id, text, next_due_at, state FROM schedules ORDER BY next_due_at"
+        "SELECT schedule_id, action, text, next_due_at, state FROM schedules ORDER BY next_due_at"
       )
       .toArray()
   );
@@ -134,6 +136,41 @@ const seedReminder = (ownerId: string, text: string, dueAt: DateTime.Utc) =>
     })
   );
 
+const seedScheduledTask = (
+  ownerId: string,
+  prompt: string,
+  dueAt: DateTime.Utc
+) =>
+  inAgent(
+    ownerId,
+    Effect.gen(function* seedEffect() {
+      const schedules = yield* Schedules;
+      yield* schedules.set({
+        action: { _tag: "RunPrompt", prompt },
+        setBy: "owner",
+        dueAt,
+        sourceEventId: `seed-${prompt}`,
+      });
+      yield* (yield* ScheduleAlarm).rearm;
+    })
+  );
+
+const scheduleJournalOf = (ownerId: string) =>
+  inAgent(
+    ownerId,
+    Journal.pipe(
+      Effect.flatMap((journal) => journal.read),
+      Effect.map((entries) =>
+        entries.flatMap(({ record }) =>
+          record._tag === "ScheduleChanged" ||
+          record._tag === "ScheduleCancelled"
+            ? [{ tag: record._tag, scheduleId: record.scheduleId }]
+            : []
+        )
+      )
+    )
+  );
+
 const dueSecondsAgo = (seconds: number) =>
   DateTime.subtract(DateTime.nowUnsafe(), { seconds });
 
@@ -145,7 +182,6 @@ const changeAt = async (ownerId: string, text: string, dueAt: DateTime.Utc) => {
       const schedules = yield* Schedules;
       yield* schedules.change({
         scheduleId,
-        actionTag: "SendText",
         dueAt,
         eventId: "setup",
       });
@@ -200,7 +236,6 @@ describe("list_schedules", () => {
         );
         yield* schedules.cancel({
           scheduleId: dropped.schedule_id,
-          actionTag: "SendText",
           eventId: "setup",
         });
       })
@@ -309,7 +344,6 @@ describe("change_schedule", () => {
         );
         yield* schedules.cancel({
           scheduleId: dropped.schedule_id,
-          actionTag: "SendText",
           eventId: "setup",
         });
       })
@@ -467,7 +501,6 @@ describe("cancel_schedule", () => {
         const schedules = yield* Schedules;
         yield* schedules.cancel({
           scheduleId,
-          actionTag: "SendText",
           eventId: "setup",
         });
         yield* (yield* ScheduleAlarm).rearm;
@@ -537,5 +570,186 @@ describe("the Reminder controls", () => {
     ]) {
       expect(forwardedTools).not.toContain(name);
     }
+  });
+});
+
+describe("Scheduled Tasks in the Schedule controls", () => {
+  it("lists a Reminder and a Scheduled Task, each with its Action", async () => {
+    const ownerId = await ownerInWarsaw(9140);
+    await seedReminder(ownerId, "gift", utc("01-14T08:00:00.000"));
+    await seedScheduledTask(
+      ownerId,
+      "list my tasks",
+      utc("02-01T08:00:00.000")
+    );
+    scriptModel([
+      { callTool: listSchedulesToolName, input: {} },
+      { say: "Here" },
+    ]);
+
+    await askAndWaitForReply(9140, "what is scheduled?");
+
+    const [call] = await toolCallsOf(ownerId);
+    expect(call?.failed).toBe(false);
+    expect(call?.output).toContain(
+      '"action":{"_tag":"SendText","text":"gift"}'
+    );
+    expect(call?.output).toContain(
+      '"action":{"_tag":"RunPrompt","prompt":"list my tasks"}'
+    );
+  });
+
+  it("changes the prompt of a Scheduled Task, and the next fire uses the new prompt", async () => {
+    const ownerId = await ownerInWarsaw(9141);
+    await seedScheduledTask(
+      ownerId,
+      "list my tasks",
+      utc("06-01T08:00:00.000")
+    );
+    const { schedule_id: scheduleId } = await rowOf(ownerId, "list my tasks");
+    scriptModel([
+      {
+        callTool: changeScheduleToolName,
+        input: {
+          scheduleId,
+          action: { _tag: "RunPrompt", prompt: "list my notes" },
+        },
+      },
+      { say: "Changed" },
+    ]);
+    await askAndWaitForReply(9141, "list notes instead");
+    const sentBefore = fakeTelegram.sent.length;
+    await changeAt(ownerId, "list my notes", dueSecondsAgo(5));
+
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() =>
+      expect(sentTexts().slice(sentBefore)).toContain("You said: list my notes")
+    );
+    expect(await journalTagsOf(ownerId)).toContain("ScheduleChanged");
+    expect(await scheduleJournalOf(ownerId)).toContainEqual({
+      tag: "ScheduleChanged",
+      scheduleId,
+    });
+  });
+
+  it("changes a SendText Schedule into a Scheduled Task, and the next fire runs the prompt", async () => {
+    const ownerId = await ownerInWarsaw(9142);
+    await seedReminder(ownerId, "gift", utc("06-01T08:00:00.000"));
+    const { schedule_id: scheduleId } = await rowOf(ownerId, "gift");
+    scriptModel([
+      {
+        callTool: changeScheduleToolName,
+        input: {
+          scheduleId,
+          action: { _tag: "RunPrompt", prompt: "list my tasks" },
+        },
+      },
+      { say: "Changed" },
+    ]);
+    await askAndWaitForReply(9142, "make it a task");
+    const sentBefore = fakeTelegram.sent.length;
+    await changeAt(ownerId, "list my tasks", dueSecondsAgo(5));
+
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() =>
+      expect(sentTexts().slice(sentBefore)).toContain("You said: list my tasks")
+    );
+    expect(await rowOf(ownerId, "list my tasks")).toMatchObject({
+      action: "run_prompt",
+    });
+  });
+
+  it("changes a Scheduled Task into a SendText Schedule, and the next fire sends the text with no model call", async () => {
+    const ownerId = await ownerInWarsaw(9143);
+    await seedScheduledTask(
+      ownerId,
+      "list my tasks",
+      utc("06-01T08:00:00.000")
+    );
+    const { schedule_id: scheduleId } = await rowOf(ownerId, "list my tasks");
+    scriptModel([
+      {
+        callTool: changeScheduleToolName,
+        input: {
+          scheduleId,
+          action: { _tag: "SendText", text: "Check your tasks" },
+        },
+      },
+      { say: "Changed" },
+    ]);
+    await askAndWaitForReply(9143, "just remind me");
+    const sentBefore = fakeTelegram.sent.length;
+    await changeAt(ownerId, "Check your tasks", dueSecondsAgo(5));
+    const callsBefore = fakeModel.doGenerateCalls.length;
+
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() =>
+      expect(sentTexts().slice(sentBefore)).toContain("Check your tasks")
+    );
+    expect(fakeModel.doGenerateCalls).toHaveLength(callsBefore);
+    expect(await rowOf(ownerId, "Check your tasks")).toMatchObject({
+      action: "send_text",
+    });
+  });
+
+  it("changes the prompt of a Scheduled Task at the limit of active Scheduled Tasks", async () => {
+    const ownerId = await ownerInWarsaw(9144);
+    const { maxActiveScheduledTasks } = defaultBehaviorConfig;
+    await Promise.all(
+      Array.from({ length: maxActiveScheduledTasks }, (_, index) =>
+        seedScheduledTask(
+          ownerId,
+          `Task ${index}`,
+          utc(`03-${String(index + 1).padStart(2, "0")}T08:00:00.000`)
+        )
+      )
+    );
+    const { schedule_id: scheduleId } = await rowOf(ownerId, "Task 0");
+    scriptModel([
+      {
+        callTool: changeScheduleToolName,
+        input: {
+          scheduleId,
+          action: { _tag: "RunPrompt", prompt: "Reworded task" },
+        },
+      },
+      { say: "Changed" },
+    ]);
+
+    await askAndWaitForReply(9144, "reword the first task");
+
+    const [call] = await toolCallsOf(ownerId);
+    expect(call?.failed).toBe(false);
+    expect(await rowOf(ownerId, "Reworded task")).toMatchObject({
+      state: "active",
+    });
+  });
+
+  it("cancels a Scheduled Task, and it does not fire", async () => {
+    const ownerId = await ownerInWarsaw(9145);
+    await seedScheduledTask(ownerId, "list my tasks", dueSecondsAgo(5));
+    const { schedule_id: scheduleId } = await rowOf(ownerId, "list my tasks");
+    scriptModel([
+      { callTool: cancelScheduleToolName, input: { scheduleId } },
+      { say: "Cancelled" },
+    ]);
+    await askAndWaitForReply(9145, "cancel the task");
+    const sentBefore = fakeTelegram.sent.length;
+    const callsBefore = fakeModel.doGenerateCalls.length;
+
+    await fireTheAlarm(ownerId);
+
+    expect(await rowOf(ownerId, "list my tasks")).toMatchObject({
+      state: "cancelled",
+    });
+    expect(sentTexts().slice(sentBefore)).toEqual([]);
+    expect(fakeModel.doGenerateCalls).toHaveLength(callsBefore);
+    expect(await scheduleJournalOf(ownerId)).toContainEqual({
+      tag: "ScheduleCancelled",
+      scheduleId,
+    });
   });
 });
