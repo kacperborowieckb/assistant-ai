@@ -3,6 +3,7 @@ import { Effect } from "effect";
 import { Journal } from "../journal/journal.ts";
 import type { JournalEntry, JournalRecord } from "../journal/journal.ts";
 import type { OwnerId } from "../owner-id.ts";
+import { Redactor } from "../tracing/redactor.ts";
 import { Conversation } from "./conversation.ts";
 import { inputMessageOf } from "./event-message.ts";
 import { Inbox } from "./inbox.ts";
@@ -26,6 +27,7 @@ const recordConversation = (
   Effect.gen(function* recordConversationEffect() {
     const conversation = yield* Conversation;
     const progress = yield* TurnProgress;
+    const redactor = yield* Redactor;
     const earlier = yield* progress.completedFor(event.eventId);
     const tags = tagsOf(entries);
     const planned = entries.findLast(
@@ -40,7 +42,7 @@ const recordConversation = (
 
     if (earlier.length + reply.length > 0) {
       yield* conversation.append(event.eventId, [
-        yield* inputMessageOf(event),
+        redactor.redactMessage(yield* inputMessageOf(event)),
         ...earlier,
         ...reply,
       ]);

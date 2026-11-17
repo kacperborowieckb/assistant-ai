@@ -341,6 +341,57 @@ describe("the Conversation history of a skipped or failed Scheduled Task", () =>
     );
   });
 
+  it("saves no secret from the prompt when the reset comes after the confirmed send of a skip notice", async () => {
+    const ownerId = await ownerInWarsaw(9455);
+    const schedule = await seedSecretPrompt(ownerId);
+    await inAgent(ownerId, storeDueScheduleEvents);
+    const eventId = await eventIdOfFire(ownerId, schedule.scheduleId);
+    await inAgent(
+      ownerId,
+      Journal.pipe(
+        Effect.flatMap((journal) =>
+          Effect.gen(function* confirmedSkipEffect() {
+            yield* journal.append({
+              _tag: "ScheduledTaskSkipped",
+              eventId,
+              scheduleId: schedule.scheduleId,
+              dueAt: DateTime.formatIso(schedule.nextDueAt),
+              dailyTokenBudget: scheduledTaskDailyTokenBudget,
+              tokensSpent: scheduledTaskDailyTokenBudget,
+            });
+            yield* journal.append({
+              _tag: "ReplyPlanned",
+              eventId,
+              text: "skipped",
+            });
+            yield* journal.append({ _tag: "SendStarted", eventId });
+            yield* journal.append({
+              _tag: "ReplySent",
+              eventId,
+              channelMessageId: "9000",
+            });
+          })
+        )
+      )
+    );
+    await abortAllDurableObjects();
+    await fireTheAlarm(ownerId);
+
+    const saved = async () =>
+      runInDurableObject(await agentOf(ownerId), (_, state) =>
+        state.storage.sql
+          .exec<{ message: string }>(
+            "SELECT message FROM conversation_messages"
+          )
+          .toArray()
+          .map((row) => row.message)
+          .join(" ")
+      );
+    await vi.waitFor(async () => expect(await saved()).toContain("skipped"));
+    expect(await saved()).toContain(redactedMark);
+    expect(await saved()).not.toContain(env.TELEGRAM_BOT_TOKEN);
+  });
+
   it("keeps the skip notice in the history when the reset comes after the skip decision", async () => {
     const ownerId = await ownerInWarsaw(9452);
     const schedule = await seedScheduledTask(ownerId);
