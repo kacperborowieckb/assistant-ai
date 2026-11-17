@@ -10,9 +10,9 @@ Spec #66 (Schedule Actions), ticket #70. Builds on [0014](0014-schedule-actions.
 
 - **Failure message.** When the model fails or reaches the step limit, code sends one message. It names the Scheduled Task by its prompt, cut at 80 characters. It says that the task did not run.
 - **Schedule after a failure.** The failure completes the Schedule at once. A one-time Scheduled Task becomes `done`. A repeating one moves to its next occurrence.
-- **Trace.** The Trace has the result `scheduled_task_failed` and the error. The Journal has a `TurnFailed` entry before the message.
-- **Lateness.** The grace period `reminderGraceMillis` applies. After it, the result starts with `This Scheduled Task is late. It was due <local time> (<time zone>): `. A `ReminderLate` Journal Entry records it.
-- **Reset.** A reset after `TurnFailed` and before the send makes code send the failure message of the task. A reset after `SendStarted` sends no second message.
+- **Trace.** The Trace of a failed model call has the result `scheduled_task_failed` and the error. A Turn that finds the step limit already used after a reset writes no Trace, as a reply Turn does. The Journal has a `TurnFailed` entry before the message.
+- **Lateness.** The grace period `reminderGraceMillis` applies. After it, the result starts with `This Scheduled Task is late. It was due <local time> (<time zone>): `. A `ReminderLate` Journal Entry records it. A failure message has no late text, because it already says that the task did not run.
+- **Reset.** A reset after `TurnFailed` and before the send makes code send the failure message of the task. A reset after `SendStarted` sends no second message. A reset between `TurnFailed` and the completion of the Schedule completes it on the next Turn.
 
 ## Why
 

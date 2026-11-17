@@ -54,3 +54,27 @@ export const failScheduledTask = Effect.fnUntraced(function* failScheduledTask({
   yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
   yield* sendHonestFailure(event, scheduledTaskFailureText(action.prompt));
 });
+
+export const completeScheduleOfUnsentFailure = Effect.fnUntraced(
+  function* completeScheduleOfUnsentFailure(event: ScheduleFiredEvent) {
+    const journal = yield* Journal;
+    const schedules = yield* Schedules;
+    const tags = new Set(
+      (yield* journal.readForEvent(event.eventId)).map(
+        (entry) => entry.record._tag
+      )
+    );
+    const failureWaitsForSend =
+      tags.has("TurnFailed") &&
+      !tags.has("SendStarted") &&
+      !tags.has("ReplyFailed");
+    const schedule = yield* schedules.byId(event.scheduleId);
+    if (
+      failureWaitsForSend &&
+      schedule._tag === "Some" &&
+      schedule.value.action._tag === "RunPrompt"
+    ) {
+      yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
+    }
+  }
+);

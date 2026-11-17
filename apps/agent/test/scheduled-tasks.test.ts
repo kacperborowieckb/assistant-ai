@@ -541,7 +541,10 @@ describe("a Scheduled Task after a reset of the Durable Object", () => {
 
   it("sends the failure message of the task when the reset comes after TurnFailed and before the send", async () => {
     const ownerId = await ownerInWarsaw(9418);
-    const schedule = await seedScheduledTask(ownerId);
+    const schedule = await seedScheduledTask(ownerId, {
+      rule: { _tag: "Daily", time: "08:00" },
+      timeZone: DateTime.zoneMakeNamedUnsafe("Europe/Warsaw"),
+    });
     await inAgent(ownerId, storeDueScheduleEvents);
     const eventId = await eventIdOfFire(ownerId, schedule.scheduleId);
     await inAgent(
@@ -559,5 +562,7 @@ describe("a Scheduled Task after a reset of the Durable Object", () => {
     await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
     expect(sentTexts()[1]).toBe(failureMessage);
     expect(fakeModel.doGenerateCalls).toHaveLength(1);
+    const [row] = await schedulesOf(ownerId);
+    expect(row?.next_due_at).not.toBe(DateTime.formatIso(schedule.nextDueAt));
   });
 });
