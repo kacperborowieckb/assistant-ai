@@ -9,7 +9,11 @@ import { Inbox } from "./inbox.ts";
 import type { InboxEvent } from "./inbox.ts";
 import { honestFailureTextOf } from "./scheduled-task-failure.ts";
 import { resumeSkippedScheduledTask } from "./scheduled-task-skip.ts";
-import { recordTurnFailed, sendHonestFailure } from "./turn-delivery.ts";
+import {
+  recordTurnFailed,
+  rememberFailureNotice,
+  sendHonestFailure,
+} from "./turn-delivery.ts";
 import { TurnProgress } from "./turn-progress.ts";
 
 const tagsOf = (entries: readonly JournalEntry[]) =>
@@ -72,6 +76,12 @@ const settleEntries = (
       if (!tags.has("SendStarted") && !tags.has("ReplyFailed")) {
         yield* sendHonestFailure(event, yield* honestFailureTextOf(event));
         return "settled" as const;
+      }
+      const notice = entries.findLast(
+        (entry) => entry.record._tag === "ReplyPlanned"
+      );
+      if (tags.has("ReplySent") && notice?.record._tag === "ReplyPlanned") {
+        yield* rememberFailureNotice(event, notice.record.text);
       }
       if (!tags.has("ReplySent") && !tags.has("ReplyFailed")) {
         yield* journal.append({

@@ -286,6 +286,61 @@ describe("the Conversation history of a skipped or failed Scheduled Task", () =>
     );
   });
 
+  it("keeps the failure notice in the history when the reset comes after the send was confirmed", async () => {
+    const ownerId = await ownerInWarsaw(9454);
+    const schedule = await seedScheduledTask(ownerId);
+    await inAgent(ownerId, storeDueScheduleEvents);
+    const eventId = await eventIdOfFire(ownerId, schedule.scheduleId);
+    await inAgent(
+      ownerId,
+      Journal.pipe(
+        Effect.flatMap((journal) =>
+          Effect.gen(function* confirmedFailureEffect() {
+            yield* journal.append({
+              _tag: "TurnFailed",
+              eventId,
+              reason: "model down",
+            });
+            yield* journal.append({
+              _tag: "ReplyPlanned",
+              eventId,
+              text: failureMessage,
+            });
+            yield* journal.append({ _tag: "SendStarted", eventId });
+            yield* journal.append({
+              _tag: "ReplySent",
+              eventId,
+              channelMessageId: "9000",
+            });
+          })
+        )
+      )
+    );
+    await abortAllDurableObjects();
+    await fireTheAlarm(ownerId);
+    await vi.waitFor(async () =>
+      expect(
+        await runInDurableObject(await agentOf(ownerId), (_, state) =>
+          state.storage.sql
+            .exec(
+              "SELECT event_id FROM conversation_recorded_events WHERE event_id = ?",
+              `${eventId}:failure-notice`
+            )
+            .toArray()
+        )
+      ).toHaveLength(1)
+    );
+
+    await telegramWebhook(
+      textUpdate({ fromUserId: 9454, text: "what happened?" })
+    );
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    expect(JSON.stringify(lastModelCall().prompt)).toContain(
+      jsonTextOf(failureMessage)
+    );
+  });
+
   it("keeps the skip notice in the history when the reset comes after the skip decision", async () => {
     const ownerId = await ownerInWarsaw(9452);
     const schedule = await seedScheduledTask(ownerId);

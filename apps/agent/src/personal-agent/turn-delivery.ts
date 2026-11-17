@@ -83,19 +83,27 @@ export const recordTurnFailed = (event: InboxEvent, reason: string) =>
     yield* inbox.markFailed([event]);
   });
 
+export const rememberFailureNotice = (event: InboxEvent, text: string) =>
+  Conversation.pipe(
+    Effect.flatMap((conversation) =>
+      event._tag === "ScheduleFired"
+        ? conversation.append(`${event.eventId}:failure-notice`, [
+            { role: "assistant", content: text },
+          ])
+        : Effect.void
+    )
+  );
+
 export const sendHonestFailure = (
   event: InboxEvent,
   text: string = honestFailureText
 ) =>
   Effect.gen(function* sendHonestFailureEffect() {
     const inbox = yield* Inbox;
-    const conversation = yield* Conversation;
 
     const delivery = yield* deliver(event, text);
-    if (event._tag === "ScheduleFired" && delivery._tag !== "Failed") {
-      yield* conversation.append(`${event.eventId}:failure-notice`, [
-        { role: "assistant", content: text },
-      ]);
+    if (delivery._tag !== "Failed") {
+      yield* rememberFailureNotice(event, text);
     }
     yield* inbox.markFailed([event]);
   });
