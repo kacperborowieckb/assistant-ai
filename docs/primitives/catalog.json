@@ -39,7 +39,8 @@
         "docs/decisions/0007-typed-queries-and-migrations.md",
         "docs/decisions/0008-workers-paid-plan.md",
         "docs/decisions/0009-agent-loop-and-client-boundaries.md",
-        "docs/decisions/0013-schedules-and-time.md"
+        "docs/decisions/0013-schedules-and-time.md",
+        "docs/decisions/0017-scheduled-task-limits.md"
       ]
     },
     {
