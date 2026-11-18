@@ -93,7 +93,10 @@ describe("the Delivery state of an Event", () => {
   });
 
   it("is Unconfirmed after a reset that follows SendStarted", () => {
-    expect(stateAfter(planned, started)).toEqual({ _tag: "Unconfirmed" });
+    expect(stateAfter(planned, started)).toEqual({
+      _tag: "Unconfirmed",
+      text: "planned text",
+    });
   });
 
   it("is FailedNoticePending after TurnFailed and before the notice is sent", () => {
@@ -129,6 +132,7 @@ describe("the Delivery state of an Event", () => {
   it("is FailedNoticeUnconfirmed after a reset that follows the start of the notice send", () => {
     expect(stateAfter(turnFailed, planned, started)).toEqual({
       _tag: "FailedNoticeUnconfirmed",
+      text: "planned text",
     });
   });
 });
@@ -259,7 +263,10 @@ describe("Delivery through its interface", () => {
       })
     );
 
-    expect(states.unconfirmed).toEqual({ _tag: "Unconfirmed" });
+    expect(states.unconfirmed).toEqual({
+      _tag: "Unconfirmed",
+      text: "the reply",
+    });
     expect(states.settled).toMatchObject({
       _tag: "FailedNoticeRefused",
       reason: unconfirmedSendReason,

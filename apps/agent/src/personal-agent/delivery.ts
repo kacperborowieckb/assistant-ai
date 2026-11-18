@@ -34,7 +34,7 @@ export type DeliveryState =
       readonly text: string | undefined;
       readonly reason: string;
     }
-  | { readonly _tag: "Unconfirmed" }
+  | { readonly _tag: "Unconfirmed"; readonly text: string | undefined }
   | { readonly _tag: "FailedNoticePending" }
   | { readonly _tag: "FailedNoticeSent"; readonly text: string }
   | {
@@ -42,7 +42,10 @@ export type DeliveryState =
       readonly text: string | undefined;
       readonly reason: string;
     }
-  | { readonly _tag: "FailedNoticeUnconfirmed" };
+  | {
+      readonly _tag: "FailedNoticeUnconfirmed";
+      readonly text: string | undefined;
+    };
 
 const lastOf = <Tag extends JournalEntry["record"]["_tag"]>(
   entries: readonly JournalEntry[],
@@ -77,7 +80,7 @@ export const deliveryStateOfEntries = (
         reason: turnFailed.reason,
       };
     }
-    return { _tag: "FailedNoticeUnconfirmed" };
+    return { _tag: "FailedNoticeUnconfirmed", text: planned?.text };
   }
   if (sent !== undefined) {
     return {
@@ -93,7 +96,9 @@ export const deliveryStateOfEntries = (
       reason: sendFailed.reason,
     };
   }
-  return tags.has("SendStarted") ? { _tag: "Unconfirmed" } : { _tag: "Unsent" };
+  return tags.has("SendStarted")
+    ? { _tag: "Unconfirmed", text: planned?.text }
+    : { _tag: "Unsent" };
 };
 
 export const deliveryStateOf = (eventId: string) =>

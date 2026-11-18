@@ -13,7 +13,13 @@ import { Schedules } from "../schedule/schedules.ts";
 import { ownerTimeZone } from "../time/owner-current-time.ts";
 import { Redactor } from "../tracing/redactor.ts";
 import { Conversation } from "./conversation.ts";
-import { deliveryStateOf, fail, recordOutcome, send } from "./delivery.ts";
+import {
+  deliveryStateOf,
+  fail,
+  recordOutcome,
+  send,
+  unconfirmedSendReason,
+} from "./delivery.ts";
 import type { DeliveryState } from "./delivery.ts";
 import { eventMessage } from "./event-message.ts";
 import { Inbox } from "./inbox.ts";
@@ -69,6 +75,10 @@ const reminderResultOf = (state: DeliveryState): ReminderResult | undefined => {
     case "SendFailed":
     case "FailedNoticeRefused": {
       return { _tag: "Failed", reason: state.reason };
+    }
+    case "Unconfirmed":
+    case "FailedNoticeUnconfirmed": {
+      return { _tag: "Failed", reason: unconfirmedSendReason };
     }
     default: {
       return undefined;
