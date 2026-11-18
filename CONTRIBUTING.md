@@ -4,9 +4,9 @@
 
 Use Node.js 24.15.0 or later and the pnpm version in `package.json`.
 
-Run `pnpm install --frozen-lockfile`. The prepare script installs Lefthook commit and push hooks in a Git checkout.
+Run `pnpm install --frozen-lockfile`. The prepare script installs the Lefthook push hook in a Git checkout.
 
-Run `pnpm verify` before you finish a change. The local hooks and GitHub CI run the same command. It checks lint and formatting across the repository. Run `pnpm fix` to apply automatic fixes, then verify again.
+Run `pnpm verify` before you finish a change. The push hook and GitHub CI run the same command. It checks lint and formatting across the repository. Run `pnpm fix` to apply automatic fixes, then verify again.
 
 The gate also checks the [primitives catalog](docs/primitives/README.md) and [verification targets](docs/verification/README.md). Then Turborepo runs the `verify` script of each workspace that the branch changed (`turbo run verify --affected`). Each workspace guide in `docs/verification` names its checks. Keep the local and CI verification commands the same.
 
