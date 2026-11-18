@@ -584,6 +584,7 @@ describe("Reminder delivery", () => {
       ).toHaveLength(1);
     });
     expect(sentTexts()).toEqual(["You said: hello"]);
+    expect(await firstScheduleState(ownerId)).toBe("done");
   });
 
   it("records a failed send honestly, completes the Schedule, and does not arm a hot alarm", async () => {

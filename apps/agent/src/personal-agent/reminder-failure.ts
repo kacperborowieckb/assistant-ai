@@ -13,7 +13,10 @@ export const completeScheduleOfFailedReminder = Effect.fnUntraced(
         (entry) => entry.record._tag
       )
     );
-    const failed = tags.has("ReplyFailed") || tags.has("TurnFailed");
+    const failed =
+      tags.has("ReplyFailed") ||
+      tags.has("TurnFailed") ||
+      tags.has("SendStarted");
     const schedule = yield* schedules.byId(event.scheduleId);
     if (
       failed &&
