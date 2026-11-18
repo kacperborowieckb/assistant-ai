@@ -828,14 +828,17 @@ const savedConversationText = async (ownerId: string) =>
       .join(" ")
   );
 
-const conversationTextOnceRedacted = async (ownerId: string) => {
-  await vi.waitFor(
-    async () =>
-      expect(await savedConversationText(ownerId)).toContain(redactedMark),
+const conversationTextOnceRedacted = (ownerId: string) =>
+  vi.waitFor(
+    async () => {
+      const text = await savedConversationText(ownerId);
+      if (!text.includes(redactedMark)) {
+        throw new Error("The Conversation has no redacted prompt yet");
+      }
+      return text;
+    },
     { timeout: 10_000 }
   );
-  return savedConversationText(ownerId);
-};
 
 describe("the saved Conversation of a Scheduled Task with a secret in its prompt", () => {
   it("saves no secret when the step limit is used after a reset", async () => {
