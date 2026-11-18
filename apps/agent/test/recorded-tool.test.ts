@@ -1,5 +1,5 @@
 import { env, runInDurableObject } from "cloudflare:test";
-import { Effect, Schema } from "effect";
+import { Effect, Option, Schema } from "effect";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { runToolEffect, ToolFailed } from "../src/model-gateway/agent-tool.ts";
@@ -189,7 +189,15 @@ describe("Recorded tool", () => {
               }
             );
             const input = { text: "red" };
-            const tool = captureNoteTool({ notes, progress, redactor }, source);
+            const tool = captureNoteTool(
+              {
+                notes,
+                progress,
+                redactor,
+                ownerTimeZone: Effect.succeed(Option.none()),
+              },
+              source
+            );
             yield* call(crashing, {
               input: { word: "red" },
               toolCallId: "call-1",

@@ -81,7 +81,10 @@ export const ownerMessageTools = (
     redactor,
   });
   return {
-    ...noteToolsFor(noteServices, event),
+    ...noteToolsFor(
+      { ...noteServices, ownerTimeZone: scheduleServices.ownerTimeZone },
+      event
+    ),
     ...(trustLevelOfEvent(event) === "owner"
       ? {
           [updateProfileToolName]: updateProfileTool(

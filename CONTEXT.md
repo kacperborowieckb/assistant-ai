@@ -34,6 +34,7 @@ Use these terms with these meanings in code, docs, issues, and prompts. Use the 
 - **Scheduled Task**: a Schedule with the `RunPrompt` Action. The Owner sets it, or (later) the agent sets it for itself.
 - **Document**: something the agent writes, for itself or for the Owner. A Note is the main kind.
 - **Note**: a small, linked unit of memory with metadata: source, trust level, and the date it was last checked.
+- **Open Loop**: the mark on a Note that says it is something to come back to, such as a task. It has a free-text kind (for example `task`), a state (`open` or `closed`), a close reason (`done`, `dropped`, or `replaced`) once it is closed, and an optional due instant. A Note with no Open Loop is a fact or a link to keep. The agent opens an Open Loop when the Owner sends something to do, and closes it when the Owner says it is done or dropped.
 - **Profile**: the short core facts and style rules about the Owner. The agent adds them to every Turn, and compaction never drops them.
 - **Skill**: repeated work saved for reuse, with the tools it names. Loaded only when needed. Not in the MVP.
 - **Journal**: the append-only log of every action and its result for one Owner. The agent reads it and cannot edit it.

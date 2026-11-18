@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
 import { Journal } from "../journal/journal.ts";
@@ -7,15 +7,17 @@ import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { notes } from "../personal-agent/storage-schema.ts";
 import { changeOfUpdate } from "./change-of-update.ts";
 import { makeNoteLinks, uniqueNoteIds } from "./note-links.ts";
+import { makeNoteReads } from "./note-reads.ts";
 import { toNote } from "./note-row.ts";
 import { hashOfNoteText } from "./note-text-hash.ts";
 import type { NoteSource, NoteSourceLocation, TrustLevel } from "./note.ts";
-import {
-  bestMatchFirst,
-  ftsMatchOf,
-  matchesQuery,
-  notesFts,
-} from "./notes-fts.ts";
+import { columnsOfOpenLoop, sameOpenLoop } from "./open-loop.ts";
+import type {
+  OpenLoop,
+  OpenLoopRequest,
+  OpenLoopUpdateRequest,
+} from "./open-loop.ts";
+import { makeOpenLoops } from "./open-loops.ts";
 
 export interface Note {
   readonly noteId: string;
@@ -25,11 +27,13 @@ export interface Note {
   readonly trustLevel: TrustLevel;
   readonly capturedAt: string;
   readonly lastCheckedAt: string;
+  readonly openLoop: OpenLoop | undefined;
 }
 
 export interface CaptureRequest {
   readonly text: string;
   readonly url?: string | undefined;
+  readonly openLoop?: OpenLoopRequest | undefined;
   readonly source: NoteSource;
   readonly linkedNoteIds?: readonly string[] | undefined;
 }
@@ -40,6 +44,7 @@ export interface UpdateRequest {
   readonly text?: string | undefined;
   readonly linkedNoteIds?: readonly string[] | undefined;
   readonly unlinkedNoteIds?: readonly string[] | undefined;
+  readonly openLoop?: OpenLoopUpdateRequest | undefined;
 }
 
 export interface RecalledNote extends Note {
@@ -71,13 +76,15 @@ const makeNotes = (ownerId: OwnerId) =>
   Effect.gen(function* makeNotesEffect() {
     const { database } = yield* AgentStorage;
     const journal = yield* Journal;
+    const { requireOwnNotes, linkedNoteIdsOf, addLinks, removeLinks } =
+      yield* makeNoteLinks(ownerId);
     const {
-      requireOwnNotes,
-      linkedNoteIdsOf,
-      linkedNotesOf,
-      addLinks,
-      removeLinks,
-    } = yield* makeNoteLinks(ownerId);
+      rowOf,
+      nextOpenLoop,
+      journalOpenLoopOpened,
+      closeOpenLoop,
+      listOpenLoops,
+    } = yield* makeOpenLoops(ownerId);
 
     const journalCapture = (eventId: string, noteId: string) =>
       Effect.gen(function* journalCaptureEffect() {
@@ -93,7 +100,7 @@ const makeNotes = (ownerId: OwnerId) =>
       });
 
     const writeNote = (
-      { text, url, source, linkedNoteIds }: CaptureRequest,
+      { text, url, source, linkedNoteIds, openLoop }: CaptureRequest,
       textHash: string
     ) =>
       Effect.gen(function* writeNoteEffect() {
@@ -114,6 +121,11 @@ const makeNotes = (ownerId: OwnerId) =>
             textHash,
             capturedAt: now,
             lastCheckedAt: now,
+            ...columnsOfOpenLoop(
+              openLoop === undefined
+                ? undefined
+                : { _tag: "Open", kind: openLoop.kind, dueAt: openLoop.dueAt }
+            ),
           })
           .onConflictDoNothing({
             target: [notes.sourceEventId, notes.textHash],
@@ -137,6 +149,9 @@ const makeNotes = (ownerId: OwnerId) =>
         yield* journalCapture(source.eventId, row.noteId);
         if (inserted !== undefined) {
           yield* addLinks(row.noteId, uniqueNoteIds(linkedNoteIds));
+          if (openLoop !== undefined) {
+            yield* journalOpenLoopOpened(source.eventId, row.noteId);
+          }
         }
         return {
           note: toNote(row),
@@ -165,11 +180,32 @@ const makeNotes = (ownerId: OwnerId) =>
         ...uniqueNoteIds(request.linkedNoteIds),
         ...uniqueNoteIds(request.unlinkedNoteIds),
       ]);
+      const current = yield* rowOf(noteId);
+      const currentLoop = toNote(current).openLoop;
+      const loop =
+        request.openLoop === undefined
+          ? undefined
+          : yield* nextOpenLoop(noteId, currentLoop, request.openLoop);
+      const loopChanged =
+        loop !== undefined &&
+        (currentLoop === undefined || !sameOpenLoop(currentLoop, loop));
+      const textOrLinksChanged =
+        text !== undefined ||
+        uniqueNoteIds(request.linkedNoteIds).length +
+          uniqueNoteIds(request.unlinkedNoteIds).length >
+          0;
+      if (!textOrLinksChanged && !loopChanged) {
+        return {
+          note: toNote(current),
+          linkedNoteIds: yield* linkedNoteIdsOf(noteId),
+        } satisfies Update;
+      }
       const [row] = yield* database
         .update(notes)
         .set({
           lastCheckedAt: DateTime.formatIso(yield* DateTime.now),
           ...(text === undefined ? {} : { text }),
+          ...(loopChanged ? columnsOfOpenLoop(loop) : {}),
         })
         .where(and(eq(notes.ownerId, ownerId), eq(notes.noteId, noteId)))
         .returning();
@@ -178,12 +214,22 @@ const makeNotes = (ownerId: OwnerId) =>
       }
       yield* addLinks(noteId, uniqueNoteIds(request.linkedNoteIds));
       yield* removeLinks(noteId, uniqueNoteIds(request.unlinkedNoteIds));
-      yield* journal.append({
-        _tag: "NoteUpdated",
-        eventId,
-        noteId,
-        change: changeOfUpdate(request),
-      });
+      if (textOrLinksChanged) {
+        yield* journal.append({
+          _tag: "NoteUpdated",
+          eventId,
+          noteId,
+          change: changeOfUpdate(request),
+        });
+      }
+      if (loopChanged) {
+        yield* journal.append({
+          _tag:
+            currentLoop?._tag === "Open" ? "OpenLoopChanged" : "OpenLoopOpened",
+          eventId,
+          noteId,
+        });
+      }
       return {
         note: toNote(row),
         linkedNoteIds: yield* linkedNoteIdsOf(noteId),
@@ -193,70 +239,17 @@ const makeNotes = (ownerId: OwnerId) =>
     const update = (request: UpdateRequest) =>
       database.transaction(() => writeUpdate(request));
 
-    const listLinked = Effect.fnUntraced(function* listLinked(
-      noteId: string,
-      offset: number
-    ) {
-      yield* requireOwnNotes([noteId]);
-      return yield* linkedNotesOf(noteId, offset);
-    });
+    const { search, listLinked, list } = yield* makeNoteReads(ownerId);
 
-    const search = Effect.fnUntraced(function* search({
-      query,
-      limit,
-    }: SearchRequest) {
-      const match = ftsMatchOf(query);
-      if (match === undefined) {
-        return [];
-      }
-      const ranked = yield* database
-        .select({ noteId: notesFts.noteId })
-        .from(notesFts)
-        .where(matchesQuery(match))
-        .orderBy(bestMatchFirst)
-        .limit(limit);
-      const noteIds = ranked.map((row) => row.noteId);
-      if (noteIds.length === 0) {
-        return [];
-      }
-      const rows = yield* database
-        .select()
-        .from(notes)
-        .where(and(eq(notes.ownerId, ownerId), inArray(notes.noteId, noteIds)));
-      const recalled = noteIds.flatMap((noteId) => {
-        const row = rows.find((candidate) => candidate.noteId === noteId);
-        return row === undefined ? [] : [toNote(row)];
-      });
-      return yield* Effect.all(
-        recalled.map((note) =>
-          linkedNotesOf(note.noteId, 0).pipe(
-            Effect.map((linked) => ({ ...note, ...linked }))
-          )
-        )
-      );
-    });
-
-    const list = database
-      .select()
-      .from(notes)
-      .where(eq(notes.ownerId, ownerId))
-      .orderBy(asc(notes.capturedAt), asc(notes.noteId))
-      .pipe(
-        Effect.flatMap((rows) =>
-          Effect.all(
-            rows.map((row) =>
-              linkedNoteIdsOf(row.noteId).pipe(
-                Effect.map((linkedNoteIds): ListedNote => ({
-                  ...toNote(row),
-                  linkedNoteIds,
-                }))
-              )
-            )
-          )
-        )
-      );
-
-    return { capture, update, search, listLinked, list };
+    return {
+      capture,
+      update,
+      closeOpenLoop,
+      listOpenLoops,
+      search,
+      listLinked,
+      list,
+    };
   });
 
 export class Notes extends Context.Service<

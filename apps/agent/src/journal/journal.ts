@@ -6,6 +6,7 @@ import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import {
   journalEntries,
   noteChanges,
+  openLoopCloseReasons,
   ownerPreferenceKeys,
   profileEntryKinds,
 } from "../personal-agent/storage-schema.ts";
@@ -22,6 +23,13 @@ export const JournalRecordSchema = Schema.TaggedUnion({
     eventId: Schema.String,
     noteId: Schema.String,
     change: Schema.Literals(noteChanges),
+  },
+  OpenLoopOpened: { eventId: Schema.String, noteId: Schema.String },
+  OpenLoopChanged: { eventId: Schema.String, noteId: Schema.String },
+  OpenLoopClosed: {
+    eventId: Schema.String,
+    noteId: Schema.String,
+    reason: Schema.Literals(openLoopCloseReasons),
   },
   ProfileEntryAdded: {
     eventId: Schema.String,
