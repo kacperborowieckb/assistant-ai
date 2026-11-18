@@ -27,6 +27,35 @@ export interface Schedule {
   readonly state: (typeof scheduleStates)[number];
 }
 
+export interface SetScheduleRequest {
+  readonly action: ScheduleAction;
+  readonly setBy: Schedule["setBy"];
+  readonly noteId?: string | undefined;
+  readonly dueAt: DateTime.Utc;
+  readonly repeat?: Repeat | undefined;
+  readonly sourceEventId: string;
+  readonly activeScheduledTaskLimit?: number | undefined;
+}
+
+export interface ScheduleSet {
+  readonly schedule: Schedule;
+  readonly alreadySet: boolean;
+}
+
+export interface ScheduleChangeRequest {
+  readonly scheduleId: string;
+  readonly action?: ScheduleAction | undefined;
+  readonly dueAt?: DateTime.Utc | undefined;
+  readonly repeat?: Repeat | undefined;
+  readonly eventId: string;
+  readonly activeScheduledTaskLimit?: number | undefined;
+}
+
+export interface ScheduleCancelRequest {
+  readonly scheduleId: string;
+  readonly eventId: string;
+}
+
 const decodeRule = Schema.decodeUnknownSync(RecurrenceRuleJsonSchema);
 
 export const encodeRule = Schema.encodeSync(RecurrenceRuleJsonSchema);
@@ -57,3 +86,23 @@ export const toSchedule = (row: typeof schedules.$inferSelect): Schedule => ({
   repeat: repeatOf(row),
   state: row.state,
 });
+
+export const recurrenceValuesOf = (repeat: Repeat | undefined) => ({
+  recurrence: repeat === undefined ? null : encodeRule(repeat.rule),
+  recurrenceTimeZone:
+    repeat === undefined ? null : DateTime.zoneToString(repeat.timeZone),
+});
+
+export const requestKeyOf = ({
+  action,
+  dueAt,
+  noteId,
+  repeat,
+}: SetScheduleRequest) =>
+  JSON.stringify([
+    action._tag === "SendText" ? action.text : { prompt: action.prompt },
+    noteId ?? null,
+    repeat === undefined
+      ? [DateTime.formatIso(dueAt)]
+      : [encodeRule(repeat.rule), DateTime.zoneToString(repeat.timeZone)],
+  ]);

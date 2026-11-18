@@ -10,10 +10,9 @@ import { Journal } from "../src/journal/journal.ts";
 import { captureNoteToolName } from "../src/notes/capture-note-tool.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
 import { storeDueScheduleEvents } from "../src/personal-agent/due-schedule-events.ts";
-import type { Inbox } from "../src/personal-agent/inbox.ts";
+import { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 import { OwnerPreferences } from "../src/preferences/owner-preferences.ts";
-import { ScheduleAlarm } from "../src/schedule/schedule-alarm.ts";
 import { Schedules } from "../src/schedule/schedules.ts";
 import {
   dueTimeInThePastMessage,
@@ -36,7 +35,6 @@ type ReminderServices =
   | Inbox
   | Journal
   | OwnerPreferences
-  | ScheduleAlarm
   | Schedules
   | TurnTraces;
 
@@ -340,7 +338,6 @@ describe("the alarm", () => {
       ownerId,
       Effect.gen(function* armEffect() {
         const schedules = yield* Schedules;
-        const alarm = yield* ScheduleAlarm;
         for (const [text, dueAt] of [
           ["later", later],
           ["earlier", earlier],
@@ -351,7 +348,6 @@ describe("the alarm", () => {
             dueAt,
             sourceEventId: text,
           });
-          yield* alarm.rearm;
         }
       })
     );
@@ -376,12 +372,133 @@ describe("the alarm", () => {
           active?.next_due_at ?? "",
           "setup"
         );
-        yield* (yield* ScheduleAlarm).rearm;
       })
     );
     expect(await alarmsOf(ownerId)).toEqual([
       DateTime.toEpochMillis(later) / 1000,
     ]);
+  });
+});
+
+const epochSecondsOf = (dueAt: DateTime.Utc) =>
+  DateTime.toEpochMillis(dueAt) / 1000;
+
+const onlyScheduleRow = async (ownerId: string) => {
+  const [row] = await schedulesOf(ownerId);
+  return row;
+};
+
+describe("Schedules store alarm", () => {
+  it("leaves the alarm at the earliest due instant after set, change, cancel, complete, and a time zone change", async () => {
+    const ownerId = await ownerInWarsaw(9012);
+    const first = DateTime.makeUnsafe(`${nextYear}-05-01T08:00:00.000Z`);
+    const second = DateTime.makeUnsafe(`${nextYear}-06-01T08:00:00.000Z`);
+    const third = DateTime.makeUnsafe(`${nextYear}-07-01T08:00:00.000Z`);
+    const warsaw = DateTime.zoneMakeNamedUnsafe("Europe/Warsaw");
+    const store = <A, E>(
+      use: (schedules: Schedules["Service"]) => Effect.Effect<A, E>
+    ) => inAgent(ownerId, Schedules.pipe(Effect.flatMap(use)));
+
+    const { schedule: firstSet } = await store((schedules) =>
+      schedules.set({
+        action: { _tag: "SendText", text: "first" },
+        setBy: "owner",
+        dueAt: second,
+        sourceEventId: "first",
+      })
+    );
+    expect(await alarmsOf(ownerId)).toEqual([epochSecondsOf(second)]);
+
+    const { schedule: secondSet } = await store((schedules) =>
+      schedules.set({
+        action: { _tag: "SendText", text: "second" },
+        setBy: "owner",
+        dueAt: third,
+        sourceEventId: "second",
+      })
+    );
+    expect(await alarmsOf(ownerId)).toEqual([epochSecondsOf(second)]);
+
+    await store((schedules) =>
+      schedules.change({
+        scheduleId: secondSet.scheduleId,
+        dueAt: first,
+        eventId: "change",
+      })
+    );
+    expect(await alarmsOf(ownerId)).toEqual([epochSecondsOf(first)]);
+
+    await store((schedules) =>
+      schedules.cancel({ scheduleId: secondSet.scheduleId, eventId: "cancel" })
+    );
+    expect(await alarmsOf(ownerId)).toEqual([epochSecondsOf(second)]);
+
+    await store((schedules) =>
+      schedules.change({
+        scheduleId: firstSet.scheduleId,
+        dueAt: first,
+        repeat: {
+          rule: { _tag: "Daily", time: "09:00" },
+          timeZone: warsaw,
+        },
+        eventId: "make-repeating",
+      })
+    );
+    expect(await alarmsOf(ownerId)).toEqual([epochSecondsOf(first)]);
+
+    await store((schedules) =>
+      schedules.moveRepeatingToTimeZone(
+        DateTime.zoneMakeNamedUnsafe("America/New_York"),
+        "move"
+      )
+    );
+    const moved = await onlyScheduleRow(ownerId);
+    expect(await alarmsOf(ownerId)).toEqual([
+      epochSecondsOf(DateTime.makeUnsafe(moved?.next_due_at ?? "")),
+    ]);
+
+    await store((schedules) =>
+      schedules.cancel({ scheduleId: firstSet.scheduleId, eventId: "cancel" })
+    );
+    expect(await alarmsOf(ownerId)).toEqual([]);
+  });
+
+  it("keeps the alarm until the due Schedules are handed off, then leaves none", async () => {
+    const ownerId = await ownerInWarsaw(9013);
+    await inAgent(ownerId, dueInThePast("due"));
+    const alarmsDuringHandOff: number[][] = [];
+
+    await runInDurableObject(await agentOf(ownerId), (instance) =>
+      instance.runtime.runPromise(
+        Schedules.pipe(
+          Effect.flatMap((schedules) =>
+            schedules.fireDue((due) =>
+              Effect.gen(function* handOffEffect() {
+                const inbox = yield* Inbox;
+                for (const { scheduleId, nextDueAt } of due) {
+                  yield* inbox.store({
+                    _tag: "ScheduleFired",
+                    scheduleId,
+                    dueAt: DateTime.formatIso(nextDueAt),
+                  });
+                }
+                const armed = yield* Effect.promise(() =>
+                  instance.listSchedules()
+                );
+                alarmsDuringHandOff.push(
+                  armed
+                    .filter(({ callback }) => callback === "fireDueSchedules")
+                    .map(({ time }) => time)
+                );
+              })
+            )
+          )
+        )
+      )
+    );
+
+    expect(alarmsDuringHandOff.map((alarms) => alarms.length)).toEqual([1]);
+    expect(await alarmsOf(ownerId)).toEqual([]);
   });
 });
 
