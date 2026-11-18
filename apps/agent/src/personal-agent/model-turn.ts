@@ -27,17 +27,26 @@ import type { ModelOutcome, ModelTraceInput } from "./turn-record.ts";
 
 export type BeforeFirstStep = "Proceed" | "Stopped";
 
+export interface TurnPreparation {
+  readonly situation: readonly string[];
+  readonly lateText: (text: string) => string;
+}
+
+const unpreparedTurn: TurnPreparation = {
+  situation: [],
+  lateText: (text) => text,
+};
+
 export interface ModelTurnKind<Failure, Requirements> {
   readonly task: "reply" | "scheduled_task";
   readonly event: InboxEvent;
   readonly input: ModelMessage;
   readonly tools: AgentTools;
-  readonly situation?: readonly string[];
   readonly traceOf: (model: ModelTraceInput) => TurnTrace;
   readonly checkBeforeFirstStep?: (
     startedAt: number
   ) => Effect.Effect<BeforeFirstStep, Failure, Requirements>;
-  readonly lateText?: (text: string) => string;
+  readonly prepare?: Effect.Effect<TurnPreparation, Failure, Requirements>;
   readonly whenSent?: Effect.Effect<void, Failure, Requirements>;
   readonly whenFailed: (
     reason: string
@@ -73,12 +82,14 @@ export const runModelTurn = <Failure, Requirements>({
         return;
       }
     }
+    const preparation =
+      kind.prepare === undefined ? unpreparedTurn : yield* kind.prepare;
     const history = yield* conversation.recent;
     const system = systemPrompt({
       behavior,
       profile: yield* profile.read,
       currentTime: yield* ownerCurrentTimeText(behavior),
-      situation: kind.situation ?? [],
+      situation: preparation.situation,
     });
     const savedInput = redactor.redactMessage(kind.input);
     const earlier = yield* progress.completedFor(event.eventId);
@@ -130,10 +141,7 @@ export const runModelTurn = <Failure, Requirements>({
       return;
     }
     const replyText = redactor.redact(outcome.reply.text);
-    const delivery = yield* send(
-      event,
-      kind.lateText === undefined ? replyText : kind.lateText(replyText)
-    );
+    const delivery = yield* send(event, preparation.lateText(replyText));
     if (delivery._tag === "Failed") {
       yield* remember;
       yield* fail(event, delivery.reason);

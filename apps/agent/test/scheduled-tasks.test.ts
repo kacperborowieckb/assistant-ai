@@ -967,6 +967,18 @@ describe("the daily Token Budget of Scheduled Tasks", () => {
     });
   });
 
+  it("writes no ReminderLate Journal Entry for a late Scheduled Task that is skipped", async () => {
+    const ownerId = await ownerInWarsaw(9471);
+    await recordUsage(ownerId, "scheduled_task", scheduledTaskDailyTokenBudget);
+    await seedScheduledTask(ownerId, undefined, { hours: 2 });
+
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    expect(sentTexts()[1]).toBe(skipMessage);
+    expect(await journalTagsOf(ownerId)).not.toContain("ReminderLate");
+  });
+
   it("sends the skip message and moves the Schedule on when the reset comes after ScheduledTaskSkipped and before the send", async () => {
     const ownerId = await ownerInWarsaw(9448);
     const schedule = await seedScheduledTask(ownerId, {

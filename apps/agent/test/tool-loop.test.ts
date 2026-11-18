@@ -284,6 +284,23 @@ describe("Tool loop", () => {
     expect(journal.map((entry) => entry.record._tag)).toContain("TurnFailed");
   });
 
+  it("saves no secret from the Owner message in the stored history", async () => {
+    const ownerId = await addOwner(9012);
+    scriptModel([{ say: "Kept" }]);
+
+    await telegramWebhook(
+      textUpdate({ fromUserId: 9012, text: `keep ${env.AI_GATEWAY_TOKEN}` })
+    );
+    await waitForReplies(1);
+
+    const history = await inPersonalAgent(
+      ownerId,
+      Conversation.pipe(Effect.flatMap((conversation) => conversation.recent))
+    );
+    expect(JSON.stringify(history)).not.toContain(env.AI_GATEWAY_TOKEN);
+    expect(JSON.stringify(history)).toContain(redactedMark);
+  });
+
   it("redacts secrets in the Trace steps and in the stored history", async () => {
     const ownerId = await addOwner(9005);
     scriptModel([keepWord(env.AI_GATEWAY_TOKEN), { say: "Kept" }]);

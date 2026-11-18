@@ -14,6 +14,7 @@ import { Redactor } from "../tracing/redactor.ts";
 import { scheduledTaskInputMessage } from "./event-message.ts";
 import type { ScheduleFiredEvent } from "./inbox.ts";
 import { runModelTurn } from "./model-turn.ts";
+import type { TurnPreparation } from "./model-turn.ts";
 import { lateNoticeFor } from "./reminder-delivery.ts";
 import { failScheduledTask } from "./scheduled-task-failure.ts";
 import { scheduledTaskSection } from "./scheduled-task-section.ts";
@@ -21,6 +22,32 @@ import { skipScheduledTaskOverBudget } from "./scheduled-task-skip.ts";
 import { scheduledTaskTools } from "./scheduled-task-tools.ts";
 import { TurnProgress } from "./turn-progress.ts";
 import { scheduledTaskTraceOf } from "./turn-record.ts";
+
+const scheduledTaskPreparation = Effect.fnUntraced(
+  function* scheduledTaskPreparation(
+    behavior: BehaviorConfig,
+    event: ScheduleFiredEvent,
+    schedule: Schedule
+  ) {
+    const lateNotice = yield* lateNoticeFor(behavior, event);
+    const timeZone = yield* ownerTimeZone(behavior);
+    const setAtText =
+      timeZone._tag === "Some"
+        ? `${localTimeOf(schedule.createdAt, timeZone.value)} (${DateTime.zoneToString(timeZone.value)})`
+        : DateTime.formatIso(schedule.createdAt);
+    return {
+      situation: [scheduledTaskSection(setAtText)],
+      lateText: (text: string) =>
+        Option.isNone(lateNotice)
+          ? text
+          : lateScheduledTaskText(
+              text,
+              lateNotice.value.dueAt,
+              lateNotice.value.timeZone
+            ),
+    } satisfies TurnPreparation;
+  }
+);
 
 interface ScheduledTaskRun {
   readonly ownerId: OwnerId;
@@ -43,12 +70,6 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
   const schedules = yield* Schedules;
   const redactor = yield* Redactor;
 
-  const lateNotice = yield* lateNoticeFor(behavior, event);
-  const timeZone = yield* ownerTimeZone(behavior);
-  const setAtText =
-    timeZone._tag === "Some"
-      ? `${localTimeOf(schedule.createdAt, timeZone.value)} (${DateTime.zoneToString(timeZone.value)})`
-      : DateTime.formatIso(schedule.createdAt);
   yield* runModelTurn({
     ownerId,
     behavior,
@@ -64,7 +85,7 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
         schedules,
         behavior,
       }),
-      situation: [scheduledTaskSection(setAtText)],
+      prepare: scheduledTaskPreparation(behavior, event, schedule),
       traceOf: (model) => scheduledTaskTraceOf({ event, ...model }),
       checkBeforeFirstStep: (startedAt) =>
         skipScheduledTaskOverBudget({
@@ -74,14 +95,6 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
           action,
           startedAt,
         }),
-      lateText: (text) =>
-        Option.isNone(lateNotice)
-          ? text
-          : lateScheduledTaskText(
-              text,
-              lateNotice.value.dueAt,
-              lateNotice.value.timeZone
-            ),
       whenSent: schedules.complete(
         event.scheduleId,
         event.dueAt,
