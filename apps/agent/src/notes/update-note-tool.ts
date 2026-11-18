@@ -72,7 +72,7 @@ const UpdateNoteInput = Schema.Struct({
     }).pipe(
       Schema.annotate({
         description:
-          "Opens an Open Loop on this Note, or changes the kind or the due time of its open Open Loop. Use it when the Owner talks again about an old task that has no open Open Loop.",
+          "Opens an Open Loop on this Note, changes the kind or the due time of its open Open Loop, or removes its due time (clearDueTime). Use it when the Owner talks again about an old task that has no open Open Loop.",
       })
     )
   ),
@@ -87,7 +87,7 @@ export const updateNoteTool = (
     {
       name: updateNoteToolName,
       description:
-        "Change one existing Note after a follow-up of the Owner: replace its text, link or unlink other Notes, or open an Open Loop or change its due time. Creates no new Note. Search for the Note first when you do not know its id.",
+        "Change one existing Note after a follow-up of the Owner: replace its text, link or unlink other Notes, open an Open Loop, or change or clear its due time. Creates no new Note. Search for the Note first when you do not know its id.",
       inputSchema: UpdateNoteInput,
       failureMessage: (cause) =>
         noteToolFailureMessage(cause, {
