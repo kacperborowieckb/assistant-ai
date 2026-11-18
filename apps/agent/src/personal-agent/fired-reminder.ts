@@ -1,20 +1,14 @@
-import { Clock, DateTime, Effect, Option } from "effect";
+import { Clock, Effect, Option } from "effect";
 
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { Journal } from "../journal/journal.ts";
 import type { OwnerId } from "../owner-id.ts";
-import {
-  isLate,
-  lateByMillisOf,
-  lateReminderText,
-} from "../schedule/late-reminder.ts";
+import { lateReminderText } from "../schedule/lateness.ts";
 import type { SendText } from "../schedule/schedule-action.ts";
 import { Schedules } from "../schedule/schedules.ts";
-import { ownerTimeZone } from "../time/owner-current-time.ts";
 import { Redactor } from "../tracing/redactor.ts";
 import { Conversation } from "./conversation.ts";
 import {
-  deliveryStateOf,
   fail,
   recordOutcome,
   send,
@@ -22,6 +16,7 @@ import {
 } from "./delivery.ts";
 import type { DeliveryState } from "./delivery.ts";
 import { eventMessage } from "./event-message.ts";
+import { lateNoticeFor } from "./fired-schedule-lateness.ts";
 import { Inbox } from "./inbox.ts";
 import type { ScheduleFiredEvent } from "./inbox.ts";
 
@@ -85,18 +80,17 @@ const reminderResultOf = (state: DeliveryState): ReminderResult | undefined => {
   }
 };
 
-export const recoverReminderRecord = Effect.fnUntraced(
-  function* recoverReminderRecord(ownerId: OwnerId, event: ScheduleFiredEvent) {
+export const recoverReminderOutcome = Effect.fnUntraced(
+  function* recoverReminderOutcome(
+    ownerId: OwnerId,
+    event: ScheduleFiredEvent,
+    state: DeliveryState
+  ) {
     const journal = yield* Journal;
-    const schedules = yield* Schedules;
-    const state = yield* deliveryStateOf(event.eventId);
     const result = reminderResultOf(state);
     const text = "text" in state ? state.text : undefined;
     if (result === undefined || text === undefined) {
       return;
-    }
-    if (result._tag === "Delivered") {
-      yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
     }
     const entries = yield* journal.readForEvent(event.eventId);
     yield* recordReminderOutcome(
@@ -111,33 +105,6 @@ export const recoverReminderRecord = Effect.fnUntraced(
     );
   }
 );
-
-export const lateNoticeFor = Effect.fnUntraced(function* lateNoticeFor(
-  behavior: BehaviorConfig,
-  event: ScheduleFiredEvent
-) {
-  const journal = yield* Journal;
-  const now = yield* DateTime.now;
-  const dueAt = DateTime.makeUnsafe(event.dueAt);
-  const lateByMillis = lateByMillisOf(now, dueAt);
-  if (!isLate(lateByMillis, behavior.reminderGraceMillis)) {
-    return Option.none();
-  }
-  const recorded = yield* journal.readForEvent(event.eventId);
-  if (!recorded.some((entry) => entry.record._tag === "ReminderLate")) {
-    yield* journal.append({
-      _tag: "ReminderLate",
-      eventId: event.eventId,
-      scheduleId: event.scheduleId,
-      dueAt: event.dueAt,
-      lateByMillis,
-    });
-  }
-  const timeZone = (yield* ownerTimeZone(behavior)).pipe(
-    Option.getOrElse(() => DateTime.zoneMakeOffset(0))
-  );
-  return Option.some({ dueAt, timeZone });
-});
 
 const reminderTextFor = Effect.fnUntraced(function* reminderTextFor(
   behavior: BehaviorConfig,
@@ -190,13 +157,12 @@ export const deliverReminder = Effect.fnUntraced(function* deliverReminder({
     latencyMillis: (yield* Clock.currentTimeMillis) - startedAt,
   };
 
+  yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
   if (delivery._tag === "Failed") {
-    yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
     yield* recordReminderOutcome(record, delivery);
     yield* fail(event, delivery.reason);
     return;
   }
-  yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
   yield* recordReminderOutcome(record, {
     _tag: "Delivered",
     channelMessageId: delivery.channelMessageId,

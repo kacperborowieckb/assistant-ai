@@ -11,16 +11,14 @@ import { Schedules } from "../schedule/schedules.ts";
 import { Redactor } from "../tracing/redactor.ts";
 import { failWithNotice } from "./delivery.ts";
 import { eventMessage } from "./event-message.ts";
-import { fireSchedule } from "./fire-schedule.ts";
+import { handleFiredSchedule } from "./fired-schedule.ts";
 import { Inbox } from "./inbox.ts";
 import type { OwnerMessageEvent } from "./inbox.ts";
 import { runModelTurn } from "./model-turn.ts";
 import { ownerMessageTools } from "./owner-message-tools.ts";
-import { recoverReminderRecord } from "./reminder-delivery.ts";
-import { completeScheduleOfFailedDelivery } from "./scheduled-delivery-recovery.ts";
 import { TurnProgress } from "./turn-progress.ts";
 import { traceOf } from "./turn-record.ts";
-import { settleFromJournal } from "./turn-recovery.ts";
+import { ownerMessageRecovery, settleFromJournal } from "./turn-recovery.ts";
 
 interface TurnSettings {
   readonly behavior: BehaviorConfig;
@@ -75,14 +73,12 @@ export const takeTurn = (
     const events = yield* inbox.pending;
     for (const event of events) {
       if (event._tag === "ScheduleFired") {
-        yield* recoverReminderRecord(ownerId, event);
-        yield* completeScheduleOfFailedDelivery(event);
+        yield* handleFiredSchedule(ownerId, behavior, event);
+        continue;
       }
-      const outcome = yield* settleFromJournal(ownerId, event);
+      const outcome = yield* settleFromJournal(event, ownerMessageRecovery);
       if (outcome === "unanswered") {
-        yield* event._tag === "ScheduleFired"
-          ? fireSchedule(ownerId, behavior, event)
-          : answer(ownerId, { behavior, tools }, event);
+        yield* answer(ownerId, { behavior, tools }, event);
       }
     }
   });

@@ -2,12 +2,12 @@ import { Effect } from "effect";
 
 import { Journal } from "../journal/journal.ts";
 import type { JournalEntry } from "../journal/journal.ts";
-import type { OwnerId } from "../owner-id.ts";
 import { Redactor } from "../tracing/redactor.ts";
 import { Conversation } from "./conversation.ts";
 import {
   deliveryStateOfEntries,
   fail,
+  honestFailureText,
   recordUnconfirmedSend,
   rememberFailureNotice,
   sendFailureNotice,
@@ -17,8 +17,6 @@ import type { DeliveryState } from "./delivery.ts";
 import { inputMessageOf } from "./event-message.ts";
 import { Inbox } from "./inbox.ts";
 import type { InboxEvent } from "./inbox.ts";
-import { honestFailureTextOf } from "./scheduled-task-failure.ts";
-import { resumeSkippedScheduledTask } from "./scheduled-task-skip.ts";
 import { TurnProgress } from "./turn-progress.ts";
 
 const recordConversation = Effect.fnUntraced(function* recordConversation(
@@ -43,42 +41,57 @@ const recordConversation = Effect.fnUntraced(function* recordConversation(
   }
 });
 
-const settleUnsent = Effect.fnUntraced(function* settleUnsent(
-  ownerId: OwnerId,
-  event: InboxEvent,
-  entries: readonly JournalEntry[]
-) {
-  const skipped = entries.find(
-    (entry) => entry.record._tag === "ScheduledTaskSkipped"
-  );
-  if (
-    event._tag === "ScheduleFired" &&
-    skipped?.record._tag === "ScheduledTaskSkipped"
-  ) {
-    yield* resumeSkippedScheduledTask(ownerId, event, skipped.record);
-    return "settled" as const;
-  }
-  return "unanswered" as const;
-});
+interface SkippedScheduledTask {
+  readonly dailyTokenBudget: number;
+  readonly tokensSpent: number;
+}
 
-interface Settling {
-  readonly ownerId: OwnerId;
+export interface Recovery<UnsentRequirements, NoticeRequirements> {
+  readonly resumeUnsent: (
+    skipped: SkippedScheduledTask | undefined
+  ) => Effect.Effect<"settled" | "unanswered", unknown, UnsentRequirements>;
+  readonly failureNoticeText: Effect.Effect<
+    string,
+    unknown,
+    NoticeRequirements
+  >;
+}
+
+export const ownerMessageRecovery = {
+  resumeUnsent: () => Effect.succeed("unanswered" as const),
+  failureNoticeText: Effect.succeed(honestFailureText),
+};
+
+interface Settling<UnsentRequirements, NoticeRequirements> {
   readonly event: InboxEvent;
   readonly entries: readonly JournalEntry[];
   readonly state: DeliveryState;
+  readonly recovery: Recovery<UnsentRequirements, NoticeRequirements>;
 }
 
-const settleState = Effect.fnUntraced(function* settleState({
-  ownerId,
+const skippedPointOf = (entries: readonly JournalEntry[]) => {
+  const skipped = entries.find(
+    (entry) => entry.record._tag === "ScheduledTaskSkipped"
+  );
+  return skipped?.record._tag === "ScheduledTaskSkipped"
+    ? skipped.record
+    : undefined;
+};
+
+const settleState = Effect.fnUntraced(function* settleState<
+  UnsentRequirements,
+  NoticeRequirements,
+>({
   event,
   entries,
   state,
-}: Settling) {
+  recovery,
+}: Settling<UnsentRequirements, NoticeRequirements>) {
   const inbox = yield* Inbox;
 
   switch (state._tag) {
     case "Unsent": {
-      return yield* settleUnsent(ownerId, event, entries);
+      return yield* recovery.resumeUnsent(skippedPointOf(entries));
     }
     case "Sent": {
       yield* inbox.markDone([event]);
@@ -94,7 +107,7 @@ const settleState = Effect.fnUntraced(function* settleState({
       return "settled" as const;
     }
     case "FailedNoticePending": {
-      yield* sendFailureNotice(event, yield* honestFailureTextOf(event));
+      yield* sendFailureNotice(event, yield* recovery.failureNoticeText);
       return "settled" as const;
     }
     case "FailedNoticeSent": {
@@ -118,9 +131,12 @@ const settleState = Effect.fnUntraced(function* settleState({
   }
 });
 
-export const settleFromJournal = Effect.fnUntraced(function* settleFromJournal(
-  ownerId: OwnerId,
-  event: InboxEvent
+export const settleFromJournal = Effect.fnUntraced(function* settleFromJournal<
+  UnsentRequirements,
+  NoticeRequirements,
+>(
+  event: InboxEvent,
+  recovery: Recovery<UnsentRequirements, NoticeRequirements>
 ) {
   const journal = yield* Journal;
   const entries = yield* journal.readForEvent(event.eventId);
@@ -129,5 +145,5 @@ export const settleFromJournal = Effect.fnUntraced(function* settleFromJournal(
   if (state._tag !== "Unsent") {
     yield* recordConversation(event, state);
   }
-  return yield* settleState({ ownerId, event, entries, state });
+  return yield* settleState({ event, entries, state, recovery });
 });
