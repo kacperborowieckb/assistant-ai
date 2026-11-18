@@ -1,43 +1,35 @@
 import { Effect } from "effect";
 
 import { Journal } from "../journal/journal.ts";
-import type { JournalEntry, JournalRecord } from "../journal/journal.ts";
+import type { JournalEntry } from "../journal/journal.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { Redactor } from "../tracing/redactor.ts";
 import { Conversation } from "./conversation.ts";
+import {
+  deliveryStateOfEntries,
+  fail,
+  recordUnconfirmedSend,
+  rememberFailureNotice,
+  sendFailureNotice,
+  unconfirmedSendReason,
+} from "./delivery.ts";
+import type { DeliveryState } from "./delivery.ts";
 import { inputMessageOf } from "./event-message.ts";
 import { Inbox } from "./inbox.ts";
 import type { InboxEvent } from "./inbox.ts";
 import { honestFailureTextOf } from "./scheduled-task-failure.ts";
 import { resumeSkippedScheduledTask } from "./scheduled-task-skip.ts";
-import {
-  recordTurnFailed,
-  rememberFailureNotice,
-  sendHonestFailure,
-} from "./turn-delivery.ts";
 import { TurnProgress } from "./turn-progress.ts";
 
-const tagsOf = (entries: readonly JournalEntry[]) =>
-  new Set(entries.map((entry) => entry.record._tag));
-
-const recordConversation = (
-  event: InboxEvent,
-  entries: readonly JournalEntry[]
-) =>
+const recordConversation = (event: InboxEvent, state: DeliveryState) =>
   Effect.gen(function* recordConversationEffect() {
     const conversation = yield* Conversation;
     const progress = yield* TurnProgress;
     const redactor = yield* Redactor;
     const earlier = yield* progress.completedFor(event.eventId);
-    const tags = tagsOf(entries);
-    const planned = entries.findLast(
-      (entry) => entry.record._tag === "ReplyPlanned"
-    );
     const reply =
-      tags.has("ReplySent") &&
-      !tags.has("TurnFailed") &&
-      planned?.record._tag === "ReplyPlanned"
-        ? [{ role: "assistant", content: planned.record.text } as const]
+      state._tag === "Sent" && state.text !== undefined
+        ? [{ role: "assistant", content: state.text } as const]
         : [];
 
     if (earlier.length + reply.length > 0) {
@@ -49,90 +41,85 @@ const recordConversation = (
     }
   });
 
-export const unconfirmedSendReason =
-  "A send started but Telegram did not confirm it, so the agent did not send again";
-
-const settleEntries = (
+const settleUnsent = (
   ownerId: OwnerId,
   event: InboxEvent,
   entries: readonly JournalEntry[]
 ) =>
-  Effect.gen(function* settleEntriesEffect() {
-    const inbox = yield* Inbox;
-    const journal = yield* Journal;
-    const tags = tagsOf(entries);
-
+  Effect.gen(function* settleUnsentEffect() {
     const skipped = entries.find(
       (entry) => entry.record._tag === "ScheduledTaskSkipped"
     );
     if (
       event._tag === "ScheduleFired" &&
-      skipped?.record._tag === "ScheduledTaskSkipped" &&
-      !tags.has("SendStarted") &&
-      !tags.has("ReplyFailed")
+      skipped?.record._tag === "ScheduledTaskSkipped"
     ) {
       yield* resumeSkippedScheduledTask(ownerId, event, skipped.record);
-      return "settled" as const;
-    }
-    if (tags.has("TurnFailed")) {
-      if (!tags.has("SendStarted") && !tags.has("ReplyFailed")) {
-        yield* sendHonestFailure(event, yield* honestFailureTextOf(event));
-        return "settled" as const;
-      }
-      const notice = entries.findLast(
-        (entry) => entry.record._tag === "ReplyPlanned"
-      );
-      if (tags.has("ReplySent") && notice?.record._tag === "ReplyPlanned") {
-        yield* rememberFailureNotice(event, notice.record.text);
-      }
-      if (!tags.has("ReplySent") && !tags.has("ReplyFailed")) {
-        yield* journal.append({
-          _tag: "ReplyFailed",
-          eventId: event.eventId,
-          reason: unconfirmedSendReason,
-        });
-      }
-      yield* inbox.markFailed([event]);
-      return "settled" as const;
-    }
-    if (tags.has("ReplySent")) {
-      yield* inbox.markDone([event]);
-      return "settled" as const;
-    }
-    const failedSend = entries.find(
-      (entry) => entry.record._tag === "ReplyFailed"
-    );
-    if (failedSend?.record._tag === "ReplyFailed") {
-      yield* recordTurnFailed(event, failedSend.record.reason);
-      return "settled" as const;
-    }
-    if (tags.has("SendStarted")) {
-      yield* journal.append({
-        _tag: "ReplyFailed",
-        eventId: event.eventId,
-        reason: unconfirmedSendReason,
-      });
-      yield* recordTurnFailed(event, unconfirmedSendReason);
       return "settled" as const;
     }
     return "unanswered" as const;
   });
 
-const settlingTags: readonly JournalRecord["_tag"][] = [
-  "TurnFailed",
-  "ReplySent",
-  "ReplyFailed",
-  "SendStarted",
-];
+interface Settling {
+  readonly ownerId: OwnerId;
+  readonly event: InboxEvent;
+  readonly entries: readonly JournalEntry[];
+  readonly state: DeliveryState;
+}
+
+const settleState = ({ ownerId, event, entries, state }: Settling) =>
+  Effect.gen(function* settleStateEffect() {
+    const inbox = yield* Inbox;
+
+    switch (state._tag) {
+      case "Unsent": {
+        return yield* settleUnsent(ownerId, event, entries);
+      }
+      case "Sent": {
+        yield* inbox.markDone([event]);
+        return "settled" as const;
+      }
+      case "SendFailed": {
+        yield* fail(event, state.reason);
+        return "settled" as const;
+      }
+      case "Unconfirmed": {
+        yield* recordUnconfirmedSend(event);
+        yield* fail(event, unconfirmedSendReason);
+        return "settled" as const;
+      }
+      case "FailedNoticePending": {
+        yield* sendFailureNotice(event, yield* honestFailureTextOf(event));
+        return "settled" as const;
+      }
+      case "FailedNoticeSent": {
+        yield* rememberFailureNotice(event, state.text);
+        yield* inbox.markFailed([event]);
+        return "settled" as const;
+      }
+      case "FailedNoticeRefused": {
+        yield* inbox.markFailed([event]);
+        return "settled" as const;
+      }
+      case "FailedNoticeUnconfirmed": {
+        yield* recordUnconfirmedSend(event);
+        yield* inbox.markFailed([event]);
+        return "settled" as const;
+      }
+      default: {
+        return state satisfies never;
+      }
+    }
+  });
 
 export const settleFromJournal = (ownerId: OwnerId, event: InboxEvent) =>
   Effect.gen(function* settleFromJournalEffect() {
     const journal = yield* Journal;
     const entries = yield* journal.readForEvent(event.eventId);
-    const tags = tagsOf(entries);
+    const state = deliveryStateOfEntries(entries);
 
-    if (settlingTags.some((tag) => tags.has(tag))) {
-      yield* recordConversation(event, entries);
+    if (state._tag !== "Unsent") {
+      yield* recordConversation(event, state);
     }
-    return yield* settleEntries(ownerId, event, entries);
+    return yield* settleState({ ownerId, event, entries, state });
   });

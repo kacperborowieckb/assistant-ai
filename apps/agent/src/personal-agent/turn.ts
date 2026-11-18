@@ -13,6 +13,7 @@ import { ownerCurrentTimeText } from "../time/owner-current-time.ts";
 import { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
 import { Conversation } from "./conversation.ts";
+import { fail, failWithNotice, send } from "./delivery.ts";
 import { eventMessage } from "./event-message.ts";
 import { fireSchedule } from "./fire-schedule.ts";
 import { Inbox } from "./inbox.ts";
@@ -20,14 +21,8 @@ import type { OwnerMessageEvent } from "./inbox.ts";
 import { ownerMessageTools } from "./owner-message-tools.ts";
 import { rememberCompletedSteps } from "./remember-completed-steps.ts";
 import { recoverReminderRecord } from "./reminder-delivery.ts";
-import { completeScheduleOfFailedReminder } from "./reminder-failure.ts";
-import { completeScheduleOfUnsentFailure } from "./scheduled-task-failure.ts";
+import { completeScheduleOfFailedDelivery } from "./scheduled-delivery-recovery.ts";
 import { systemPrompt } from "./system-prompt.ts";
-import {
-  deliver,
-  failTurnWithHonestMessage,
-  recordTurnFailed,
-} from "./turn-delivery.ts";
 import { TurnProgress } from "./turn-progress.ts";
 import {
   modelFailureReason,
@@ -76,10 +71,7 @@ const answer = (
         eventMessage(event),
         ...earlier,
       ]);
-      yield* failTurnWithHonestMessage(
-        event,
-        stepLimitReason(behavior.maxToolSteps)
-      );
+      yield* failWithNotice(event, stepLimitReason(behavior.maxToolSteps));
       return;
     }
     const messages = [...history, eventMessage(event), ...earlier];
@@ -130,10 +122,7 @@ const answer = (
         earlier,
         outcome,
       });
-      yield* failTurnWithHonestMessage(
-        event,
-        modelFailureReason(outcome.error, redactor)
-      );
+      yield* failWithNotice(event, modelFailureReason(outcome.error, redactor));
       yield* recordTurnMetric({
         ownerId,
         eventId: event.eventId,
@@ -144,7 +133,7 @@ const answer = (
       return;
     }
     const replyText = redactor.redact(outcome.reply.text);
-    const delivery = yield* deliver(event, replyText);
+    const delivery = yield* send(event, replyText);
     if (delivery._tag === "Failed") {
       yield* rememberCompletedSteps({
         eventId: event.eventId,
@@ -152,7 +141,7 @@ const answer = (
         earlier,
         outcome,
       });
-      yield* recordTurnFailed(event, delivery.reason);
+      yield* fail(event, delivery.reason);
       yield* recordTurnMetric({
         ownerId,
         eventId: event.eventId,
@@ -190,8 +179,7 @@ export const takeTurn = (
     for (const event of events) {
       if (event._tag === "ScheduleFired") {
         yield* recoverReminderRecord(ownerId, event);
-        yield* completeScheduleOfUnsentFailure(event);
-        yield* completeScheduleOfFailedReminder(event);
+        yield* completeScheduleOfFailedDelivery(event);
       }
       const outcome = yield* settleFromJournal(ownerId, event);
       if (outcome === "unanswered") {
