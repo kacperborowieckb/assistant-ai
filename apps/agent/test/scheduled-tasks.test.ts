@@ -15,6 +15,7 @@ import { storeDueScheduleEvents } from "../src/personal-agent/due-schedule-event
 import type { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 import { skipScheduledTask } from "../src/personal-agent/scheduled-task-skip.ts";
+import { TurnProgress } from "../src/personal-agent/turn-progress.ts";
 import { OwnerPreferences } from "../src/preferences/owner-preferences.ts";
 import { changeScheduleToolName } from "../src/schedule/change-schedule-tool.ts";
 import { ScheduleAlarm } from "../src/schedule/schedule-alarm.ts";
@@ -42,6 +43,7 @@ type ScheduledTaskServices =
   | OwnerPreferences
   | ScheduleAlarm
   | Schedules
+  | TurnProgress
   | TurnTraces
   | UsageLedger;
 
@@ -814,6 +816,83 @@ describe("the failure message of a Scheduled Task with a secret in its prompt", 
     expect(JSON.stringify(await journalOf(ownerId))).not.toContain(
       env.TELEGRAM_BOT_TOKEN
     );
+  });
+});
+
+const savedConversationText = async (ownerId: string) =>
+  runInDurableObject(await agentOf(ownerId), (_, state) =>
+    state.storage.sql
+      .exec<{ message: string }>("SELECT message FROM conversation_messages")
+      .toArray()
+      .map((row) => row.message)
+      .join(" ")
+  );
+
+const expectNoSecretSaved = async (ownerId: string) => {
+  await vi.waitFor(
+    async () =>
+      expect(await savedConversationText(ownerId)).toContain(redactedMark),
+    { timeout: 10_000 }
+  );
+  expect(await savedConversationText(ownerId)).not.toContain(
+    env.TELEGRAM_BOT_TOKEN
+  );
+};
+
+describe("the saved Conversation of a Scheduled Task with a secret in its prompt", () => {
+  it("saves no secret when the step limit is used after a reset", async () => {
+    const ownerId = await ownerInWarsaw(9460);
+    const schedule = await seedSecretPrompt(ownerId);
+    await inAgent(ownerId, storeDueScheduleEvents);
+    const eventId = await eventIdOfFire(ownerId, schedule.scheduleId);
+    await inAgent(
+      ownerId,
+      TurnProgress.pipe(
+        Effect.flatMap((progress) =>
+          Effect.forEach(
+            Array.from(
+              { length: defaultBehaviorConfig.maxToolSteps },
+              (_, step) => step
+            ),
+            (step) => progress.markModelStep(eventId, step)
+          )
+        )
+      )
+    );
+
+    await abortAllDurableObjects();
+    await fireTheAlarm(ownerId);
+
+    await expectNoSecretSaved(ownerId);
+  });
+
+  it("saves no secret when the model fails after a tool step", async () => {
+    const ownerId = await ownerInWarsaw(9461);
+    await seedSecretPrompt(ownerId);
+    scriptModel([
+      { callTool: searchNotesToolName, input: { query: "tasks" } },
+      { error: "down" },
+      { error: "down" },
+      { error: "down" },
+    ]);
+
+    await fireTheAlarm(ownerId);
+
+    await expectNoSecretSaved(ownerId);
+  });
+
+  it("saves no secret when the send fails after a tool step and a model reply", async () => {
+    const ownerId = await ownerInWarsaw(9462);
+    await seedSecretPrompt(ownerId);
+    scriptModel([
+      { callTool: searchNotesToolName, input: { query: "tasks" } },
+      { say: "Your tasks are done" },
+    ]);
+    fakeTelegram.answerWith("refuse");
+
+    await fireTheAlarm(ownerId);
+
+    await expectNoSecretSaved(ownerId);
   });
 });
 

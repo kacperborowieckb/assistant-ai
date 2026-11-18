@@ -98,10 +98,11 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
     situation: [scheduledTaskSection(setAtText)],
   });
   const input = scheduledTaskInputMessage(action.prompt);
+  const savedInput = redactor.redactMessage(input);
   const earlier = yield* progress.completedFor(event.eventId);
   const stepsLeft = behavior.maxToolSteps - stepsUsed;
   if (stepsLeft <= 0) {
-    yield* conversation.append(event.eventId, [input, ...earlier]);
+    yield* conversation.append(event.eventId, [savedInput, ...earlier]);
     yield* failScheduledTask({
       event,
       action,
@@ -150,7 +151,7 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
   if (outcome._tag === "ModelFailed") {
     yield* rememberCompletedSteps({
       eventId: event.eventId,
-      input,
+      input: savedInput,
       earlier,
       outcome,
     });
@@ -182,7 +183,7 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
   if (delivery._tag === "Failed") {
     yield* rememberCompletedSteps({
       eventId: event.eventId,
-      input,
+      input: savedInput,
       earlier,
       outcome,
     });
@@ -198,7 +199,7 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
   }
   yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
   yield* conversation.append(event.eventId, [
-    redactor.redactMessage(input),
+    savedInput,
     ...earlier,
     ...responseMessagesOf(outcome).map((message) =>
       redactor.redactMessage(message)
