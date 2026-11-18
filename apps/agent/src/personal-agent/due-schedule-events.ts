@@ -7,17 +7,18 @@ export const storeDueScheduleEvents = Effect.gen(
   function* storeDueScheduleEventsEffect() {
     const schedules = yield* Schedules;
     const inbox = yield* Inbox;
-    const due = yield* schedules.unfiredDueBy(yield* DateTime.now);
 
-    yield* Effect.forEach(
-      due,
-      ({ scheduleId, nextDueAt }) =>
-        inbox.store({
-          _tag: "ScheduleFired",
-          scheduleId,
-          dueAt: DateTime.formatIso(nextDueAt),
-        }),
-      { discard: true }
+    yield* schedules.fireDueBy(yield* DateTime.now, (due) =>
+      Effect.forEach(
+        due,
+        ({ scheduleId, nextDueAt }) =>
+          inbox.store({
+            _tag: "ScheduleFired",
+            scheduleId,
+            dueAt: DateTime.formatIso(nextDueAt),
+          }),
+        { discard: true }
+      )
     );
   }
 );

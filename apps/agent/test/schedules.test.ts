@@ -13,7 +13,6 @@ import { storeDueScheduleEvents } from "../src/personal-agent/due-schedule-event
 import type { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 import { OwnerPreferences } from "../src/preferences/owner-preferences.ts";
-import { ScheduleAlarm } from "../src/schedule/schedule-alarm.ts";
 import { Schedules } from "../src/schedule/schedules.ts";
 import {
   dueTimeInThePastMessage,
@@ -36,7 +35,6 @@ type ReminderServices =
   | Inbox
   | Journal
   | OwnerPreferences
-  | ScheduleAlarm
   | Schedules
   | TurnTraces;
 
@@ -340,7 +338,6 @@ describe("the alarm", () => {
       ownerId,
       Effect.gen(function* armEffect() {
         const schedules = yield* Schedules;
-        const alarm = yield* ScheduleAlarm;
         for (const [text, dueAt] of [
           ["later", later],
           ["earlier", earlier],
@@ -351,7 +348,6 @@ describe("the alarm", () => {
             dueAt,
             sourceEventId: text,
           });
-          yield* alarm.rearm;
         }
       })
     );
@@ -376,11 +372,115 @@ describe("the alarm", () => {
           active?.next_due_at ?? "",
           "setup"
         );
-        yield* (yield* ScheduleAlarm).rearm;
       })
     );
     expect(await alarmsOf(ownerId)).toEqual([
       DateTime.toEpochMillis(later) / 1000,
+    ]);
+  });
+});
+
+const instantOf = (iso: string) =>
+  DateTime.toEpochMillis(DateTime.makeUnsafe(iso)) / 1000;
+
+const withSchedules = <A, E>(
+  use: (schedules: Schedules["Service"]) => Effect.Effect<A, E>
+) => Schedules.pipe(Effect.flatMap(use));
+
+const setSendText = (text: string, dueAt: string) =>
+  withSchedules((schedules) =>
+    schedules.set({
+      action: { _tag: "SendText", text },
+      setBy: "owner",
+      dueAt: DateTime.makeUnsafe(dueAt),
+      sourceEventId: text,
+    })
+  ).pipe(Effect.map(({ schedule }) => schedule.scheduleId));
+
+describe("Schedules store alarm", () => {
+  it("leaves the alarm at the earliest due instant after set, change, cancel, complete, and a time zone change", async () => {
+    const ownerId = await ownerInWarsaw(9012);
+    const first = `${nextYear}-02-01T08:00:00.000Z`;
+    const second = `${nextYear}-03-01T08:00:00.000Z`;
+    const third = `${nextYear}-04-01T08:00:00.000Z`;
+    const fifth = `${nextYear}-05-01T08:00:00.000Z`;
+
+    const [a, b, c] = await inAgent(
+      ownerId,
+      Effect.all([
+        setSendText("a", second),
+        setSendText("b", first),
+        setSendText("c", third),
+      ])
+    );
+    expect(await alarmsOf(ownerId)).toEqual([instantOf(first)]);
+
+    await inAgent(
+      ownerId,
+      withSchedules((schedules) =>
+        schedules.change({
+          scheduleId: b ?? "",
+          dueAt: DateTime.makeUnsafe(fifth),
+          eventId: "change",
+        })
+      )
+    );
+    expect(await alarmsOf(ownerId)).toEqual([instantOf(second)]);
+
+    await inAgent(
+      ownerId,
+      withSchedules((schedules) =>
+        schedules.cancel({ scheduleId: a ?? "", eventId: "cancel-a" })
+      )
+    );
+    expect(await alarmsOf(ownerId)).toEqual([instantOf(third)]);
+
+    await inAgent(
+      ownerId,
+      withSchedules((schedules) =>
+        schedules.complete(c ?? "", third, "complete")
+      )
+    );
+    expect(await alarmsOf(ownerId)).toEqual([instantOf(fifth)]);
+
+    await inAgent(
+      ownerId,
+      withSchedules((schedules) =>
+        schedules.cancel({ scheduleId: b ?? "", eventId: "cancel-b" })
+      )
+    );
+    expect(await alarmsOf(ownerId)).toEqual([]);
+  });
+
+  it("moves the alarm when a time zone change moves a repeating Schedule", async () => {
+    const ownerId = await ownerInWarsaw(9013);
+    await inAgent(
+      ownerId,
+      withSchedules((schedules) =>
+        schedules.set({
+          action: { _tag: "SendText", text: "daily" },
+          setBy: "owner",
+          dueAt: DateTime.makeUnsafe(`${nextYear}-06-01T08:00:00.000Z`),
+          repeat: {
+            rule: { _tag: "Daily", time: "09:00" },
+            timeZone: DateTime.zoneMakeNamedUnsafe("Europe/Warsaw"),
+          },
+          sourceEventId: "daily",
+        })
+      )
+    );
+    await inAgent(
+      ownerId,
+      withSchedules((schedules) =>
+        schedules.moveRepeatingToTimeZone(
+          DateTime.zoneMakeNamedUnsafe("Asia/Tokyo"),
+          "zone"
+        )
+      )
+    );
+    const [row] = await schedulesOf(ownerId);
+    expect(await alarmsOf(ownerId)).toEqual([
+      instantOf(row?.next_due_at ?? ""),
     ]);
   });
 });

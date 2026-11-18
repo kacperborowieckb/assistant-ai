@@ -70,7 +70,6 @@ const failureMessageOf = (cause: Cause.Cause<unknown>) =>
 export const setScheduleTool = (
   {
     schedules,
-    alarm,
     ownerTimeZone,
     progress,
     redactor,
@@ -138,7 +137,6 @@ export const setScheduleTool = (
             };
           })
         );
-        yield* alarm.rearm;
         return schedule;
       }).pipe(
         Effect.catchCause((cause) =>

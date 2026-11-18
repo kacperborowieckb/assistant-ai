@@ -8,7 +8,6 @@ import { OwnerPreferences } from "../preferences/owner-preferences.ts";
 import { Profile } from "../profile/profile.ts";
 import { lateScheduledTaskText } from "../schedule/late-reminder.ts";
 import type { RunPrompt } from "../schedule/schedule-action.ts";
-import { ScheduleAlarm } from "../schedule/schedule-alarm.ts";
 import type { Schedule } from "../schedule/schedule.ts";
 import { Schedules } from "../schedule/schedules.ts";
 import { localTimeOf } from "../time/local-time.ts";
@@ -66,7 +65,6 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
   const preferences = yield* OwnerPreferences;
   const progress = yield* TurnProgress;
   const schedules = yield* Schedules;
-  const alarm = yield* ScheduleAlarm;
 
   const startedAt = yield* Clock.currentTimeMillis;
   const stepsUsed = yield* progress.usedStepCount(event.eventId);
@@ -122,7 +120,6 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
         redactor,
         preferences,
         schedules,
-        alarm,
         behavior,
       }),
       stepLimit: stepsLeft,

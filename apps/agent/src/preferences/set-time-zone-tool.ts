@@ -6,7 +6,6 @@ import {
   ToolFailed,
 } from "../model-gateway/agent-tool.ts";
 import type { TurnProgress } from "../personal-agent/turn-progress.ts";
-import type { ScheduleAlarm } from "../schedule/schedule-alarm.ts";
 import type { Schedules } from "../schedule/schedules.ts";
 import { namedTimeZone } from "../time/time-zone.ts";
 import type { Redactor } from "../tracing/redactor.ts";
@@ -21,7 +20,6 @@ export const timeZoneNotChangedMessage =
 export interface PreferenceToolServices {
   readonly preferences: OwnerPreferences["Service"];
   readonly schedules: Schedules["Service"];
-  readonly alarm: ScheduleAlarm["Service"];
   readonly progress: TurnProgress["Service"];
   readonly redactor: Redactor["Service"];
 }
@@ -44,7 +42,7 @@ const failureMessageOf = (cause: Cause.Cause<unknown>) => {
 };
 
 export const setTimeZoneTool = (
-  { preferences, schedules, alarm, progress, redactor }: PreferenceToolServices,
+  { preferences, schedules, progress, redactor }: PreferenceToolServices,
   eventId: string
 ) =>
   agentTool({
@@ -71,7 +69,6 @@ export const setTimeZoneTool = (
             return result;
           })
         );
-        yield* alarm.rearm;
         return change;
       }).pipe(
         Effect.catchCause((cause) =>

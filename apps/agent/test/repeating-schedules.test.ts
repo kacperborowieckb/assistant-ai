@@ -13,7 +13,6 @@ import {
   newDueAndRepeatGivenMessage,
 } from "../src/schedule/change-schedule-tool.ts";
 import { listSchedulesToolName } from "../src/schedule/list-schedules-tool.ts";
-import { ScheduleAlarm } from "../src/schedule/schedule-alarm.ts";
 import { Schedules } from "../src/schedule/schedules.ts";
 import {
   dueAndRepeatGivenMessage,
@@ -30,7 +29,6 @@ type RepeatingServices =
   | Inbox
   | Journal
   | OwnerPreferences
-  | ScheduleAlarm
   | Schedules
   | TurnTraces;
 
@@ -146,7 +144,6 @@ const seedRepeating = (
         repeat: { rule, timeZone: warsaw },
         sourceEventId: "seed-repeating",
       });
-      yield* (yield* ScheduleAlarm).rearm;
     })
   );
 
@@ -161,7 +158,6 @@ const seedOneTime = (ownerId: string, dueAt: DateTime.Utc) =>
         dueAt,
         sourceEventId: "seed-one-time-conversion",
       });
-      yield* (yield* ScheduleAlarm).rearm;
     })
   );
 

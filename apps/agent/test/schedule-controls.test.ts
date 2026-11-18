@@ -17,7 +17,6 @@ import {
   nothingToChangeMessage,
 } from "../src/schedule/change-schedule-tool.ts";
 import { listSchedulesToolName } from "../src/schedule/list-schedules-tool.ts";
-import { ScheduleAlarm } from "../src/schedule/schedule-alarm.ts";
 import { noActiveScheduleMessage } from "../src/schedule/schedule-presentation.ts";
 import { Schedules } from "../src/schedule/schedules.ts";
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
@@ -28,7 +27,6 @@ type ControlServices =
   | Inbox
   | Journal
   | OwnerPreferences
-  | ScheduleAlarm
   | Schedules
   | TurnTraces;
 
@@ -132,7 +130,6 @@ const seedReminder = (ownerId: string, text: string, dueAt: DateTime.Utc) =>
         dueAt,
         sourceEventId: `seed-${text}`,
       });
-      yield* (yield* ScheduleAlarm).rearm;
     })
   );
 
@@ -151,7 +148,6 @@ const seedScheduledTask = (
         dueAt,
         sourceEventId: `seed-${prompt}`,
       });
-      yield* (yield* ScheduleAlarm).rearm;
     })
   );
 
@@ -185,7 +181,6 @@ const changeAt = async (ownerId: string, text: string, dueAt: DateTime.Utc) => {
         dueAt,
         eventId: "setup",
       });
-      yield* (yield* ScheduleAlarm).rearm;
     })
   );
 };
@@ -503,7 +498,6 @@ describe("cancel_schedule", () => {
           scheduleId,
           eventId: "setup",
         });
-        yield* (yield* ScheduleAlarm).rearm;
       })
     );
 
