@@ -119,7 +119,7 @@
     },
     {
       "id": "recorded-tool",
-      "purpose": "The module that wraps every agent tool. A tool gives its name, its input schema, its work, and its failure message. The module marks the model step, records the tool call and its result in the same transaction as the work with redaction, and keeps a ToolFailed from the work and maps any other failure to ToolFailed with the failure message. It records the decoded input. agentToolServices collects the services that the tools of both kinds of Turn need. Approval and Auto-review plug in here later.",
+      "purpose": "The module that wraps every agent tool. A tool gives its name, its input schema, its work, and its failure message. The module marks the model step, records the tool call and its result in the same transaction as the work with redaction, and keeps a ToolFailed from the work and maps any other failure to ToolFailed with the failure message. It records the decoded input, or the result of an optional recordedInput function of the tool (capture_note uses it to keep the Untrusted Content marking of forwarded text). agentToolServices collects the services that the tools of both kinds of Turn need. Approval and Auto-review plug in here later.",
       "roots": [
         "apps/agent/src/personal-agent/recorded-tool.ts",
         "apps/agent/src/personal-agent/agent-tool-services.ts"
