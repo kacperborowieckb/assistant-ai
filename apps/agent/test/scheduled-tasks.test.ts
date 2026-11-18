@@ -828,15 +828,13 @@ const savedConversationText = async (ownerId: string) =>
       .join(" ")
   );
 
-const expectNoSecretSaved = async (ownerId: string) => {
+const conversationTextOnceRedacted = async (ownerId: string) => {
   await vi.waitFor(
     async () =>
       expect(await savedConversationText(ownerId)).toContain(redactedMark),
     { timeout: 10_000 }
   );
-  expect(await savedConversationText(ownerId)).not.toContain(
-    env.TELEGRAM_BOT_TOKEN
-  );
+  return savedConversationText(ownerId);
 };
 
 describe("the saved Conversation of a Scheduled Task with a secret in its prompt", () => {
@@ -863,7 +861,9 @@ describe("the saved Conversation of a Scheduled Task with a secret in its prompt
     await abortAllDurableObjects();
     await fireTheAlarm(ownerId);
 
-    await expectNoSecretSaved(ownerId);
+    expect(await conversationTextOnceRedacted(ownerId)).not.toContain(
+      env.TELEGRAM_BOT_TOKEN
+    );
   });
 
   it("saves no secret when the model fails after a tool step", async () => {
@@ -878,7 +878,9 @@ describe("the saved Conversation of a Scheduled Task with a secret in its prompt
 
     await fireTheAlarm(ownerId);
 
-    await expectNoSecretSaved(ownerId);
+    expect(await conversationTextOnceRedacted(ownerId)).not.toContain(
+      env.TELEGRAM_BOT_TOKEN
+    );
   });
 
   it("saves no secret when the send fails after a tool step and a model reply", async () => {
@@ -892,7 +894,9 @@ describe("the saved Conversation of a Scheduled Task with a secret in its prompt
 
     await fireTheAlarm(ownerId);
 
-    await expectNoSecretSaved(ownerId);
+    expect(await conversationTextOnceRedacted(ownerId)).not.toContain(
+      env.TELEGRAM_BOT_TOKEN
+    );
   });
 });
 
