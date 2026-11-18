@@ -405,14 +405,11 @@ describe("Schedules store alarm", () => {
     const third = `${nextYear}-04-01T08:00:00.000Z`;
     const fifth = `${nextYear}-05-01T08:00:00.000Z`;
 
-    const [a, b, c] = await inAgent(
-      ownerId,
-      Effect.all([
-        setSendText("a", second),
-        setSendText("b", first),
-        setSendText("c", third),
-      ])
-    );
+    const a = await inAgent(ownerId, setSendText("a", second));
+    expect(await alarmsOf(ownerId)).toEqual([instantOf(second)]);
+    const b = await inAgent(ownerId, setSendText("b", first));
+    expect(await alarmsOf(ownerId)).toEqual([instantOf(first)]);
+    const c = await inAgent(ownerId, setSendText("c", third));
     expect(await alarmsOf(ownerId)).toEqual([instantOf(first)]);
 
     await inAgent(
@@ -450,6 +447,41 @@ describe("Schedules store alarm", () => {
       )
     );
     expect(await alarmsOf(ownerId)).toEqual([]);
+  });
+
+  it("moves the alarm to the next occurrence when a repeating Schedule completes", async () => {
+    const ownerId = await ownerInWarsaw(9014);
+    const dueAt = `${nextYear}-06-01T07:00:00.000Z`;
+    const scheduleId = await inAgent(
+      ownerId,
+      withSchedules((schedules) =>
+        schedules.set({
+          action: { _tag: "SendText", text: "daily" },
+          setBy: "owner",
+          dueAt: DateTime.makeUnsafe(dueAt),
+          repeat: {
+            rule: { _tag: "Daily", time: "09:00" },
+            timeZone: DateTime.zoneMakeNamedUnsafe("Europe/Warsaw"),
+          },
+          sourceEventId: "daily",
+        })
+      ).pipe(Effect.map(({ schedule }) => schedule.scheduleId))
+    );
+    expect(await alarmsOf(ownerId)).toEqual([instantOf(dueAt)]);
+
+    await inAgent(
+      ownerId,
+      withSchedules((schedules) =>
+        schedules.complete(scheduleId, dueAt, "complete")
+      )
+    );
+
+    const [row] = await schedulesOf(ownerId);
+    expect(row?.state).toBe("active");
+    expect(row?.next_due_at).not.toBe(dueAt);
+    expect(await alarmsOf(ownerId)).toEqual([
+      instantOf(row?.next_due_at ?? ""),
+    ]);
   });
 
   it("moves the alarm when a time zone change moves a repeating Schedule", async () => {

@@ -249,7 +249,6 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
     requireRoomForScheduledTask,
     byId,
     fireDueBy,
-    earliestUnfiredDueAt,
     complete,
   };
 });
