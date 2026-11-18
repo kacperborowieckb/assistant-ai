@@ -20,6 +20,9 @@ export const noteNotUpdatedMessage =
 export const nothingToUpdateMessage =
   "The Note was not updated. Give new text, Notes to link, or Notes to unlink, or give an Open Loop.";
 
+export const dueAndClearGivenMessage =
+  "Both a due time and clearDueTime were given, so nothing was changed. Give only one of them.";
+
 export const openLoopNeedsKindMessage =
   "The Note has no open Open Loop, so nothing was changed. Give the kind of the Open Loop to open one.";
 
@@ -58,6 +61,14 @@ const UpdateNoteInput = Schema.Struct({
         )
       ),
       localDueTime: Schema.optionalKey(openLoopLocalDueTimeSchema),
+      clearDueTime: Schema.optionalKey(
+        Schema.Boolean.pipe(
+          Schema.annotate({
+            description:
+              "true to remove the due time of the open Open Loop and keep it open, when the Owner says that the task has no deadline any more. Do not give it together with localDueTime.",
+          })
+        )
+      ),
     }).pipe(
       Schema.annotate({
         description:
@@ -98,6 +109,12 @@ export const updateNoteTool = (
         ) {
           return yield* new ToolFailed({ message: nothingToUpdateMessage });
         }
+        if (
+          openLoop?.clearDueTime === true &&
+          openLoop.localDueTime !== undefined
+        ) {
+          return yield* new ToolFailed({ message: dueAndClearGivenMessage });
+        }
         const dueAt = yield* resolveOpenLoopDue(
           services,
           openLoop?.localDueTime
@@ -113,7 +130,11 @@ export const updateNoteTool = (
             openLoop:
               openLoop === undefined
                 ? undefined
-                : { kind: openLoop.kind, dueAt },
+                : {
+                    kind: openLoop.kind,
+                    dueAt,
+                    clearDueAt: openLoop.clearDueTime,
+                  },
           })
           .pipe(
             Effect.catchTag("OpenLoopNeedsKind", () =>

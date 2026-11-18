@@ -62,7 +62,10 @@ export const makeOpenLoops = Effect.fnUntraced(function* makeOpenLoops(
       return {
         _tag: "Open",
         kind: request.kind ?? current.kind,
-        dueAt: request.dueAt ?? current.dueAt,
+        dueAt:
+          request.clearDueAt === true
+            ? undefined
+            : (request.dueAt ?? current.dueAt),
       } satisfies OpenLoop;
     }
     if (request.kind === undefined) {

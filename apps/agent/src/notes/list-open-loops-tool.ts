@@ -4,7 +4,7 @@ import { recordedTool } from "../personal-agent/recorded-tool.ts";
 import { openLoopForModel } from "./open-loop-presentation.ts";
 import type { OpenLoopToolServices } from "./open-loop-tool-services.ts";
 import { maxOpenLoopsPerPage } from "./open-loop.ts";
-import { textForModel } from "./recalled-note.ts";
+import { sourceForModel, textForModel } from "./recalled-note.ts";
 
 export const listOpenLoopsToolName = "list_open_loops";
 
@@ -47,6 +47,7 @@ export const listOpenLoopsTool = (
             noteId: note.noteId,
             text: textForModel(note),
             url: note.url ?? null,
+            source: sourceForModel(note),
             trustLevel: note.trustLevel,
             capturedAt: note.capturedAt,
             openLoop: openLoopForModel(note.openLoop, timeZone),

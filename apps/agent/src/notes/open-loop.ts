@@ -141,6 +141,7 @@ export interface OpenLoopRequest {
 export interface OpenLoopUpdateRequest {
   readonly kind?: string | undefined;
   readonly dueAt?: DateTime.Utc | undefined;
+  readonly clearDueAt?: boolean | undefined;
 }
 
 export interface CloseOpenLoopRequest {

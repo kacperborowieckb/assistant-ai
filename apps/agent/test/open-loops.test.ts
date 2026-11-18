@@ -256,6 +256,50 @@ describe("Open Loops on Notes", () => {
     ]);
   });
 
+  it("clears the due date of an open Open Loop and keeps it open, and refuses a due time together with clearDueTime", async () => {
+    const ownerId = await ownerInWarsaw(9815);
+    scriptModel([
+      captureTask("send the invoice", "2027-03-01T12:00"),
+      { say: "Kept" },
+    ]);
+    await ownerSays(9815, "send the invoice by March 1", 1);
+    const note = await firstNoteOf(ownerId);
+    scriptModel([
+      {
+        callTool: updateNoteToolName,
+        input: {
+          noteId: note?.note_id,
+          openLoop: { localDueTime: "2027-03-02T12:00", clearDueTime: true },
+        },
+      },
+      { say: "Hm" },
+    ]);
+    await ownerSays(9815, "no deadline", 2);
+    expect(lastToolResult()).toContain("Give only one of them");
+    expect(await firstNoteOf(ownerId)).toMatchObject({
+      open_loop_due_at: "2027-03-01T11:00:00.000Z",
+    });
+
+    scriptModel([
+      {
+        callTool: updateNoteToolName,
+        input: { noteId: note?.note_id, openLoop: { clearDueTime: true } },
+      },
+      { say: "Cleared" },
+    ]);
+    await ownerSays(9815, "no deadline, really", 3);
+
+    expect(await firstNoteOf(ownerId)).toMatchObject({
+      open_loop_state: "open",
+      open_loop_kind: "task",
+      open_loop_due_at: null,
+    });
+    expect(await loopTagsOf(ownerId)).toEqual([
+      "OpenLoopOpened",
+      "OpenLoopChanged",
+    ]);
+  });
+
   it("refuses an Open Loop without a kind on a Note that has none open, and writes nothing", async () => {
     const ownerId = await addOwner(9806);
     scriptModel([
@@ -397,6 +441,9 @@ describe("Open Loops on Notes", () => {
       "undated task",
     ]);
     const everything = JSON.stringify([first, second]);
+    expect(first.openLoops[0]).toMatchObject({
+      source: { channel: "telegram", channelMessageId: "dated-10" },
+    });
     expect(everything).not.toContain("a plain fact");
     expect(everything).not.toContain("finished task");
 
