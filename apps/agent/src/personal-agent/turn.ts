@@ -21,6 +21,7 @@ import type { OwnerMessageEvent } from "./inbox.ts";
 import { ownerMessageTools } from "./owner-message-tools.ts";
 import { rememberCompletedSteps } from "./remember-completed-steps.ts";
 import { recoverReminderRecord } from "./reminder-delivery.ts";
+import { completeScheduleOfFailedReminder } from "./reminder-failure.ts";
 import { completeScheduleOfUnsentFailure } from "./scheduled-task-failure.ts";
 import { systemPrompt } from "./system-prompt.ts";
 import {
@@ -193,6 +194,7 @@ export const takeTurn = (
       if (event._tag === "ScheduleFired") {
         yield* recoverReminderRecord(ownerId, event);
         yield* completeScheduleOfUnsentFailure(event);
+        yield* completeScheduleOfFailedReminder(event);
       }
       const outcome = yield* settleFromJournal(ownerId, event);
       if (outcome === "unanswered") {

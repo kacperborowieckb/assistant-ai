@@ -537,7 +537,7 @@ describe("Reminder delivery", () => {
       expect(await journalTagsOf(ownerId)).toContain("ReplyFailed")
     );
     expect(sentTexts()).toEqual(["You said: hello"]);
-    expect(await firstScheduleState(ownerId)).toBe("active");
+    expect(await firstScheduleState(ownerId)).toBe("done");
     expect(await alarmsOf(ownerId)).toEqual([]);
   });
 
@@ -584,9 +584,10 @@ describe("Reminder delivery", () => {
       ).toHaveLength(1);
     });
     expect(sentTexts()).toEqual(["You said: hello"]);
+    expect(await firstScheduleState(ownerId)).toBe("done");
   });
 
-  it("records a failed send honestly, keeps the Schedule active, and does not arm a hot alarm", async () => {
+  it("records a failed send honestly, completes the Schedule, and does not arm a hot alarm", async () => {
     const ownerId = await ownerInWarsaw(9024);
     await owner(9024, "hello");
     await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(1));
@@ -598,7 +599,7 @@ describe("Reminder delivery", () => {
     await vi.waitFor(async () =>
       expect(await journalTagsOf(ownerId)).toContain("ReplyFailed")
     );
-    expect(await firstScheduleState(ownerId)).toBe("active");
+    expect(await firstScheduleState(ownerId)).toBe("done");
     expect(await alarmsOf(ownerId)).toEqual([]);
     const traces = await inAgent(
       ownerId,
