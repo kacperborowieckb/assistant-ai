@@ -417,7 +417,7 @@ const traceTasksOf = (ownerId: string) =>
   );
 
 describe("a Scheduled Task Event after a reset", () => {
-  it("gets no reminder_delivery Trace when the reset comes after a confirmed send", async () => {
+  it("keeps its one scheduled_task Trace when the reset comes after a confirmed send", async () => {
     const {
       ownerId,
       agent,
@@ -425,23 +425,31 @@ describe("a Scheduled Task Event after a reset", () => {
     } = await seedFiredScheduledTask(9801);
     await runInDurableObject(agent, (instance) =>
       instance.runtime.runPromise(
-        Journal.pipe(
-          Effect.flatMap((journal) =>
-            Effect.all([
-              journal.append({
-                _tag: "ReplyPlanned",
-                eventId: firedEventId,
-                text: "result",
-              }),
-              journal.append({ _tag: "SendStarted", eventId: firedEventId }),
-              journal.append({
-                _tag: "ReplySent",
-                eventId: firedEventId,
-                channelMessageId: "9000",
-              }),
-            ])
-          )
-        )
+        Effect.gen(function* seedEffect() {
+          const journal = yield* Journal;
+          const traces = yield* TurnTraces;
+          yield* traces.record({
+            eventId: firedEventId,
+            task: "scheduled_task_skip",
+            result: "scheduled_task_skipped",
+            scheduleId: "schedule",
+            dueAt: "2026-01-01T00:00:00.000Z",
+            dailyTokenBudget: 1,
+            tokensSpent: 1,
+            text: "skipped",
+          });
+          yield* journal.append({
+            _tag: "ReplyPlanned",
+            eventId: firedEventId,
+            text: "result",
+          });
+          yield* journal.append({ _tag: "SendStarted", eventId: firedEventId });
+          yield* journal.append({
+            _tag: "ReplySent",
+            eventId: firedEventId,
+            channelMessageId: "9000",
+          });
+        })
       )
     );
     await abortAllDurableObjects();
@@ -451,7 +459,7 @@ describe("a Scheduled Task Event after a reset", () => {
       (instance) => instance.runTurn()
     );
 
-    expect(await traceTasksOf(ownerId)).not.toContain("reminder_delivery");
+    expect(await traceTasksOf(ownerId)).toEqual(["scheduled_task_skip"]);
   });
 
   it("gets a scheduled_task Trace when the reset comes after ReplyPlanned", async () => {

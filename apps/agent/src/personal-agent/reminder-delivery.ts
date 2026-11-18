@@ -99,10 +99,6 @@ export const recoverReminderRecord = Effect.fnUntraced(
     if (result._tag === "Delivered") {
       yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
     }
-    const schedule = yield* schedules.byId(event.scheduleId);
-    if (schedule._tag === "Some" && schedule.value.action._tag !== "SendText") {
-      return;
-    }
     const entries = yield* journal.readForEvent(event.eventId);
     yield* recordReminderOutcome(
       {
