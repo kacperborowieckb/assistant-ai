@@ -34,7 +34,7 @@ export const listOpenLoopsTool = (
     },
     {
       name: listOpenLoopsToolName,
-      description: `List the open Open Loops of the Owner: the Notes that are things to do or to come back to. Due ones come first, the earliest due first, then the ones without a due time, oldest first. Returns ${maxOpenLoopsPerPage} at a time with the total count. Use it when the Owner asks what is open. An empty list means that nothing is open.`,
+      description: `List the open Open Loops of the Owner: the Notes that are things to do or to come back to. Due ones come first, the earliest due first, then the ones without a due time, oldest first. Returns ${maxOpenLoopsPerPage} at a time with the total count. Use it when the Owner asks what is open. When openLoopCount is 0, nothing is open. An empty openLoops list with a count above 0 only means that no Open Loops remain at that offset.`,
       inputSchema: ListOpenLoopsInput,
       failureMessage: openLoopsNotListedMessage,
       work: Effect.fnUntraced(function* listOpenLoopsEffect({ offset }) {

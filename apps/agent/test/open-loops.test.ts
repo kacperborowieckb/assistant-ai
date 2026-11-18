@@ -587,12 +587,17 @@ describe("Open Loops on Notes", () => {
       await ownerSays(userId, "buy tea", 1);
       const note = await firstNoteOf(ownerId);
       scriptModel([step(note?.note_id ?? ""), { say: "Done" }]);
-      const releaseModel = holdModel(1);
+      const callsBefore = fakeModel.doGenerateCalls.length;
+      const releaseModel = holdModel(callsBefore + 1);
 
       await telegramWebhook(textUpdate({ fromUserId: userId, text: "next" }));
       await vi.waitFor(() =>
-        expect(fakeModel.doGenerateCalls.length).toBeGreaterThanOrEqual(3)
+        expect(fakeModel.doGenerateCalls.length).toBeGreaterThanOrEqual(
+          callsBefore + 2
+        )
       );
+      expect(await loopTagsOf(ownerId)).toEqual(tags);
+      expect(await loopStateOf(ownerId)).toBe(state);
       await abortAllDurableObjects();
       scriptModel([step(note?.note_id ?? ""), { say: "Done" }]);
       releaseModel();
