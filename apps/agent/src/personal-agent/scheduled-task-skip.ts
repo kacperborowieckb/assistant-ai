@@ -5,15 +5,13 @@ import { Journal } from "../journal/journal.ts";
 import type { OwnerId } from "../owner-id.ts";
 import type { RunPrompt } from "../schedule/schedule-action.ts";
 import { Schedules } from "../schedule/schedules.ts";
-import { OperatorMetrics } from "../tracing/operator-metrics.ts";
 import { Redactor } from "../tracing/redactor.ts";
-import { TurnTraces } from "../tracing/turn-trace.ts";
 import { Conversation } from "./conversation.ts";
+import { fail, recordOutcome, send } from "./delivery.ts";
 import { scheduledTaskInputMessage } from "./event-message.ts";
 import { Inbox } from "./inbox.ts";
 import type { ScheduleFiredEvent } from "./inbox.ts";
 import { nameOfPrompt } from "./scheduled-task-failure.ts";
-import { deliver, recordTurnFailed } from "./turn-delivery.ts";
 
 interface SkippedScheduledTask {
   readonly ownerId: OwnerId;
@@ -50,9 +48,9 @@ const finishSkippedScheduledTask = Effect.fnUntraced(
     const conversation = yield* Conversation;
 
     yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
-    const delivery = yield* deliver(event, text);
+    const delivery = yield* send(event, text);
     if (delivery._tag === "Failed") {
-      yield* recordTurnFailed(event, delivery.reason);
+      yield* fail(event, delivery.reason);
       return;
     }
     yield* conversation.append(event.eventId, [
@@ -80,29 +78,24 @@ const recordSkip = Effect.fnUntraced(function* recordSkip({
   tokensSpent,
   latencyMillis,
 }: SkipRecord) {
-  const traces = yield* TurnTraces;
-  const metrics = yield* OperatorMetrics;
-
-  const recorded = yield* traces.readForEvent(event.eventId);
-  if (recorded.length > 0) {
-    return;
-  }
-  yield* metrics.record({
-    kind: "scheduled_task_skipped",
-    ownerId,
-    eventId: event.eventId,
-    result: "daily_token_budget_spent",
-    latencyMillis,
-  });
-  yield* traces.record({
-    eventId: event.eventId,
-    task: "scheduled_task_skip",
-    result: "scheduled_task_skipped",
-    scheduleId: event.scheduleId,
-    dueAt: event.dueAt,
-    dailyTokenBudget,
-    tokensSpent,
-    text,
+  yield* recordOutcome({
+    trace: {
+      eventId: event.eventId,
+      task: "scheduled_task_skip",
+      result: "scheduled_task_skipped",
+      scheduleId: event.scheduleId,
+      dueAt: event.dueAt,
+      dailyTokenBudget,
+      tokensSpent,
+      text,
+    },
+    metric: {
+      kind: "scheduled_task_skipped",
+      ownerId,
+      eventId: event.eventId,
+      result: "daily_token_budget_spent",
+      latencyMillis,
+    },
   });
 });
 

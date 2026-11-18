@@ -16,6 +16,7 @@ Use these terms with these meanings in code, docs, issues, and prompts. Use the 
 - **Registration**: the way a new Owner is added. A self-host Instance has closed Registration; setup adds the one Owner. The hosted product opens it through `apps/platform`.
 - **Personal Agent** (`PersonalAgent`): the Durable Object for one Owner. It holds the Owner's memory, Journal, Inbox, Schedules, and preferences. It sleeps when idle and wakes on any Event.
 - **Turn**: one run of the agent loop, from the Events it takes in to the messages and Journal Entries it produces.
+- **Delivery**: the record of the one message that the agent sends for an Event, and its state (`Unsent`, `Sent`, `SendFailed`, `Unconfirmed`, or a failed Event with a notice that is pending, sent, refused, or unconfirmed). Only the Delivery module reads and writes it.
 - **Helper**: a durable workflow that does long or expensive work outside the chat Turn and returns only its result. Not in the MVP.
 
 ## Primitives

@@ -18,6 +18,7 @@ import {
 import { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
 import { Conversation } from "./conversation.ts";
+import { fail, send } from "./delivery.ts";
 import { scheduledTaskInputMessage } from "./event-message.ts";
 import { Inbox } from "./inbox.ts";
 import type { ScheduleFiredEvent } from "./inbox.ts";
@@ -29,7 +30,6 @@ import { scheduledTaskSection } from "./scheduled-task-section.ts";
 import { skipScheduledTask } from "./scheduled-task-skip.ts";
 import { scheduledTaskTools } from "./scheduled-task-tools.ts";
 import { systemPrompt } from "./system-prompt.ts";
-import { deliver, recordTurnFailed } from "./turn-delivery.ts";
 import { TurnProgress } from "./turn-progress.ts";
 import {
   modelFailureReason,
@@ -167,7 +167,7 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
     return;
   }
   const resultText = redactor.redact(outcome.reply.text);
-  const delivery = yield* deliver(
+  const delivery = yield* send(
     event,
     Option.isNone(lateNotice)
       ? resultText
@@ -184,7 +184,7 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
       earlier,
       outcome,
     });
-    yield* recordTurnFailed(event, delivery.reason);
+    yield* fail(event, delivery.reason);
     yield* recordTurnMetric({
       ownerId,
       eventId: event.eventId,

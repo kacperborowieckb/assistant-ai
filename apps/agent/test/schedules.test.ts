@@ -715,6 +715,13 @@ describe("Reminder delivery", () => {
     expect(sentTexts()).toEqual(["You said: hello"]);
     expect(await firstScheduleState(ownerId)).toBe("done");
     expect(await alarmsOf(ownerId)).toEqual([]);
+    const traces = await inAgent(
+      ownerId,
+      TurnTraces.pipe(Effect.flatMap((stored) => stored.read))
+    );
+    expect(
+      traces.filter(({ trace }) => trace.result === "reminder_delivery_failed")
+    ).toHaveLength(1);
   });
 
   it("writes the missing failure Trace when the Durable Object resets after a refused send", async () => {

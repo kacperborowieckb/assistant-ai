@@ -10,9 +10,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { JournalRecord } from "../src/journal/journal.ts";
 import { Journal } from "../src/journal/journal.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
+import { unconfirmedSendReason } from "../src/personal-agent/delivery.ts";
 import { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
-import { unconfirmedSendReason } from "../src/personal-agent/turn-recovery.ts";
 import {
   fakeModel,
   fakeReplyPrefix,

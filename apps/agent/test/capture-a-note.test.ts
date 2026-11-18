@@ -11,9 +11,9 @@ import { defaultBehaviorConfig } from "../src/behavior/behavior-config.ts";
 import { Journal } from "../src/journal/journal.ts";
 import { captureNoteToolName } from "../src/notes/capture-note-tool.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
+import { honestFailureText } from "../src/personal-agent/delivery.ts";
 import { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
-import { honestFailureText } from "../src/personal-agent/turn-delivery.ts";
 import { TurnProgress } from "../src/personal-agent/turn-progress.ts";
 import {
   fakeModel,
