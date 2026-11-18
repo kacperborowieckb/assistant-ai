@@ -1,6 +1,7 @@
 import type { ModelMessage } from "ai";
 import { Clock, Effect } from "effect";
 
+import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { Journal } from "../journal/journal.ts";
 import type { OwnerId } from "../owner-id.ts";
 import type { RunPrompt } from "../schedule/schedule-action.ts";
@@ -11,6 +12,7 @@ import { fail, recordOutcome, send } from "./delivery.ts";
 import { scheduledTaskInputMessage } from "./event-message.ts";
 import { Inbox } from "./inbox.ts";
 import type { ScheduleFiredEvent } from "./inbox.ts";
+import { scheduledTaskTokensSpentToday } from "./scheduled-task-budget.ts";
 import { nameOfPrompt } from "./scheduled-task-failure.ts";
 
 interface SkippedScheduledTask {
@@ -128,6 +130,38 @@ export const skipScheduledTask = Effect.fnUntraced(function* skipScheduledTask({
   });
   yield* finishSkippedScheduledTask(event, notice);
 });
+
+interface BudgetCheck {
+  readonly ownerId: OwnerId;
+  readonly behavior: BehaviorConfig;
+  readonly event: ScheduleFiredEvent;
+  readonly action: RunPrompt;
+  readonly startedAt: number;
+}
+
+export const skipScheduledTaskOverBudget = Effect.fnUntraced(
+  function* skipScheduledTaskOverBudget({
+    ownerId,
+    behavior,
+    event,
+    action,
+    startedAt,
+  }: BudgetCheck) {
+    const tokensSpent = yield* scheduledTaskTokensSpentToday(behavior);
+    if (tokensSpent < behavior.scheduledTaskDailyTokenBudget) {
+      return "Proceed" as const;
+    }
+    yield* skipScheduledTask({
+      ownerId,
+      event,
+      action,
+      dailyTokenBudget: behavior.scheduledTaskDailyTokenBudget,
+      tokensSpent,
+      startedAt,
+    });
+    return "Stopped" as const;
+  }
+);
 
 export const resumeSkippedScheduledTask = Effect.fnUntraced(
   function* resumeSkippedScheduledTask(
