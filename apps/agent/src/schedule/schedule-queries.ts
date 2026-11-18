@@ -13,6 +13,7 @@ import { DateTime, Effect, Option } from "effect";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { inboxEvents, schedules } from "../personal-agent/storage-schema.ts";
+import { ActiveScheduledTaskLimitReached } from "./active-scheduled-task-limit-reached.ts";
 import { actionColumnOfTag } from "./schedule-action.ts";
 import { toSchedule } from "./schedule.ts";
 
@@ -73,6 +74,17 @@ export const makeScheduleQueries = Effect.fnUntraced(
         )
       )
       .pipe(Effect.map(([row]) => row?.active ?? 0));
+
+    const requireRoomForScheduledTask = Effect.fnUntraced(
+      function* requireRoomForScheduledTask(limit: number | undefined) {
+        if (
+          limit !== undefined &&
+          (yield* countActiveScheduledTasks) >= limit
+        ) {
+          return yield* new ActiveScheduledTaskLimitReached({ limit });
+        }
+      }
+    );
 
     const byId = (scheduleId: string) =>
       database
@@ -177,7 +189,7 @@ export const makeScheduleQueries = Effect.fnUntraced(
 
     return {
       listActive,
-      countActiveScheduledTasks,
+      requireRoomForScheduledTask,
       byId,
       activeRowById,
       dueRowById,

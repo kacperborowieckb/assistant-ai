@@ -5,7 +5,6 @@ import { makeNoteLinks } from "../notes/note-links.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { nextOccurrence } from "../time/next-occurrence.ts";
-import { ActiveScheduledTaskLimitReached } from "./active-scheduled-task-limit-reached.ts";
 import { columnsOfAction } from "./schedule-action.ts";
 import { makeScheduleQueries } from "./schedule-queries.ts";
 import { recurrenceValuesOf, requestKeyOf, toSchedule } from "./schedule.ts";
@@ -36,24 +35,22 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
   const journal = yield* Journal;
   const { requireOwnNotes } = yield* makeNoteLinks(ownerId);
   const queries = yield* makeScheduleQueries(ownerId);
+  const { requireRoomForScheduledTask } = queries;
 
   const rearm = queries.earliestUnfiredDueAt.pipe(
     Effect.flatMap((dueAt) => Effect.promise(() => clock.setAt(dueAt)))
   );
 
-  const rearmedTransaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
-    database.transaction(() => work.pipe(Effect.tap(() => rearm)));
-
-  const requireRoomForScheduledTask = Effect.fnUntraced(
-    function* requireRoomForScheduledTask(limit: number | undefined) {
-      if (
-        limit !== undefined &&
-        (yield* queries.countActiveScheduledTasks) >= limit
-      ) {
-        return yield* new ActiveScheduledTaskLimitReached({ limit });
-      }
-    }
+  const rearmWithoutFailing = rearm.pipe(
+    Effect.catchCause((cause) =>
+      Effect.logError("The alarm was not moved to the earliest Schedule", cause)
+    )
   );
+
+  const rearmedTransaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
+    database.transaction(() =>
+      work.pipe(Effect.tap(() => rearmWithoutFailing))
+    );
 
   const writeSchedule = Effect.fnUntraced(function* writeSchedule(
     request: SetScheduleRequest

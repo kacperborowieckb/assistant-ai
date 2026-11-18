@@ -3,13 +3,17 @@ import {
   env,
   runInDurableObject,
 } from "cloudflare:test";
-import { DateTime, Effect } from "effect";
+import { DateTime, Effect, Layer } from "effect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Journal } from "../src/journal/journal.ts";
 import { captureNoteToolName } from "../src/notes/capture-note-tool.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
-import { storeDueScheduleEvents } from "../src/personal-agent/due-schedule-events.ts";
+import { AgentStorage } from "../src/personal-agent/agent-storage.ts";
+import {
+  fireDueSchedulesThen,
+  storeDueScheduleEvents,
+} from "../src/personal-agent/due-schedule-events.ts";
 import { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 import { OwnerPreferences } from "../src/preferences/owner-preferences.ts";
@@ -389,7 +393,7 @@ const onlyScheduleRow = async (ownerId: string) => {
 };
 
 describe("Schedules store alarm", () => {
-  it("leaves the alarm at the earliest due instant after set, change, cancel, complete, and a time zone change", async () => {
+  it("leaves the alarm at the earliest due instant after set, change, cancel, and a time zone change", async () => {
     const ownerId = await ownerInWarsaw(9012);
     const first = DateTime.makeUnsafe(`${nextYear}-05-01T08:00:00.000Z`);
     const second = DateTime.makeUnsafe(`${nextYear}-06-01T08:00:00.000Z`);
@@ -470,35 +474,90 @@ describe("Schedules store alarm", () => {
 
     await runInDurableObject(await agentOf(ownerId), (instance) =>
       instance.runtime.runPromise(
-        Schedules.pipe(
-          Effect.flatMap((schedules) =>
-            schedules.fireDue((due) =>
-              Effect.gen(function* handOffEffect() {
-                const inbox = yield* Inbox;
-                for (const { scheduleId, nextDueAt } of due) {
-                  yield* inbox.store({
-                    _tag: "ScheduleFired",
-                    scheduleId,
-                    dueAt: DateTime.formatIso(nextDueAt),
-                  });
-                }
-                const armed = yield* Effect.promise(() =>
-                  instance.listSchedules()
-                );
-                alarmsDuringHandOff.push(
-                  armed
-                    .filter(({ callback }) => callback === "fireDueSchedules")
-                    .map(({ time }) => time)
-                );
-              })
-            )
-          )
+        fireDueSchedulesThen(
+          Effect.gen(function* queueTurnEffect() {
+            const pending = yield* Inbox.pipe(
+              Effect.flatMap((inbox) => inbox.pending)
+            );
+            const armed = yield* Effect.promise(() => instance.listSchedules());
+            alarmsDuringHandOff.push(
+              armed
+                .filter(({ callback }) => callback === "fireDueSchedules")
+                .map(({ time }) => time)
+            );
+            expect(pending).toHaveLength(1);
+          })
         )
       )
     );
 
     expect(alarmsDuringHandOff.map((alarms) => alarms.length)).toEqual([1]);
     expect(await alarmsOf(ownerId)).toEqual([]);
+  });
+
+  it("leaves no alarm after a one-time Schedule completes", async () => {
+    const ownerId = await ownerInWarsaw(9014);
+    const { schedule } = await inAgent(
+      ownerId,
+      Schedules.pipe(
+        Effect.flatMap((schedules) =>
+          schedules.set({
+            action: { _tag: "SendText", text: "once" },
+            setBy: "owner",
+            dueAt: DateTime.makeUnsafe(`${nextYear}-08-01T08:00:00.000Z`),
+            sourceEventId: "once",
+          })
+        )
+      )
+    );
+
+    await inAgent(
+      ownerId,
+      Schedules.pipe(
+        Effect.flatMap((schedules) =>
+          schedules.complete(
+            schedule.scheduleId,
+            DateTime.formatIso(schedule.nextDueAt),
+            "complete"
+          )
+        )
+      )
+    );
+
+    expect(await alarmsOf(ownerId)).toEqual([]);
+  });
+
+  it("keeps a change when the alarm cannot be moved", async () => {
+    const ownerId = await ownerInWarsaw(9015);
+    const refusingClock = {
+      setAt: () => Promise.reject(new Error("The alarm is not available")),
+    };
+
+    await runInDurableObject(await agentOf(ownerId), (_, state) => {
+      const journal = Journal.layer(OwnerIdSchema.make(ownerId));
+      const services = Layer.mergeAll(
+        Schedules.layer(OwnerIdSchema.make(ownerId), refusingClock).pipe(
+          Layer.provide(journal)
+        ),
+        journal
+      ).pipe(Layer.provideMerge(AgentStorage.layer(state.storage)));
+      return Effect.runPromise(
+        Schedules.pipe(
+          Effect.flatMap((schedules) =>
+            schedules.set({
+              action: { _tag: "SendText", text: "kept" },
+              setBy: "owner",
+              dueAt: DateTime.makeUnsafe(`${nextYear}-09-01T08:00:00.000Z`),
+              sourceEventId: "kept",
+            })
+          ),
+          Effect.provide(services)
+        )
+      );
+    });
+
+    const rows = await schedulesOf(ownerId);
+    expect(rows.map((row) => row.text)).toEqual(["kept"]);
   });
 });
 
