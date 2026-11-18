@@ -511,6 +511,52 @@ describe("Open Loops on Notes", () => {
     ]);
   });
 
+  it.each([
+    {
+      name: "close_open_loop",
+      userId: 9813,
+      step: (noteId: string) => ({
+        callTool: closeOpenLoopToolName,
+        input: { noteId, reason: "done" },
+      }),
+      tags: ["OpenLoopOpened", "OpenLoopClosed"],
+      state: "closed",
+    },
+    {
+      name: "update_note",
+      userId: 9814,
+      step: (noteId: string) => ({
+        callTool: updateNoteToolName,
+        input: { noteId, openLoop: { localDueTime: "2027-03-05T12:00" } },
+      }),
+      tags: ["OpenLoopOpened", "OpenLoopChanged"],
+      state: "open",
+    },
+  ])(
+    "keeps one change and one Journal Entry when $name is replayed after a Durable Object reset",
+    async ({ userId, step, tags, state }) => {
+      const ownerId = await ownerInWarsaw(userId);
+      scriptModel([captureTask("buy tea"), { say: "Kept" }]);
+      await ownerSays(userId, "buy tea", 1);
+      const note = await firstNoteOf(ownerId);
+      scriptModel([step(note?.note_id ?? ""), { say: "Done" }]);
+      const releaseModel = holdModel(1);
+
+      await telegramWebhook(textUpdate({ fromUserId: userId, text: "next" }));
+      await vi.waitFor(() =>
+        expect(fakeModel.doGenerateCalls.length).toBeGreaterThanOrEqual(3)
+      );
+      await abortAllDurableObjects();
+      scriptModel([step(note?.note_id ?? ""), { say: "Done" }]);
+      releaseModel();
+      await runDurableObjectAlarm(await agentOf(ownerId));
+      await waitForReplies(2);
+
+      expect(await loopTagsOf(ownerId)).toEqual(tags);
+      expect(await loopStateOf(ownerId)).toBe(state);
+    }
+  );
+
   it("lets an untrusted Turn keep a Note with an Open Loop, but offers no close tool", async () => {
     const ownerId = await ownerInWarsaw(9812);
     const forwardedFromAna = {

@@ -1,4 +1,4 @@
-import { and, asc, count, eq, sql } from "drizzle-orm";
+import { and, asc, count, eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { Journal } from "../journal/journal.ts";
@@ -124,7 +124,7 @@ export const makeOpenLoops = Effect.fnUntraced(function* makeOpenLoops(
       .from(notes)
       .where(isOpen)
       .orderBy(
-        asc(sql`${notes.openLoopDueAt} IS NULL`),
+        asc(isNull(notes.openLoopDueAt)),
         asc(notes.openLoopDueAt),
         asc(notes.capturedAt),
         asc(notes.noteId)
