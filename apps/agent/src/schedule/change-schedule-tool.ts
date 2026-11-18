@@ -84,57 +84,59 @@ export const changeScheduleTool = (
         "Change the Action, the local due time or the repeat rule, or both the Action and one of those, of an active Schedule of the Owner. The Action can change between SendText and RunPrompt, or keep its kind with new text or a new prompt. The Schedule fires at the new time and not at the old time. Fails with a message, and changes nothing, in these cases. No active Schedule has the id. The time zone is not known. The new time is in the past or is not real. The change would make a new Scheduled Task, and the limit of active Scheduled Tasks is reached. Say that the Schedule is changed only after this succeeded, and give the local date, weekday, and time that it returns.",
       inputSchema: ChangeScheduleInput,
       failureMessage: scheduleNotChangedMessage,
-      work: ({ scheduleId, action, localDueTime, repeat }) =>
-        Effect.gen(function* changeActiveEffect() {
-          if (
-            action === undefined &&
-            localDueTime === undefined &&
-            repeat === undefined
-          ) {
-            return yield* new ToolFailed({ message: nothingToChangeMessage });
+      work: Effect.fnUntraced(function* changeActiveEffect({
+        scheduleId,
+        action,
+        localDueTime,
+        repeat,
+      }) {
+        if (
+          action === undefined &&
+          localDueTime === undefined &&
+          repeat === undefined
+        ) {
+          return yield* new ToolFailed({ message: nothingToChangeMessage });
+        }
+        const timeZone = yield* ownerTimeZone;
+        if (Option.isNone(timeZone)) {
+          return yield* new ToolFailed({
+            message: noTimeZoneForChangeMessage,
+          });
+        }
+        const due = yield* resolveScheduleDue(
+          { localDueTime, repeat },
+          timeZone.value,
+          {
+            bothGiven: newDueAndRepeatGivenMessage,
+            invalidLocalDueTime: invalidNewDueTimeMessage,
+            localDueTimeInThePast: newDueTimeInThePastMessage,
           }
-          const timeZone = yield* ownerTimeZone;
-          if (Option.isNone(timeZone)) {
-            return yield* new ToolFailed({
-              message: noTimeZoneForChangeMessage,
-            });
-          }
-          const due = yield* resolveScheduleDue(
-            { localDueTime, repeat },
-            timeZone.value,
-            {
-              bothGiven: newDueAndRepeatGivenMessage,
-              invalidLocalDueTime: invalidNewDueTimeMessage,
-              localDueTimeInThePast: newDueTimeInThePastMessage,
-            }
-          );
-          const result = yield* schedules
-            .change({
-              scheduleId,
-              action,
-              dueAt: due.pipe(
-                Option.map(({ dueAt }) => dueAt),
-                Option.getOrUndefined
-              ),
-              repeat: due.pipe(
-                Option.flatMap(({ repeat: next }) =>
-                  Option.fromNullishOr(next)
-                ),
-                Option.getOrUndefined
-              ),
-              eventId,
-              activeScheduledTaskLimit: maxActiveScheduledTasks,
-            })
-            .pipe(refuseAtScheduledTaskLimit);
-          if (result._tag === "None") {
-            return yield* new ToolFailed({
-              message: noActiveScheduleMessage(scheduleId),
-            });
-          }
-          return {
-            ...scheduleOf(result.value, timeZone.value),
-            timeZone: DateTime.zoneToString(timeZone.value),
-          };
-        }),
+        );
+        const result = yield* schedules
+          .change({
+            scheduleId,
+            action,
+            dueAt: due.pipe(
+              Option.map(({ dueAt }) => dueAt),
+              Option.getOrUndefined
+            ),
+            repeat: due.pipe(
+              Option.flatMap(({ repeat: next }) => Option.fromNullishOr(next)),
+              Option.getOrUndefined
+            ),
+            eventId,
+            activeScheduledTaskLimit: maxActiveScheduledTasks,
+          })
+          .pipe(refuseAtScheduledTaskLimit);
+        if (result._tag === "None") {
+          return yield* new ToolFailed({
+            message: noActiveScheduleMessage(scheduleId),
+          });
+        }
+        return {
+          ...scheduleOf(result.value, timeZone.value),
+          timeZone: DateTime.zoneToString(timeZone.value),
+        };
+      }),
     }
   );

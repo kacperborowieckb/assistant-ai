@@ -56,29 +56,33 @@ export const updateNoteTool = (
           unknownNotesConsequence: "Nothing was changed.",
           otherwise: noteNotUpdatedMessage,
         }),
-      work: ({ noteId, text, linkedNoteIds, unlinkedNoteIds }) =>
-        Effect.gen(function* updateNoteEffect() {
-          if (
-            text === undefined &&
-            (linkedNoteIds ?? []).length === 0 &&
-            (unlinkedNoteIds ?? []).length === 0
-          ) {
-            return yield* new ToolFailed({ message: nothingToUpdateMessage });
-          }
-          const { note, linkedNoteIds: linked } = yield* notes.update({
-            noteId,
-            eventId,
-            text,
-            linkedNoteIds,
-            unlinkedNoteIds,
-          });
-          return {
-            noteId: note.noteId,
-            text: textForModel(note),
-            url: note.url ?? null,
-            lastCheckedAt: note.lastCheckedAt,
-            linkedNoteIds: linked,
-          };
-        }),
+      work: Effect.fnUntraced(function* updateNoteEffect({
+        noteId,
+        text,
+        linkedNoteIds,
+        unlinkedNoteIds,
+      }) {
+        if (
+          text === undefined &&
+          (linkedNoteIds ?? []).length === 0 &&
+          (unlinkedNoteIds ?? []).length === 0
+        ) {
+          return yield* new ToolFailed({ message: nothingToUpdateMessage });
+        }
+        const { note, linkedNoteIds: linked } = yield* notes.update({
+          noteId,
+          eventId,
+          text,
+          linkedNoteIds,
+          unlinkedNoteIds,
+        });
+        return {
+          noteId: note.noteId,
+          text: textForModel(note),
+          url: note.url ?? null,
+          lastCheckedAt: note.lastCheckedAt,
+          linkedNoteIds: linked,
+        };
+      }),
     }
   );

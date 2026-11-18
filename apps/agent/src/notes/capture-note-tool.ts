@@ -35,6 +35,9 @@ const CaptureNoteInput = Schema.Struct({
   ),
 });
 
+const keptTextOf = (source: NoteSource, text: string) =>
+  source.forwardedText ?? text;
+
 export const captureNoteTool = (
   { notes, progress, redactor }: NoteToolServices,
   source: NoteSource
@@ -54,14 +57,14 @@ export const captureNoteTool = (
       recordedInput: (input) => ({
         ...input,
         text: textForModel({
-          text: source.forwardedText ?? input.text,
+          text: keptTextOf(source, input.text),
           trustLevel: source.trustLevel,
         }),
       }),
       work: ({ text, url, linkedNoteIds }) =>
         notes
           .capture({
-            text: source.forwardedText ?? text,
+            text: keptTextOf(source, text),
             url,
             source,
             linkedNoteIds,

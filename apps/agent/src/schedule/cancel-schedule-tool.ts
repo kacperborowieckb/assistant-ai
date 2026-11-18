@@ -31,19 +31,18 @@ export const cancelScheduleTool = (
         "Cancel an active Schedule of the Owner. A cancelled Schedule never fires. Fails with a message, and changes nothing, when no active Schedule has the id. Say that the Schedule is cancelled only after this succeeded.",
       inputSchema: CancelScheduleInput,
       failureMessage: scheduleNotCancelledMessage,
-      work: ({ scheduleId }) =>
-        Effect.gen(function* cancelActiveEffect() {
-          const result = yield* schedules.cancel({ scheduleId, eventId });
-          if (result._tag === "None") {
-            return yield* new ToolFailed({
-              message: noActiveScheduleMessage(scheduleId),
-            });
-          }
-          return {
-            scheduleId,
-            action: result.value.action,
-            state: result.value.state,
-          };
-        }),
+      work: Effect.fnUntraced(function* cancelActiveEffect({ scheduleId }) {
+        const result = yield* schedules.cancel({ scheduleId, eventId });
+        if (result._tag === "None") {
+          return yield* new ToolFailed({
+            message: noActiveScheduleMessage(scheduleId),
+          });
+        }
+        return {
+          scheduleId,
+          action: result.value.action,
+          state: result.value.state,
+        };
+      }),
     }
   );

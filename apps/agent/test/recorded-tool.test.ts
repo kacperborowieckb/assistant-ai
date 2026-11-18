@@ -4,6 +4,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { runToolEffect, ToolFailed } from "../src/model-gateway/agent-tool.ts";
 import type { AgentTool } from "../src/model-gateway/agent-tool.ts";
+import {
+  captureNoteTool,
+  captureNoteToolName,
+} from "../src/notes/capture-note-tool.ts";
+import { Notes } from "../src/notes/notes.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 import { recordedTool } from "../src/personal-agent/recorded-tool.ts";
@@ -14,6 +19,10 @@ import { addOwner } from "./telegram-requests.ts";
 
 const eventId = "event-1";
 const failureMessage = "The word was not kept. Tell the Owner.";
+
+type KeepWord = (
+  word: string
+) => Effect.Effect<{ readonly kept: string }, ToolFailed>;
 
 const WordInput = Schema.Struct({ word: Schema.String });
 
@@ -36,11 +45,7 @@ const inRecordedTool = async <A>(
   ownerId: string,
   run: (tools: {
     readonly progress: TurnProgress["Service"];
-    readonly toolOf: (
-      work: (
-        word: string
-      ) => Effect.Effect<{ readonly kept: string }, ToolFailed>
-    ) => AgentTool;
+    readonly toolOf: (work: KeepWord) => AgentTool;
   }) => Effect.Effect<A, unknown>
 ) =>
   runInDurableObject(
@@ -50,11 +55,7 @@ const inRecordedTool = async <A>(
         Effect.gen(function* inRecordedToolEffect() {
           const progress = yield* TurnProgress;
           const redactor = yield* Redactor;
-          const toolOf = (
-            work: (
-              word: string
-            ) => Effect.Effect<{ readonly kept: string }, ToolFailed>
-          ) =>
+          const toolOf = (work: KeepWord) =>
             recordedTool(
               { eventId, progress, redactor },
               {
@@ -157,32 +158,58 @@ describe("Recorded tool", () => {
     expect(outcome.recorded).toEqual([]);
   });
 
-  it("does not write twice when the same call runs again after a crash", async () => {
+  it("writes once when the same call runs again after a crash", async () => {
     const ownerId = await addOwner(9504);
-    const kept = new Set<string>();
-    const outcome = await inRecordedTool(ownerId, ({ progress, toolOf }) =>
-      Effect.gen(function* repeatedEffect() {
-        const tool = toolOf((word) =>
-          Effect.sync(() => {
-            kept.add(word);
-            return { kept: word };
-          })
-        );
-        const input = { word: "red" };
-        yield* call(tool, { input, toolCallId: "call-1" });
-        const secondResult = yield* call(tool, {
-          input,
-          toolCallId: "call-1",
-        });
-        return {
-          secondResult,
-          steps: yield* progress.usedStepCount(eventId),
-        };
-      })
+    const outcome = await runInDurableObject(
+      await personalAgentFor(env.PERSONAL_AGENT, OwnerIdSchema.make(ownerId)),
+      (instance) =>
+        instance.runtime.runPromise(
+          Effect.gen(function* repeatedEffect() {
+            const notes = yield* Notes;
+            const progress = yield* TurnProgress;
+            const redactor = yield* Redactor;
+            const source = {
+              eventId,
+              channel: "telegram",
+              conversationId: "1",
+              channelMessageId: "1",
+              trustLevel: "owner",
+            } as const;
+            const crashing = recordedTool(
+              { eventId, progress, redactor },
+              {
+                name: captureNoteToolName,
+                description: "Keep a Note, then crash",
+                inputSchema: WordInput,
+                failureMessage,
+                work: ({ word }) =>
+                  notes
+                    .capture({ text: word, source })
+                    .pipe(Effect.andThen(Effect.die(new Error("crash")))),
+              }
+            );
+            const input = { text: "red" };
+            const tool = captureNoteTool({ notes, progress, redactor }, source);
+            yield* call(crashing, {
+              input: { word: "red" },
+              toolCallId: "call-1",
+            }).pipe(Effect.flip);
+            const keptAfterCrash = (yield* notes.list).length;
+            yield* call(tool, { input, toolCallId: "call-1" });
+            const repeated = yield* call(tool, { input, toolCallId: "call-1" });
+            return {
+              keptAfterCrash,
+              repeated,
+              kept: (yield* notes.list).length,
+              steps: yield* progress.usedStepCount(eventId),
+            };
+          }).pipe(Effect.provide(Redactor.layer([env.AI_GATEWAY_TOKEN])))
+        )
     );
 
-    expect([...kept]).toEqual(["red"]);
-    expect(outcome.secondResult).toEqual({ kept: "red" });
+    expect(outcome.keptAfterCrash).toBe(0);
+    expect(outcome.kept).toBe(1);
+    expect(outcome.repeated).toMatchObject({ alreadyKept: true });
     expect(outcome.steps).toBe(1);
   });
 

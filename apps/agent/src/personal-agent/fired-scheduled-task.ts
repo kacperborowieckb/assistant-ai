@@ -1,9 +1,7 @@
 import { DateTime, Effect, Option } from "effect";
 
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
-import { Notes } from "../notes/notes.ts";
 import type { OwnerId } from "../owner-id.ts";
-import { OwnerPreferences } from "../preferences/owner-preferences.ts";
 import { lateScheduledTaskText } from "../schedule/lateness.ts";
 import type { RunPrompt } from "../schedule/schedule-action.ts";
 import type { Schedule } from "../schedule/schedule.ts";
@@ -11,6 +9,7 @@ import { Schedules } from "../schedule/schedules.ts";
 import { localTimeOf } from "../time/local-time.ts";
 import { ownerTimeZone } from "../time/owner-current-time.ts";
 import { Redactor } from "../tracing/redactor.ts";
+import { agentToolServices } from "./agent-tool-services.ts";
 import { recordFailure, sendFailureNotice } from "./delivery.ts";
 import { scheduledTaskInputMessage } from "./event-message.ts";
 import { lateNoticeFor } from "./fired-schedule-lateness.ts";
@@ -21,7 +20,6 @@ import { runModelTurn } from "./model-turn.ts";
 import type { TurnPreparation } from "./model-turn.ts";
 import { scheduledTaskSection } from "./scheduled-task-section.ts";
 import { scheduledTaskTools } from "./scheduled-task-tools.ts";
-import { TurnProgress } from "./turn-progress.ts";
 import { scheduledTaskTraceOf } from "./turn-record.ts";
 
 export const scheduledTaskFailureText = Effect.fnUntraced(
@@ -87,11 +85,8 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
   schedule,
   action,
 }: ScheduledTaskRun) {
-  const notes = yield* Notes;
-  const preferences = yield* OwnerPreferences;
-  const progress = yield* TurnProgress;
-  const schedules = yield* Schedules;
-  const redactor = yield* Redactor;
+  const toolServices = yield* agentToolServices;
+  const { schedules } = toolServices;
 
   yield* runModelTurn({
     ownerId,
@@ -100,14 +95,7 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
       task: "scheduled_task",
       event,
       input: scheduledTaskInputMessage(action.prompt),
-      tools: scheduledTaskTools(event.eventId, {
-        notes,
-        progress,
-        redactor,
-        preferences,
-        schedules,
-        behavior,
-      }),
+      tools: scheduledTaskTools(event.eventId, { ...toolServices, behavior }),
       prepare: scheduledTaskPreparation(behavior, event, schedule),
       traceOf: (model) => scheduledTaskTraceOf({ event, ...model }),
       checkBeforeFirstStep: (startedAt) =>

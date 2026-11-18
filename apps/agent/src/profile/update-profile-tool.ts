@@ -76,36 +76,40 @@ export const updateProfileTool = (
         "Add or remove one entry of the Profile: a core fact or a style rule about the Owner. The Profile is in every Turn, so keep only what the Owner states about themselves or asks for, and keep it short. Fails when the Profile has no room.",
       inputSchema: UpdateProfileInput,
       failureMessage: failureMessageOf,
-      work: ({ action, kind, text, entryId }) =>
-        Effect.gen(function* updateProfileEffect() {
-          if (action === "add") {
-            if (kind === undefined || text === undefined) {
-              return yield* new ToolFailed({
-                message: profileEntryMissingFieldMessage.add,
-              });
-            }
-            const { entry, alreadyKept, charactersUsed } = yield* profile.add({
-              kind,
-              text: text.trim(),
-              eventId,
-              characterLimit,
-            });
-            return {
-              entryId: entry.entryId,
-              kind: entry.kind,
-              text: entry.text,
-              alreadyKept,
-              charactersUsed,
-              characterLimit,
-            };
-          }
-          if (entryId === undefined) {
+      work: Effect.fnUntraced(function* updateProfileEffect({
+        action,
+        kind,
+        text,
+        entryId,
+      }) {
+        if (action === "add") {
+          if (kind === undefined || text === undefined) {
             return yield* new ToolFailed({
-              message: profileEntryMissingFieldMessage.remove,
+              message: profileEntryMissingFieldMessage.add,
             });
           }
-          const entry = yield* profile.remove({ entryId, eventId });
-          return { entryId: entry.entryId, removed: true };
-        }),
+          const { entry, alreadyKept, charactersUsed } = yield* profile.add({
+            kind,
+            text: text.trim(),
+            eventId,
+            characterLimit,
+          });
+          return {
+            entryId: entry.entryId,
+            kind: entry.kind,
+            text: entry.text,
+            alreadyKept,
+            charactersUsed,
+            characterLimit,
+          };
+        }
+        if (entryId === undefined) {
+          return yield* new ToolFailed({
+            message: profileEntryMissingFieldMessage.remove,
+          });
+        }
+        const entry = yield* profile.remove({ entryId, eventId });
+        return { entryId: entry.entryId, removed: true };
+      }),
     }
   );

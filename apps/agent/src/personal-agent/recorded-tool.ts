@@ -63,8 +63,8 @@ export const recordedTool = <
   agentTool({
     description: definition.description,
     inputSchema: effectInputSchema(definition.inputSchema),
-    execute: (input, { toolCallId, modelStepKey }) =>
-      Effect.gen(function* recordedToolEffect() {
+    execute: Effect.fnUntraced(
+      function* recordedToolEffect(input, { toolCallId, modelStepKey }) {
         yield* progress.markModelStep(eventId, modelStepKey);
         return yield* progress.recordingToolCall(
           {
@@ -76,9 +76,9 @@ export const recordedTool = <
           },
           definition.work(input)
         );
-      }).pipe(
-        Effect.catchCause((cause) =>
-          Effect.fail(toolFailedFrom(definition.failureMessage)(cause))
-        )
-      ),
+      },
+      Effect.catchCause((cause) =>
+        Effect.fail(toolFailedFrom(definition.failureMessage)(cause))
+      )
+    ),
   });

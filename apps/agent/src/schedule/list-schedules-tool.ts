@@ -25,21 +25,20 @@ export const listSchedulesTool = (
         "List the active Schedules of the Owner, the earliest first. Each has its id, its Action (SendText with its text, or RunPrompt with its prompt), optional Note id, and local due weekday, date, and time. A Schedule that is done or cancelled is not listed. An empty list means that the Owner has no active Schedule.",
       inputSchema: Schema.Struct({}),
       failureMessage: schedulesNotListedMessage,
-      work: () =>
-        Effect.gen(function* listActiveEffect() {
-          const timeZone = yield* ownerTimeZone;
-          if (Option.isNone(timeZone)) {
-            return yield* new ToolFailed({
-              message: noTimeZoneForListMessage,
-            });
-          }
-          const active = yield* schedules.listActive;
-          return {
-            timeZone: DateTime.zoneToString(timeZone.value),
-            schedules: active.map((schedule) =>
-              scheduleOf(schedule, timeZone.value)
-            ),
-          };
-        }),
+      work: Effect.fnUntraced(function* listActiveEffect() {
+        const timeZone = yield* ownerTimeZone;
+        if (Option.isNone(timeZone)) {
+          return yield* new ToolFailed({
+            message: noTimeZoneForListMessage,
+          });
+        }
+        const active = yield* schedules.listActive;
+        return {
+          timeZone: DateTime.zoneToString(timeZone.value),
+          schedules: active.map((schedule) =>
+            scheduleOf(schedule, timeZone.value)
+          ),
+        };
+      }),
     }
   );

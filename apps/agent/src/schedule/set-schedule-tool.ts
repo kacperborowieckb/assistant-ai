@@ -80,42 +80,46 @@ export const setScheduleTool = (
           unknownNotesConsequence: "No Schedule was set.",
           otherwise: scheduleNotSetMessage,
         }),
-      work: ({ action, localDueTime, repeat, noteId }) =>
-        Effect.gen(function* storeScheduleEffect() {
-          const timeZone = yield* ownerTimeZone;
-          if (Option.isNone(timeZone)) {
-            return yield* new ToolFailed({
-              message: noTimeZoneForScheduleMessage,
-            });
+      work: Effect.fnUntraced(function* storeScheduleEffect({
+        action,
+        localDueTime,
+        repeat,
+        noteId,
+      }) {
+        const timeZone = yield* ownerTimeZone;
+        if (Option.isNone(timeZone)) {
+          return yield* new ToolFailed({
+            message: noTimeZoneForScheduleMessage,
+          });
+        }
+        const due = yield* resolveScheduleDue(
+          { localDueTime, repeat },
+          timeZone.value,
+          {
+            bothGiven: dueAndRepeatGivenMessage,
+            invalidLocalDueTime: invalidLocalDueTimeMessage,
+            localDueTimeInThePast: dueTimeInThePastMessage,
           }
-          const due = yield* resolveScheduleDue(
-            { localDueTime, repeat },
-            timeZone.value,
-            {
-              bothGiven: dueAndRepeatGivenMessage,
-              invalidLocalDueTime: invalidLocalDueTimeMessage,
-              localDueTimeInThePast: dueTimeInThePastMessage,
-            }
-          );
-          if (Option.isNone(due)) {
-            return yield* new ToolFailed({ message: noDueGivenMessage });
-          }
-          const { schedule: stored, alreadySet } = yield* schedules
-            .set({
-              action,
-              setBy: "owner",
-              noteId,
-              dueAt: due.value.dueAt,
-              repeat: due.value.repeat,
-              sourceEventId: eventId,
-              activeScheduledTaskLimit: maxActiveScheduledTasks,
-            })
-            .pipe(refuseAtScheduledTaskLimit);
-          return {
-            ...scheduleOf(stored, timeZone.value),
-            timeZone: DateTime.zoneToString(timeZone.value),
-            alreadySet,
-          };
-        }),
+        );
+        if (Option.isNone(due)) {
+          return yield* new ToolFailed({ message: noDueGivenMessage });
+        }
+        const { schedule: stored, alreadySet } = yield* schedules
+          .set({
+            action,
+            setBy: "owner",
+            noteId,
+            dueAt: due.value.dueAt,
+            repeat: due.value.repeat,
+            sourceEventId: eventId,
+            activeScheduledTaskLimit: maxActiveScheduledTasks,
+          })
+          .pipe(refuseAtScheduledTaskLimit);
+        return {
+          ...scheduleOf(stored, timeZone.value),
+          timeZone: DateTime.zoneToString(timeZone.value),
+          alreadySet,
+        };
+      }),
     }
   );
