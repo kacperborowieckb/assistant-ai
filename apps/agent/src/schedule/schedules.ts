@@ -82,14 +82,17 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
     return { schedule: toSchedule(existing), alreadySet: true };
   });
 
-  const set = (request: SetScheduleRequest) =>
-    database
-      .transaction(() => writeSchedule(request))
-      .pipe(Effect.tap(() => rearm));
-
   const rearm = earliestUnfiredDueAt.pipe(
     Effect.flatMap((dueAt) => Effect.promise(() => clock.setAt(dueAt)))
   );
+
+  // Every change that can move the earliest due instant commits first, then
+  // moves the alarm.
+  const rearmedTransaction = <A, E, R>(body: () => Effect.Effect<A, E, R>) =>
+    database.transaction(body).pipe(Effect.tap(() => rearm));
+
+  const set = (request: SetScheduleRequest) =>
+    rearmedTransaction(() => writeSchedule(request));
 
   const complete = (scheduleId: string, dueAt: string, eventId: string) =>
     database
@@ -130,7 +133,17 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
           });
         })
       )
-      .pipe(Effect.tap(() => rearm));
+      .pipe(
+        // The Schedule is already completed, so a failed alarm update must not
+        // fail the delivery. The next alarm run or restart re-arms it.
+        Effect.tap(() =>
+          rearm.pipe(
+            Effect.catchCause((cause) =>
+              Effect.logWarning("The alarm could not be re-armed", cause)
+            )
+          )
+        )
+      );
 
   const fireDueBy = <A, E, R>(
     now: DateTime.Utc,
@@ -142,93 +155,90 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
     );
 
   const change = (request: ScheduleChangeRequest) =>
-    database
-      .transaction(() =>
-        Effect.gen(function* changeEffect() {
-          if (request.action?._tag === "RunPrompt") {
-            const [current] = yield* findActive(request.scheduleId);
-            if (
-              current !== undefined &&
-              toSchedule(current).action._tag !== "RunPrompt"
-            ) {
-              yield* requireRoomForScheduledTask(
-                request.activeScheduledTaskLimit
-              );
-            }
+    rearmedTransaction(() =>
+      Effect.gen(function* changeEffect() {
+        if (request.action?._tag === "RunPrompt") {
+          const [current] = yield* findActive(request.scheduleId);
+          if (
+            current !== undefined &&
+            toSchedule(current).action._tag !== "RunPrompt"
+          ) {
+            yield* requireRoomForScheduledTask(
+              request.activeScheduledTaskLimit
+            );
           }
-          const changed = yield* updateActive(request.scheduleId, {
-            ...(request.action === undefined
-              ? {}
-              : columnsOfAction(request.action)),
-            ...(request.dueAt === undefined
-              ? {}
-              : {
-                  nextDueAt: DateTime.formatIso(request.dueAt),
-                  ...recurrenceValuesOf(request.repeat),
-                }),
+        }
+        const changed = yield* updateActive(request.scheduleId, {
+          ...(request.action === undefined
+            ? {}
+            : columnsOfAction(request.action)),
+          ...(request.dueAt === undefined
+            ? {}
+            : {
+                nextDueAt: DateTime.formatIso(request.dueAt),
+                ...recurrenceValuesOf(request.repeat),
+              }),
+        });
+        if (Option.isSome(changed)) {
+          yield* journal.append({
+            _tag: "ScheduleChanged",
+            eventId: request.eventId,
+            scheduleId: request.scheduleId,
           });
-          if (Option.isSome(changed)) {
-            yield* journal.append({
-              _tag: "ScheduleChanged",
-              eventId: request.eventId,
-              scheduleId: request.scheduleId,
-            });
-          }
-          return changed;
-        })
-      )
-      .pipe(Effect.tap(() => rearm));
+        }
+        return changed;
+      })
+    );
 
   const cancel = (request: ScheduleCancelRequest) =>
-    database
-      .transaction(() =>
-        Effect.gen(function* cancelEffect() {
-          const cancelled = yield* updateActive(request.scheduleId, {
-            state: "cancelled",
+    rearmedTransaction(() =>
+      Effect.gen(function* cancelEffect() {
+        const cancelled = yield* updateActive(request.scheduleId, {
+          state: "cancelled",
+        });
+        if (Option.isSome(cancelled)) {
+          yield* journal.append({
+            _tag: "ScheduleCancelled",
+            eventId: request.eventId,
+            scheduleId: request.scheduleId,
           });
-          if (Option.isSome(cancelled)) {
-            yield* journal.append({
-              _tag: "ScheduleCancelled",
-              eventId: request.eventId,
-              scheduleId: request.scheduleId,
-            });
-          }
-          return cancelled;
-        })
-      )
-      .pipe(Effect.tap(() => rearm));
+        }
+        return cancelled;
+      })
+    );
 
   const moveRepeatingToTimeZone = (
     timeZone: DateTime.TimeZone.Named,
     eventId: string
   ) =>
-    database
-      .transaction(() =>
-        Effect.gen(function* moveEffect() {
-          const now = yield* DateTime.now;
-          const zoneName = DateTime.zoneToString(timeZone);
-          const rows = yield* activeRepeatingOutsideZone(zoneName);
-          for (const row of rows) {
-            const { rule } = Option.getOrThrow(
-              Option.fromNullishOr(toSchedule(row).repeat)
-            );
-            const nextDueAt = DateTime.formatIso(
-              nextOccurrence(rule, now, timeZone)
-            );
-            yield* updateRow(row.scheduleId, {
-              nextDueAt,
-              recurrenceTimeZone: zoneName,
-              changedAt: DateTime.formatIso(now),
-            });
-            yield* journal.append({
-              _tag: "ScheduleChanged",
-              eventId,
-              scheduleId: row.scheduleId,
-            });
-          }
-        })
-      )
-      .pipe(Effect.tap(() => rearm));
+    rearmedTransaction(() =>
+      Effect.gen(function* moveEffect() {
+        const now = yield* DateTime.now;
+        const zoneName = DateTime.zoneToString(timeZone);
+        const rows = yield* activeRepeatingOutsideZone(zoneName);
+        for (const row of rows) {
+          const { rule } = Option.getOrThrow(
+            Option.fromNullishOr(toSchedule(row).repeat)
+          );
+          const nextDueAt = DateTime.formatIso(
+            nextOccurrence(rule, now, timeZone)
+          );
+          yield* updateRow(row.scheduleId, {
+            nextDueAt,
+            recurrenceTimeZone: zoneName,
+            changedAt: DateTime.formatIso(now),
+          });
+          yield* journal.append({
+            _tag: "ScheduleChanged",
+            eventId,
+            scheduleId: row.scheduleId,
+          });
+        }
+      })
+    );
+
+  // A new runtime (a restart or a deploy) puts the alarm back in line with the table.
+  yield* rearm;
 
   return {
     listActive,

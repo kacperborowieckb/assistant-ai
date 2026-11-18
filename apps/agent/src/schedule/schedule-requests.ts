@@ -45,7 +45,8 @@ export interface ScheduleEditValues {
   readonly nextDueAt?: string;
   readonly recurrence?: string | null;
   readonly recurrenceTimeZone?: string | null;
-  readonly state?: "cancelled";
+  readonly state?: "cancelled" | "done";
+  readonly changedAt?: string;
 }
 
 export const recurrenceValuesOf = (repeat: Repeat | undefined) => ({

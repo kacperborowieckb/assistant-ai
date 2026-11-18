@@ -159,18 +159,12 @@ export const scheduleQueriesOf = (database: Database, ownerId: OwnerId) => {
   const updateDue = (
     scheduleId: string,
     dueAt: string,
-    values: Partial<typeof schedules.$inferInsert>
+    values: ScheduleEditValues
   ) =>
     database.update(schedules).set(values).where(dueActive(scheduleId, dueAt));
 
-  const updateRow = (
-    scheduleId: string,
-    values: Partial<typeof schedules.$inferInsert>
-  ) =>
-    database
-      .update(schedules)
-      .set(values)
-      .where(eq(schedules.scheduleId, scheduleId));
+  const updateRow = (scheduleId: string, values: ScheduleEditValues) =>
+    database.update(schedules).set(values).where(ownSchedule(scheduleId));
 
   const activeRepeatingOutsideZone = (zoneName: string) =>
     database
