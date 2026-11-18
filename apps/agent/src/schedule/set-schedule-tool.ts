@@ -1,11 +1,8 @@
-import { Cause, DateTime, Effect, Option, Schema } from "effect";
+import { DateTime, Effect, Option, Schema } from "effect";
 
-import {
-  agentTool,
-  effectInputSchema,
-  ToolFailed,
-} from "../model-gateway/agent-tool.ts";
+import { ToolFailed } from "../model-gateway/agent-tool.ts";
 import { noteToolFailureMessage } from "../notes/note-tool-failure-message.ts";
+import { recordedTool } from "../personal-agent/recorded-tool.ts";
 import { setTimeZoneToolName } from "../preferences/set-time-zone-tool.ts";
 import {
   localDueTimeFormat,
@@ -61,12 +58,6 @@ const SetScheduleInput = Schema.Struct({
   ),
 });
 
-const failureMessageOf = (cause: Cause.Cause<unknown>) =>
-  noteToolFailureMessage(cause, {
-    unknownNotesConsequence: "No Schedule was set.",
-    otherwise: scheduleNotSetMessage,
-  });
-
 export const setScheduleTool = (
   {
     schedules,
@@ -77,77 +68,58 @@ export const setScheduleTool = (
   }: ScheduleToolServices,
   eventId: string
 ) =>
-  agentTool({
-    description:
-      "Set a Schedule for the Owner, one-time with localDueTime or repeating with repeat. The action says what happens at the due time. With SendText, the saved text is sent to the Owner in the chat; use it for fixed words for the Owner, such as a Reminder. With RunPrompt, the agent runs the saved prompt at the due time and sends the result. This is a Scheduled Task. Use it for work to do at the due time, such as listing open tasks from the Notes of that day. Give times as the local time of the Owner. Fails with a message when the time zone is not known, neither or both of localDueTime and repeat are given, the time is in the past, or the time is not real. Say that the Schedule is set only after it succeeded, and give the local date, weekday, and time of the first due time that it returns, and for a repeating Schedule how it repeats.",
-    inputSchema: effectInputSchema(SetScheduleInput),
-    execute: (
-      { action, localDueTime, repeat, noteId },
-      { toolCallId, modelStepKey }
-    ) =>
-      Effect.gen(function* setScheduleEffect() {
-        yield* progress.markModelStep(eventId, modelStepKey);
-        const schedule = yield* progress.recordingToolCall(
+  recordedTool(
+    { eventId, progress, redactor },
+    {
+      name: setScheduleToolName,
+      description:
+        "Set a Schedule for the Owner, one-time with localDueTime or repeating with repeat. The action says what happens at the due time. With SendText, the saved text is sent to the Owner in the chat; use it for fixed words for the Owner, such as a Reminder. With RunPrompt, the agent runs the saved prompt at the due time and sends the result. This is a Scheduled Task. Use it for work to do at the due time, such as listing open tasks from the Notes of that day. Give times as the local time of the Owner. Fails with a message when the time zone is not known, neither or both of localDueTime and repeat are given, the time is in the past, or the time is not real. Say that the Schedule is set only after it succeeded, and give the local date, weekday, and time of the first due time that it returns, and for a repeating Schedule how it repeats.",
+      inputSchema: SetScheduleInput,
+      failureMessage: (cause) =>
+        noteToolFailureMessage(cause, {
+          unknownNotesConsequence: "No Schedule was set.",
+          otherwise: scheduleNotSetMessage,
+        }),
+      work: Effect.fnUntraced(function* storeScheduleEffect({
+        action,
+        localDueTime,
+        repeat,
+        noteId,
+      }) {
+        const timeZone = yield* ownerTimeZone;
+        if (Option.isNone(timeZone)) {
+          return yield* new ToolFailed({
+            message: noTimeZoneForScheduleMessage,
+          });
+        }
+        const due = yield* resolveScheduleDue(
+          { localDueTime, repeat },
+          timeZone.value,
           {
-            eventId,
-            toolCallId,
-            toolName: setScheduleToolName,
-            input: {
-              action,
-              ...(localDueTime === undefined ? {} : { localDueTime }),
-              ...(repeat === undefined ? {} : { repeat }),
-              ...(noteId === undefined ? {} : { noteId }),
-            },
-            redactor,
-          },
-          Effect.gen(function* storeScheduleEffect() {
-            const timeZone = yield* ownerTimeZone;
-            if (Option.isNone(timeZone)) {
-              return yield* new ToolFailed({
-                message: noTimeZoneForScheduleMessage,
-              });
-            }
-            const due = yield* resolveScheduleDue(
-              { localDueTime, repeat },
-              timeZone.value,
-              {
-                bothGiven: dueAndRepeatGivenMessage,
-                invalidLocalDueTime: invalidLocalDueTimeMessage,
-                localDueTimeInThePast: dueTimeInThePastMessage,
-              }
-            );
-            if (Option.isNone(due)) {
-              return yield* new ToolFailed({ message: noDueGivenMessage });
-            }
-            const { schedule: stored, alreadySet } = yield* schedules
-              .set({
-                action,
-                setBy: "owner",
-                noteId,
-                dueAt: due.value.dueAt,
-                repeat: due.value.repeat,
-                sourceEventId: eventId,
-                activeScheduledTaskLimit: maxActiveScheduledTasks,
-              })
-              .pipe(refuseAtScheduledTaskLimit);
-            return {
-              ...scheduleOf(stored, timeZone.value),
-              timeZone: DateTime.zoneToString(timeZone.value),
-              alreadySet,
-            };
-          })
+            bothGiven: dueAndRepeatGivenMessage,
+            invalidLocalDueTime: invalidLocalDueTimeMessage,
+            localDueTimeInThePast: dueTimeInThePastMessage,
+          }
         );
-        return schedule;
-      }).pipe(
-        Effect.catchCause((cause) =>
-          Effect.fail(
-            Cause.findErrorOption(cause).pipe(
-              Option.filter((error) => error instanceof ToolFailed),
-              Option.getOrElse(
-                () => new ToolFailed({ message: failureMessageOf(cause) })
-              )
-            )
-          )
-        )
-      ),
-  });
+        if (Option.isNone(due)) {
+          return yield* new ToolFailed({ message: noDueGivenMessage });
+        }
+        const { schedule: stored, alreadySet } = yield* schedules
+          .set({
+            action,
+            setBy: "owner",
+            noteId,
+            dueAt: due.value.dueAt,
+            repeat: due.value.repeat,
+            sourceEventId: eventId,
+            activeScheduledTaskLimit: maxActiveScheduledTasks,
+          })
+          .pipe(refuseAtScheduledTaskLimit);
+        return {
+          ...scheduleOf(stored, timeZone.value),
+          timeZone: DateTime.zoneToString(timeZone.value),
+          alreadySet,
+        };
+      }),
+    }
+  );

@@ -1,10 +1,6 @@
 import { Effect, Schema } from "effect";
 
-import {
-  agentTool,
-  effectInputSchema,
-  ToolFailed,
-} from "../model-gateway/agent-tool.ts";
+import { recordedTool } from "../personal-agent/recorded-tool.ts";
 import { noteIdListSchema } from "./note-id-list-schema.ts";
 import { noteToolFailureMessage } from "./note-tool-failure-message.ts";
 import type { NoteToolServices } from "./note-tool-services.ts";
@@ -39,34 +35,41 @@ const CaptureNoteInput = Schema.Struct({
   ),
 });
 
+const keptTextOf = (source: NoteSource, text: string) =>
+  source.forwardedText ?? text;
+
 export const captureNoteTool = (
   { notes, progress, redactor }: NoteToolServices,
   source: NoteSource
 ) =>
-  agentTool({
-    description:
-      "Keep a Note for the Owner at once: a task, a text, a link, or a text with a link. Call it without asking the Owner first. Does not open the link.",
-    inputSchema: effectInputSchema(CaptureNoteInput),
-    execute: ({ text, url, linkedNoteIds }, { toolCallId, modelStepKey }) =>
-      Effect.gen(function* captureNoteEffect() {
-        const keptText = source.forwardedText ?? text;
-        yield* progress.markModelStep(source.eventId, modelStepKey);
-        return yield* progress.recordingToolCall(
-          {
-            eventId: source.eventId,
-            toolCallId,
-            toolName: captureNoteToolName,
-            input: {
-              text: textForModel({
-                text: keptText,
-                trustLevel: source.trustLevel,
-              }),
-              ...(url === undefined ? {} : { url }),
-              ...(linkedNoteIds === undefined ? {} : { linkedNoteIds }),
-            },
-            redactor,
-          },
-          notes.capture({ text: keptText, url, source, linkedNoteIds }).pipe(
+  recordedTool(
+    { eventId: source.eventId, progress, redactor },
+    {
+      name: captureNoteToolName,
+      description:
+        "Keep a Note for the Owner at once: a task, a text, a link, or a text with a link. Call it without asking the Owner first. Does not open the link.",
+      inputSchema: CaptureNoteInput,
+      failureMessage: (cause) =>
+        noteToolFailureMessage(cause, {
+          unknownNotesConsequence: "Nothing was kept.",
+          otherwise: noteNotKeptMessage,
+        }),
+      recordedInput: (input) => ({
+        ...input,
+        text: textForModel({
+          text: keptTextOf(source, input.text),
+          trustLevel: source.trustLevel,
+        }),
+      }),
+      work: ({ text, url, linkedNoteIds }) =>
+        notes
+          .capture({
+            text: keptTextOf(source, text),
+            url,
+            source,
+            linkedNoteIds,
+          })
+          .pipe(
             Effect.map(({ note, alreadyKept, linkedNoteIds: linked }) => ({
               noteId: note.noteId,
               text: textForModel(note),
@@ -74,18 +77,6 @@ export const captureNoteTool = (
               alreadyKept,
               linkedNoteIds: linked,
             }))
-          )
-        );
-      }).pipe(
-        Effect.catchCause((cause) =>
-          Effect.fail(
-            new ToolFailed({
-              message: noteToolFailureMessage(cause, {
-                unknownNotesConsequence: "Nothing was kept.",
-                otherwise: noteNotKeptMessage,
-              }),
-            })
-          )
-        )
-      ),
-  });
+          ),
+    }
+  );

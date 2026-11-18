@@ -1,10 +1,6 @@
 import { Effect, Schema } from "effect";
 
-import {
-  agentTool,
-  effectInputSchema,
-  ToolFailed,
-} from "../model-gateway/agent-tool.ts";
+import { recordedTool } from "../personal-agent/recorded-tool.ts";
 import { maxLinkedNotesPerMatch } from "./note-links.ts";
 import type { NoteToolServices } from "./note-tool-services.ts";
 import type { RecalledNote } from "./notes.ts";
@@ -47,27 +43,16 @@ export const searchNotesTool = (
   { notes, progress, redactor }: NoteToolServices,
   eventId: string
 ) =>
-  agentTool({
-    description: `Search the Owner's Notes by keywords. Returns the best matches first, each with its source, captured date, and the newest linked Notes (at most ${maxLinkedNotesPerMatch}, with the total count). An empty list means that no Note matches.`,
-    inputSchema: effectInputSchema(SearchNotesInput),
-    execute: ({ query, limit }, { toolCallId, modelStepKey }) =>
-      Effect.gen(function* searchNotesEffect() {
-        yield* progress.markModelStep(eventId, modelStepKey);
-        return yield* progress.recordingToolCall(
-          {
-            eventId,
-            toolCallId,
-            toolName: searchNotesToolName,
-            input: limit === undefined ? { query } : { query, limit },
-            redactor,
-          },
-          notes
-            .search({ query, limit: limit ?? defaultSearchLimit })
-            .pipe(Effect.map((found) => ({ notes: found.map(foundNote) })))
-        );
-      }).pipe(
-        Effect.catchCause(() =>
-          Effect.fail(new ToolFailed({ message: notesNotSearchedMessage }))
-        )
-      ),
-  });
+  recordedTool(
+    { eventId, progress, redactor },
+    {
+      name: searchNotesToolName,
+      description: `Search the Owner's Notes by keywords. Returns the best matches first, each with its source, captured date, and the newest linked Notes (at most ${maxLinkedNotesPerMatch}, with the total count). An empty list means that no Note matches.`,
+      inputSchema: SearchNotesInput,
+      failureMessage: notesNotSearchedMessage,
+      work: ({ query, limit }) =>
+        notes
+          .search({ query, limit: limit ?? defaultSearchLimit })
+          .pipe(Effect.map((found) => ({ notes: found.map(foundNote) }))),
+    }
+  );

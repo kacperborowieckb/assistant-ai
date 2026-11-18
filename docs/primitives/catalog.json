@@ -118,6 +118,15 @@
       ]
     },
     {
+      "id": "recorded-tool",
+      "purpose": "The module that wraps every agent tool. A tool gives its name, its input schema, its work, and its failure message. The module marks the model step, records the tool call and its result in the same transaction as the work with redaction, and keeps a ToolFailed from the work and maps any other failure to ToolFailed with the failure message. It records the decoded input, or the result of an optional recordedInput function of the tool (capture_note uses it to keep the Untrusted Content marking of forwarded text). agentToolServices collects the services that the tools of both kinds of Turn need. Approval and Auto-review plug in here later.",
+      "roots": [
+        "apps/agent/src/personal-agent/recorded-tool.ts",
+        "apps/agent/src/personal-agent/agent-tool-services.ts"
+      ],
+      "adrs": ["docs/decisions/0009-agent-loop-and-client-boundaries.md"]
+    },
+    {
       "id": "tracing",
       "purpose": "The Trace and the Operator metrics of a Turn. The Trace is one append-only record for each model-answered Event. A Scheduled Task Turn is a model-answered Event, and its record also has the Schedule id and the due instant. A skipped Scheduled Task has a record with the Schedule id, the due instant, the Budget, the spent tokens, and the message. It has no model fields. A Reminder delivery has a record with the Schedule id, the due instant, the text, and the result, and no model fields. The records are in the Personal Agent SQLite. A model-answered record has the system prompt, the messages, the model settings, tool calls, the reply or the error, Usage, and latency. That is enough to replay the Turn, and it holds private content, so it stays with the Owner. The Operator metrics are one Analytics Engine data point for each Turn, Reminder, skipped Scheduled Task, and refused request. A data point for an Event has the Event id as its fifth blob. A reset can repeat a data point, so readers count distinct Event ids. A data point has the Owner Id (or none), result, latency, tokens, cost, and cache hits, and no content. The Redactor removes secret values from error text before it enters a Trace or the Journal.",
       "roots": ["apps/agent/src/tracing"],
