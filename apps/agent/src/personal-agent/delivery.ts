@@ -118,45 +118,47 @@ const destinationOf = Effect.fnUntraced(function* destinationOf(
     : { conversationId: current.conversationId };
 });
 
-export const send = (event: InboxEvent, text: string) =>
-  Effect.gen(function* sendEffect() {
-    const journal = yield* Journal;
-    const channel = yield* Channel;
-    const redactor = yield* Redactor;
+export const send = Effect.fnUntraced(function* send(
+  event: InboxEvent,
+  text: string
+) {
+  const journal = yield* Journal;
+  const channel = yield* Channel;
+  const redactor = yield* Redactor;
 
-    yield* journal.append({
-      _tag: "ReplyPlanned",
-      eventId: event.eventId,
-      text,
-    });
-    const destination = yield* destinationOf(event);
-    if (destination === undefined) {
-      yield* journal.append({
-        _tag: "ReplyFailed",
-        eventId: event.eventId,
-        reason: noOwnerConversationReason,
-      });
-      return { _tag: "Failed", reason: noOwnerConversationReason } as const;
-    }
-    yield* journal.append({ _tag: "SendStarted", eventId: event.eventId });
-    const delivery = yield* channel.send({ ...destination, text });
-
-    if (delivery._tag === "Failed") {
-      const reason = redactor.redact(delivery.reason);
-      yield* journal.append({
-        _tag: "ReplyFailed",
-        eventId: event.eventId,
-        reason,
-      });
-      return { _tag: "Failed", reason } as const;
-    }
-    yield* journal.append({
-      _tag: "ReplySent",
-      eventId: event.eventId,
-      channelMessageId: delivery.channelMessageId,
-    });
-    return delivery;
+  yield* journal.append({
+    _tag: "ReplyPlanned",
+    eventId: event.eventId,
+    text,
   });
+  const destination = yield* destinationOf(event);
+  if (destination === undefined) {
+    yield* journal.append({
+      _tag: "ReplyFailed",
+      eventId: event.eventId,
+      reason: noOwnerConversationReason,
+    });
+    return { _tag: "Failed", reason: noOwnerConversationReason } as const;
+  }
+  yield* journal.append({ _tag: "SendStarted", eventId: event.eventId });
+  const delivery = yield* channel.send({ ...destination, text });
+
+  if (delivery._tag === "Failed") {
+    const reason = redactor.redact(delivery.reason);
+    yield* journal.append({
+      _tag: "ReplyFailed",
+      eventId: event.eventId,
+      reason,
+    });
+    return { _tag: "Failed", reason } as const;
+  }
+  yield* journal.append({
+    _tag: "ReplySent",
+    eventId: event.eventId,
+    channelMessageId: delivery.channelMessageId,
+  });
+  return delivery;
+});
 
 export const recordFailure = (event: InboxEvent, reason: string) =>
   Journal.pipe(
@@ -165,13 +167,15 @@ export const recordFailure = (event: InboxEvent, reason: string) =>
     )
   );
 
-export const fail = (event: InboxEvent, reason: string) =>
-  Effect.gen(function* failEffect() {
-    const inbox = yield* Inbox;
+export const fail = Effect.fnUntraced(function* fail(
+  event: InboxEvent,
+  reason: string
+) {
+  const inbox = yield* Inbox;
 
-    yield* recordFailure(event, reason);
-    yield* inbox.markFailed([event]);
-  });
+  yield* recordFailure(event, reason);
+  yield* inbox.markFailed([event]);
+});
 
 export const rememberFailureNotice = (event: InboxEvent, text: string) =>
   Conversation.pipe(
@@ -184,25 +188,26 @@ export const rememberFailureNotice = (event: InboxEvent, text: string) =>
     )
   );
 
-export const sendFailureNotice = (
+export const sendFailureNotice = Effect.fnUntraced(function* sendFailureNotice(
   event: InboxEvent,
   text: string = honestFailureText
-) =>
-  Effect.gen(function* sendFailureNoticeEffect() {
-    const inbox = yield* Inbox;
+) {
+  const inbox = yield* Inbox;
 
-    const delivery = yield* send(event, text);
-    if (delivery._tag !== "Failed") {
-      yield* rememberFailureNotice(event, text);
-    }
-    yield* inbox.markFailed([event]);
-  });
+  const delivery = yield* send(event, text);
+  if (delivery._tag !== "Failed") {
+    yield* rememberFailureNotice(event, text);
+  }
+  yield* inbox.markFailed([event]);
+});
 
-export const failWithNotice = (event: InboxEvent, reason: string) =>
-  Effect.gen(function* failWithNoticeEffect() {
-    yield* recordFailure(event, reason);
-    yield* sendFailureNotice(event);
-  });
+export const failWithNotice = Effect.fnUntraced(function* failWithNotice(
+  event: InboxEvent,
+  reason: string
+) {
+  yield* recordFailure(event, reason);
+  yield* sendFailureNotice(event);
+});
 
 export const recordUnconfirmedSend = (event: InboxEvent) =>
   Journal.pipe(

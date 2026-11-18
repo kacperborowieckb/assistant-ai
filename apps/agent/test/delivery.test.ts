@@ -187,7 +187,7 @@ const storeOwnerMessage = Effect.gen(function* storeEffect() {
     conversationId: "55",
     channelMessageId: "71",
     text: "hello",
-    sentAt: new Date().toISOString(),
+    sentAt: DateTime.formatIso(yield* DateTime.now),
   });
   const [event] = yield* inbox.pending;
   if (event === undefined) {
@@ -382,7 +382,7 @@ const seedFiredScheduledTask = async (telegramUserId: number) => {
           conversationId: String(telegramUserId),
           channelMessageId: "1",
           text: "hi",
-          sentAt: new Date().toISOString(),
+          sentAt: DateTime.formatIso(yield* DateTime.now),
         });
         const now = yield* DateTime.now;
         yield* schedules.set({

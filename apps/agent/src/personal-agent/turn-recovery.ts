@@ -21,44 +21,45 @@ import { honestFailureTextOf } from "./scheduled-task-failure.ts";
 import { resumeSkippedScheduledTask } from "./scheduled-task-skip.ts";
 import { TurnProgress } from "./turn-progress.ts";
 
-const recordConversation = (event: InboxEvent, state: DeliveryState) =>
-  Effect.gen(function* recordConversationEffect() {
-    const conversation = yield* Conversation;
-    const progress = yield* TurnProgress;
-    const redactor = yield* Redactor;
-    const earlier = yield* progress.completedFor(event.eventId);
-    const reply =
-      state._tag === "Sent" && state.text !== undefined
-        ? [{ role: "assistant", content: state.text } as const]
-        : [];
+const recordConversation = Effect.fnUntraced(function* recordConversation(
+  event: InboxEvent,
+  state: DeliveryState
+) {
+  const conversation = yield* Conversation;
+  const progress = yield* TurnProgress;
+  const redactor = yield* Redactor;
+  const earlier = yield* progress.completedFor(event.eventId);
+  const reply =
+    state._tag === "Sent" && state.text !== undefined
+      ? [{ role: "assistant", content: state.text } as const]
+      : [];
 
-    if (earlier.length + reply.length > 0) {
-      yield* conversation.append(event.eventId, [
-        redactor.redactMessage(yield* inputMessageOf(event)),
-        ...earlier,
-        ...reply,
-      ]);
-    }
-  });
+  if (earlier.length + reply.length > 0) {
+    yield* conversation.append(event.eventId, [
+      redactor.redactMessage(yield* inputMessageOf(event)),
+      ...earlier,
+      ...reply,
+    ]);
+  }
+});
 
-const settleUnsent = (
+const settleUnsent = Effect.fnUntraced(function* settleUnsent(
   ownerId: OwnerId,
   event: InboxEvent,
   entries: readonly JournalEntry[]
-) =>
-  Effect.gen(function* settleUnsentEffect() {
-    const skipped = entries.find(
-      (entry) => entry.record._tag === "ScheduledTaskSkipped"
-    );
-    if (
-      event._tag === "ScheduleFired" &&
-      skipped?.record._tag === "ScheduledTaskSkipped"
-    ) {
-      yield* resumeSkippedScheduledTask(ownerId, event, skipped.record);
-      return "settled" as const;
-    }
-    return "unanswered" as const;
-  });
+) {
+  const skipped = entries.find(
+    (entry) => entry.record._tag === "ScheduledTaskSkipped"
+  );
+  if (
+    event._tag === "ScheduleFired" &&
+    skipped?.record._tag === "ScheduledTaskSkipped"
+  ) {
+    yield* resumeSkippedScheduledTask(ownerId, event, skipped.record);
+    return "settled" as const;
+  }
+  return "unanswered" as const;
+});
 
 interface Settling {
   readonly ownerId: OwnerId;
@@ -67,59 +68,65 @@ interface Settling {
   readonly state: DeliveryState;
 }
 
-const settleState = ({ ownerId, event, entries, state }: Settling) =>
-  Effect.gen(function* settleStateEffect() {
-    const inbox = yield* Inbox;
+const settleState = Effect.fnUntraced(function* settleState({
+  ownerId,
+  event,
+  entries,
+  state,
+}: Settling) {
+  const inbox = yield* Inbox;
 
-    switch (state._tag) {
-      case "Unsent": {
-        return yield* settleUnsent(ownerId, event, entries);
-      }
-      case "Sent": {
-        yield* inbox.markDone([event]);
-        return "settled" as const;
-      }
-      case "SendFailed": {
-        yield* fail(event, state.reason);
-        return "settled" as const;
-      }
-      case "Unconfirmed": {
-        yield* recordUnconfirmedSend(event);
-        yield* fail(event, unconfirmedSendReason);
-        return "settled" as const;
-      }
-      case "FailedNoticePending": {
-        yield* sendFailureNotice(event, yield* honestFailureTextOf(event));
-        return "settled" as const;
-      }
-      case "FailedNoticeSent": {
-        yield* rememberFailureNotice(event, state.text);
-        yield* inbox.markFailed([event]);
-        return "settled" as const;
-      }
-      case "FailedNoticeRefused": {
-        yield* inbox.markFailed([event]);
-        return "settled" as const;
-      }
-      case "FailedNoticeUnconfirmed": {
-        yield* recordUnconfirmedSend(event);
-        yield* inbox.markFailed([event]);
-        return "settled" as const;
-      }
-      default: {
-        return state satisfies never;
-      }
+  switch (state._tag) {
+    case "Unsent": {
+      return yield* settleUnsent(ownerId, event, entries);
     }
-  });
-
-export const settleFromJournal = (ownerId: OwnerId, event: InboxEvent) =>
-  Effect.gen(function* settleFromJournalEffect() {
-    const journal = yield* Journal;
-    const entries = yield* journal.readForEvent(event.eventId);
-    const state = deliveryStateOfEntries(entries);
-
-    if (state._tag !== "Unsent") {
-      yield* recordConversation(event, state);
+    case "Sent": {
+      yield* inbox.markDone([event]);
+      return "settled" as const;
     }
-    return yield* settleState({ ownerId, event, entries, state });
-  });
+    case "SendFailed": {
+      yield* fail(event, state.reason);
+      return "settled" as const;
+    }
+    case "Unconfirmed": {
+      yield* recordUnconfirmedSend(event);
+      yield* fail(event, unconfirmedSendReason);
+      return "settled" as const;
+    }
+    case "FailedNoticePending": {
+      yield* sendFailureNotice(event, yield* honestFailureTextOf(event));
+      return "settled" as const;
+    }
+    case "FailedNoticeSent": {
+      yield* rememberFailureNotice(event, state.text);
+      yield* inbox.markFailed([event]);
+      return "settled" as const;
+    }
+    case "FailedNoticeRefused": {
+      yield* inbox.markFailed([event]);
+      return "settled" as const;
+    }
+    case "FailedNoticeUnconfirmed": {
+      yield* recordUnconfirmedSend(event);
+      yield* inbox.markFailed([event]);
+      return "settled" as const;
+    }
+    default: {
+      return state satisfies never;
+    }
+  }
+});
+
+export const settleFromJournal = Effect.fnUntraced(function* settleFromJournal(
+  ownerId: OwnerId,
+  event: InboxEvent
+) {
+  const journal = yield* Journal;
+  const entries = yield* journal.readForEvent(event.eventId);
+  const state = deliveryStateOfEntries(entries);
+
+  if (state._tag !== "Unsent") {
+    yield* recordConversation(event, state);
+  }
+  return yield* settleState({ ownerId, event, entries, state });
+});
