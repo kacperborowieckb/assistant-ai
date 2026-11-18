@@ -4,7 +4,7 @@ import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { Notes } from "../notes/notes.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { OwnerPreferences } from "../preferences/owner-preferences.ts";
-import { lateScheduledTaskText } from "../schedule/late-reminder.ts";
+import { lateScheduledTaskText } from "../schedule/lateness.ts";
 import type { RunPrompt } from "../schedule/schedule-action.ts";
 import type { Schedule } from "../schedule/schedule.ts";
 import { Schedules } from "../schedule/schedules.ts";

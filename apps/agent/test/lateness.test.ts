@@ -7,7 +7,7 @@ import {
   lateByMillisOf,
   lateReminderText,
   lateScheduledTaskText,
-} from "../src/schedule/late-reminder.ts";
+} from "../src/schedule/lateness.ts";
 
 const due = DateTime.makeUnsafe("2027-01-14T08:00:00Z");
 const { reminderGraceMillis } = defaultBehaviorConfig;

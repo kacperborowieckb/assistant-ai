@@ -2,7 +2,7 @@ import { DateTime, Effect, Option } from "effect";
 
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { Journal } from "../journal/journal.ts";
-import { isLate, lateByMillisOf } from "../schedule/late-reminder.ts";
+import { isLate, lateByMillisOf } from "../schedule/lateness.ts";
 import { ownerTimeZone } from "../time/owner-current-time.ts";
 import type { ScheduleFiredEvent } from "./inbox.ts";
 

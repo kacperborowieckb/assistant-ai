@@ -3,7 +3,7 @@ import { Clock, Effect, Option } from "effect";
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { Journal } from "../journal/journal.ts";
 import type { OwnerId } from "../owner-id.ts";
-import { lateReminderText } from "../schedule/late-reminder.ts";
+import { lateReminderText } from "../schedule/lateness.ts";
 import type { SendText } from "../schedule/schedule-action.ts";
 import { Schedules } from "../schedule/schedules.ts";
 import { Redactor } from "../tracing/redactor.ts";
