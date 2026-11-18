@@ -448,6 +448,56 @@ describe("delivery of a repeating Reminder", () => {
   });
 });
 
+describe("a failed send of a repeating Reminder", () => {
+  it("moves the Schedule to its next occurrence and fires there", async () => {
+    const ownerId = await ownerIn(9122, "Europe/Warsaw");
+    await owner(9122, "hello");
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(1));
+    await seedRepeating(
+      ownerId,
+      dailyAtQuarterPastThree,
+      DateTime.subtract(DateTime.nowUnsafe(), { seconds: 5 })
+    );
+    fakeTelegram.answerWith("refuse");
+
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(async () =>
+      expect(await journalTagsOf(ownerId)).toContain("ReplyFailed")
+    );
+    const afterFailure = await onlyScheduleOf(ownerId);
+    expect(afterFailure.state).toBe("active");
+    expect(
+      DateTime.isGreaterThan(
+        DateTime.makeUnsafe(afterFailure.next_due_at),
+        DateTime.nowUnsafe()
+      )
+    ).toBe(true);
+    expect(await journalTagsOf(ownerId)).toContain("ScheduleRescheduled");
+    expect(await alarmsOf(ownerId)).toEqual([
+      DateTime.toEpochMillis(DateTime.makeUnsafe(afterFailure.next_due_at)) /
+        1000,
+    ]);
+
+    fakeTelegram.answerWith("confirm");
+    await runInDurableObject(await agentOf(ownerId), (_, state) => {
+      state.storage.sql.exec(
+        "UPDATE schedules SET next_due_at = ?",
+        DateTime.formatIso(
+          DateTime.subtract(DateTime.nowUnsafe(), { seconds: 5 })
+        )
+      );
+    });
+    await fireTheAlarm(ownerId);
+
+    await vi.waitFor(() =>
+      expect(
+        fakeTelegram.sent.filter(({ body }) => body.text === "Water the plants")
+      ).toHaveLength(2)
+    );
+  });
+});
+
 describe("a changed time zone", () => {
   it("moves the active repeating Schedule to the same local time in the new zone and leaves one-time Schedules", async () => {
     const ownerId = await ownerIn(9130, "Europe/Warsaw");

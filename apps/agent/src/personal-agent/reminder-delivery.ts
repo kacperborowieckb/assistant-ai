@@ -231,6 +231,7 @@ export const deliverReminder = Effect.fnUntraced(function* deliverReminder({
   };
 
   if (delivery._tag === "Failed") {
+    yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
     yield* recordDeliveryFailed(record, delivery.reason);
     return;
   }
