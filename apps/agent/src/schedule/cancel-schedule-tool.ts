@@ -24,7 +24,7 @@ const CancelScheduleInput = Schema.Struct({
 });
 
 export const cancelScheduleTool = (
-  { schedules, alarm, progress, redactor }: ScheduleToolServices,
+  { schedules, progress, redactor }: ScheduleToolServices,
   eventId: string
 ) =>
   agentTool({
@@ -59,7 +59,6 @@ export const cancelScheduleTool = (
             };
           })
         );
-        yield* alarm.rearm;
         return cancelled;
       }).pipe(failWithToolMessage(scheduleNotCancelledMessage)),
   });

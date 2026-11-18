@@ -8,7 +8,6 @@ import { Notes } from "../notes/notes.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { OwnerPreferences } from "../preferences/owner-preferences.ts";
 import { Profile } from "../profile/profile.ts";
-import { ScheduleAlarm } from "../schedule/schedule-alarm.ts";
 import { Schedules } from "../schedule/schedules.ts";
 import { ownerCurrentTimeText } from "../time/owner-current-time.ts";
 import { Redactor } from "../tracing/redactor.ts";
@@ -61,7 +60,6 @@ const answer = (
     const preferences = yield* OwnerPreferences;
     const progress = yield* TurnProgress;
     const schedules = yield* Schedules;
-    const alarm = yield* ScheduleAlarm;
 
     const startedAt = yield* Clock.currentTimeMillis;
     const history = yield* conversation.recent;
@@ -99,7 +97,6 @@ const answer = (
             redactor,
             preferences,
             schedules,
-            alarm,
             behavior,
           }),
         },

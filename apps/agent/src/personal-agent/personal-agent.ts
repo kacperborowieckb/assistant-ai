@@ -14,15 +14,14 @@ import { OwnerIdSchema } from "../owner-id.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { OwnerPreferences } from "../preferences/owner-preferences.ts";
 import { Profile } from "../profile/profile.ts";
-import { ScheduleAlarm } from "../schedule/schedule-alarm.ts";
-import type { AlarmClock } from "../schedule/schedule-alarm.ts";
 import { Schedules } from "../schedule/schedules.ts";
+import type { AlarmClock } from "../schedule/schedules.ts";
 import type { OperatorMetrics } from "../tracing/operator-metrics.ts";
 import type { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
 import { AgentStorage } from "./agent-storage.ts";
 import { Conversation } from "./conversation.ts";
-import { storeDueScheduleEvents } from "./due-schedule-events.ts";
+import { fireDueSchedulesThen } from "./due-schedule-events.ts";
 import { Inbox } from "./inbox.ts";
 import { OwnerChannelConversation } from "./owner-channel-conversation.ts";
 import { TurnProgress } from "./turn-progress.ts";
@@ -35,10 +34,11 @@ const personalAgentLayer = (
   alarmClock: AlarmClock
 ) => {
   const journal = Journal.layer(ownerId);
-  const schedules = Schedules.layer(ownerId).pipe(Layer.provide(journal));
+  const schedules = Schedules.layer(ownerId, alarmClock).pipe(
+    Layer.provide(journal)
+  );
   return Layer.mergeAll(
     schedules,
-    ScheduleAlarm.layer(alarmClock).pipe(Layer.provide(schedules)),
     Inbox.layer.pipe(Layer.provide(journal)),
     journal,
     Notes.layer(ownerId).pipe(Layer.provide(journal)),
@@ -90,19 +90,14 @@ export class PersonalAgent extends Agent<Env> {
       })
     );
     await this.runTurnWhenEventsArePending();
-    await this.rearmAlarm();
     return "stored";
   }
 
   async fireDueSchedules(): Promise<void> {
-    await this.runtime.runPromise(storeDueScheduleEvents);
-    await this.runTurnWhenEventsArePending();
-    await this.rearmAlarm();
-  }
-
-  private async rearmAlarm(): Promise<void> {
     await this.runtime.runPromise(
-      ScheduleAlarm.pipe(Effect.flatMap((alarm) => alarm.rearm))
+      fireDueSchedulesThen(
+        Effect.promise(() => this.runTurnWhenEventsArePending())
+      )
     );
   }
 
@@ -150,16 +145,11 @@ export class PersonalAgent extends Agent<Env> {
   }
 
   async runTurn(): Promise<void> {
-    await this.rearmAlarm();
-    try {
-      await this.runtime.runPromise(
-        takeTurn(this.ownerId, defaultBehaviorConfig, this.turnTools).pipe(
-          Effect.provide(this.turnServices(this.env, this.ownerId))
-        )
-      );
-    } finally {
-      await this.rearmAlarm();
-    }
+    await this.runtime.runPromise(
+      takeTurn(this.ownerId, defaultBehaviorConfig, this.turnTools).pipe(
+        Effect.provide(this.turnServices(this.env, this.ownerId))
+      )
+    );
   }
 }
 

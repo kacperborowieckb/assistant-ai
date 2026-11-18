@@ -18,7 +18,6 @@ import { skipScheduledTask } from "../src/personal-agent/scheduled-task-skip.ts"
 import { TurnProgress } from "../src/personal-agent/turn-progress.ts";
 import { OwnerPreferences } from "../src/preferences/owner-preferences.ts";
 import { changeScheduleToolName } from "../src/schedule/change-schedule-tool.ts";
-import { ScheduleAlarm } from "../src/schedule/schedule-alarm.ts";
 import { Schedules } from "../src/schedule/schedules.ts";
 import type { SetScheduleRequest } from "../src/schedule/schedules.ts";
 import { setScheduleToolName } from "../src/schedule/set-schedule-tool.ts";
@@ -41,7 +40,6 @@ type ScheduledTaskServices =
   | Inbox
   | Journal
   | OwnerPreferences
-  | ScheduleAlarm
   | Schedules
   | TurnProgress
   | TurnTraces
@@ -115,7 +113,6 @@ const seedScheduledTask = (
         repeat,
         sourceEventId: "seed-scheduled-task",
       });
-      yield* (yield* ScheduleAlarm).rearm;
       return schedule;
     })
   );
@@ -615,7 +612,6 @@ describe("a Scheduled Task that fails", () => {
           dueAt: DateTime.subtract(now, { seconds: 5 }),
           sourceEventId: "seed-long-prompt",
         });
-        yield* (yield* ScheduleAlarm).rearm;
       })
     );
 
@@ -770,7 +766,6 @@ const seedSecretPrompt = (ownerId: string) =>
         dueAt: DateTime.subtract(now, { seconds: 5 }),
         sourceEventId: "seed-secret-prompt",
       });
-      yield* (yield* ScheduleAlarm).rearm;
       return schedule;
     })
   );
@@ -1113,7 +1108,6 @@ describe("the daily Token Budget of Scheduled Tasks", () => {
           dueAt: DateTime.subtract(yield* DateTime.now, { seconds: 5 }),
           sourceEventId: "seed-secret-task",
         });
-        yield* (yield* ScheduleAlarm).rearm;
       })
     );
 

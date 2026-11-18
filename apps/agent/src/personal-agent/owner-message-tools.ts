@@ -25,7 +25,6 @@ import {
   listSchedulesTool,
   listSchedulesToolName,
 } from "../schedule/list-schedules-tool.ts";
-import type { ScheduleAlarm } from "../schedule/schedule-alarm.ts";
 import type { ScheduleToolServices } from "../schedule/schedule-tool-services.ts";
 import type { Schedules } from "../schedule/schedules.ts";
 import {
@@ -40,23 +39,20 @@ export interface OwnerMessageToolServices extends NoteToolServices {
   readonly profile: Profile["Service"];
   readonly preferences: OwnerPreferences["Service"];
   readonly schedules: Schedules["Service"];
-  readonly alarm: ScheduleAlarm["Service"];
   readonly behavior: BehaviorConfig;
 }
 
 export const scheduleToolServicesOf = ({
   schedules,
-  alarm,
   preferences,
   behavior,
   progress,
   redactor,
 }: Pick<
   OwnerMessageToolServices,
-  "alarm" | "behavior" | "preferences" | "progress" | "redactor" | "schedules"
+  "behavior" | "preferences" | "progress" | "redactor" | "schedules"
 >): ScheduleToolServices => ({
   schedules,
-  alarm,
   ownerTimeZone: ownerTimeZone(behavior).pipe(
     Effect.provideService(OwnerPreferences, preferences),
     Effect.orDie
@@ -72,7 +68,6 @@ export const ownerMessageTools = (
     profile,
     preferences,
     schedules,
-    alarm,
     behavior,
     ...noteServices
   }: OwnerMessageToolServices
@@ -80,7 +75,6 @@ export const ownerMessageTools = (
   const { progress, redactor } = noteServices;
   const scheduleServices = scheduleToolServicesOf({
     schedules,
-    alarm,
     preferences,
     behavior,
     progress,
@@ -100,7 +94,7 @@ export const ownerMessageTools = (
             event.eventId
           ),
           [setTimeZoneToolName]: setTimeZoneTool(
-            { preferences, schedules, alarm, progress, redactor },
+            { preferences, schedules, progress, redactor },
             event.eventId
           ),
           [setScheduleToolName]: setScheduleTool(

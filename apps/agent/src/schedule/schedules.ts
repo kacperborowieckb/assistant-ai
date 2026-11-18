@@ -1,80 +1,56 @@
-import { and, asc, eq, lte, notExists } from "drizzle-orm";
-import { Context, DateTime, Effect, Layer, Option } from "effect";
+import { DateTime, Effect, Layer, Option, Context } from "effect";
 
 import { Journal } from "../journal/journal.ts";
 import { makeNoteLinks } from "../notes/note-links.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
-import { inboxEvents, schedules } from "../personal-agent/storage-schema.ts";
 import { nextOccurrence } from "../time/next-occurrence.ts";
-import { makeRepeatingSchedules } from "./repeating-schedules.ts";
 import { columnsOfAction } from "./schedule-action.ts";
-import type { ScheduleAction } from "./schedule-action.ts";
-import { makeScheduleEdits, recurrenceValuesOf } from "./schedule-edits.ts";
-import { encodeRule, toSchedule } from "./schedule.ts";
-import type { Repeat, Schedule } from "./schedule.ts";
+import { makeScheduleQueries } from "./schedule-queries.ts";
+import { recurrenceValuesOf, requestKeyOf, toSchedule } from "./schedule.ts";
+import type {
+  Schedule,
+  ScheduleCancelRequest,
+  ScheduleChangeRequest,
+  SetScheduleRequest,
+} from "./schedule.ts";
 
-export type { Schedule } from "./schedule.ts";
+export type {
+  Schedule,
+  ScheduleCancelRequest,
+  ScheduleChangeRequest,
+  ScheduleSet,
+  SetScheduleRequest,
+} from "./schedule.ts";
 
-export interface SetScheduleRequest {
-  readonly action: ScheduleAction;
-  readonly setBy: Schedule["setBy"];
-  readonly noteId?: string | undefined;
-  readonly dueAt: DateTime.Utc;
-  readonly repeat?: Repeat | undefined;
-  readonly sourceEventId: string;
-  readonly activeScheduledTaskLimit?: number | undefined;
+export interface AlarmClock {
+  readonly setAt: (dueAt: Option.Option<DateTime.Utc>) => Promise<void>;
 }
-
-export interface ScheduleSet {
-  readonly schedule: Schedule;
-  readonly alreadySet: boolean;
-}
-
-const requestKeyOf = ({ action, dueAt, noteId, repeat }: SetScheduleRequest) =>
-  JSON.stringify([
-    action._tag === "SendText" ? action.text : { prompt: action.prompt },
-    noteId ?? null,
-    repeat === undefined
-      ? [DateTime.formatIso(dueAt)]
-      : [encodeRule(repeat.rule), DateTime.zoneToString(repeat.timeZone)],
-  ]);
-
-const hasNoInboxEventForDueInstant = (
-  database: AgentStorage["Service"]["database"]
-) =>
-  notExists(
-    database
-      .select({ one: inboxEvents.eventId })
-      .from(inboxEvents)
-      .where(
-        and(
-          eq(inboxEvents.scheduleId, schedules.scheduleId),
-          eq(inboxEvents.dueAt, schedules.nextDueAt)
-        )
-      )
-  );
 
 const makeSchedules = Effect.fnUntraced(function* makeSchedules(
-  ownerId: OwnerId
+  ownerId: OwnerId,
+  clock: AlarmClock
 ) {
   const { database } = yield* AgentStorage;
   const journal = yield* Journal;
   const { requireOwnNotes } = yield* makeNoteLinks(ownerId);
-  const scheduleEdits = yield* makeScheduleEdits(ownerId);
-  const repeatingSchedules = yield* makeRepeatingSchedules(ownerId);
+  const queries = yield* makeScheduleQueries(ownerId);
+  const { requireRoomForScheduledTask } = queries;
 
-  const findByRequest = (sourceEventId: string, requestKey: string) =>
-    database
-      .select()
-      .from(schedules)
-      .where(
-        and(
-          eq(schedules.sourceEventId, sourceEventId),
-          eq(schedules.requestKey, requestKey)
-        )
-      )
-      .pipe(Effect.map(([row]) => row));
+  const rearm = queries.earliestUnfiredDueAt.pipe(
+    Effect.flatMap((dueAt) => Effect.promise(() => clock.setAt(dueAt)))
+  );
+
+  const rearmWithoutFailing = rearm.pipe(
+    Effect.catchCause((cause) =>
+      Effect.logError("The alarm was not moved to the earliest Schedule", cause)
+    )
+  );
+
+  const rearmedTransaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
+    database.transaction(() =>
+      work.pipe(Effect.tap(() => rearmWithoutFailing))
+    );
 
   const writeSchedule = Effect.fnUntraced(function* writeSchedule(
     request: SetScheduleRequest
@@ -83,164 +59,201 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
       request.noteId === undefined ? [] : [request.noteId]
     );
     const requestKey = requestKeyOf(request);
-    const alreadyStored = yield* findByRequest(
+    const alreadyStored = yield* queries.findByRequest(
       request.sourceEventId,
       requestKey
     );
-    if (alreadyStored !== undefined) {
-      return { schedule: toSchedule(alreadyStored), alreadySet: true };
+    if (Option.isSome(alreadyStored)) {
+      return {
+        schedule: toSchedule(alreadyStored.value),
+        alreadySet: true,
+      };
     }
     if (request.action._tag === "RunPrompt") {
-      yield* scheduleEdits.requireRoomForScheduledTask(
-        request.activeScheduledTaskLimit
-      );
+      yield* requireRoomForScheduledTask(request.activeScheduledTaskLimit);
     }
     const now = DateTime.formatIso(yield* DateTime.now);
-    const [inserted] = yield* database
-      .insert(schedules)
-      .values({
-        scheduleId: crypto.randomUUID(),
-        ownerId,
-        ...columnsOfAction(request.action),
-        setBy: request.setBy,
-        noteId: request.noteId ?? null,
-        nextDueAt: DateTime.formatIso(request.dueAt),
-        ...recurrenceValuesOf(request.repeat),
-        state: "active",
-        sourceEventId: request.sourceEventId,
-        requestKey,
-        createdAt: now,
-        changedAt: now,
-      })
-      .onConflictDoNothing({
-        target: [schedules.sourceEventId, schedules.requestKey],
-      })
-      .returning();
-    if (inserted !== undefined) {
+    const inserted = yield* queries.insert({
+      scheduleId: crypto.randomUUID(),
+      ownerId,
+      ...columnsOfAction(request.action),
+      setBy: request.setBy,
+      noteId: request.noteId ?? null,
+      nextDueAt: DateTime.formatIso(request.dueAt),
+      ...recurrenceValuesOf(request.repeat),
+      state: "active",
+      sourceEventId: request.sourceEventId,
+      requestKey,
+      createdAt: now,
+      changedAt: now,
+    });
+    if (Option.isSome(inserted)) {
       yield* journal.append({
         _tag: "ScheduleSet",
         eventId: request.sourceEventId,
-        scheduleId: inserted.scheduleId,
+        scheduleId: inserted.value.scheduleId,
       });
-      return { schedule: toSchedule(inserted), alreadySet: false };
+      return { schedule: toSchedule(inserted.value), alreadySet: false };
     }
-    const existing = yield* findByRequest(request.sourceEventId, requestKey);
-    if (existing === undefined) {
+    const existing = yield* queries.findByRequest(
+      request.sourceEventId,
+      requestKey
+    );
+    if (Option.isNone(existing)) {
       return yield* Effect.die("The Schedule is neither written nor found");
     }
-    return { schedule: toSchedule(existing), alreadySet: true };
+    return { schedule: toSchedule(existing.value), alreadySet: true };
   });
 
   const set = (request: SetScheduleRequest) =>
-    database.transaction(() => writeSchedule(request));
+    rearmedTransaction(writeSchedule(request));
 
-  const byId = (scheduleId: string) =>
-    database
-      .select()
-      .from(schedules)
-      .where(
-        and(
-          eq(schedules.ownerId, ownerId),
-          eq(schedules.scheduleId, scheduleId)
-        )
-      )
-      .pipe(
-        Effect.map(([row]) =>
-          Option.fromNullishOr(row).pipe(Option.map(toSchedule))
-        )
-      );
+  const changeActive = Effect.fnUntraced(function* changeActive(
+    request: ScheduleChangeRequest
+  ) {
+    if (request.action?._tag === "RunPrompt") {
+      const current = yield* queries.activeRowById(request.scheduleId);
+      if (
+        Option.isSome(current) &&
+        toSchedule(current.value).action._tag !== "RunPrompt"
+      ) {
+        yield* requireRoomForScheduledTask(request.activeScheduledTaskLimit);
+      }
+    }
+    const changed = yield* queries.updateActive(request.scheduleId, {
+      changedAt: DateTime.formatIso(yield* DateTime.now),
+      ...(request.action === undefined ? {} : columnsOfAction(request.action)),
+      ...(request.dueAt === undefined
+        ? {}
+        : {
+            nextDueAt: DateTime.formatIso(request.dueAt),
+            ...recurrenceValuesOf(request.repeat),
+          }),
+    });
+    if (Option.isSome(changed)) {
+      yield* journal.append({
+        _tag: "ScheduleChanged",
+        eventId: request.eventId,
+        scheduleId: request.scheduleId,
+      });
+    }
+    return changed.pipe(Option.map(toSchedule));
+  });
 
-  const unfiredActive = and(
-    eq(schedules.ownerId, ownerId),
-    eq(schedules.state, "active"),
-    hasNoInboxEventForDueInstant(database)
-  );
+  const change = (request: ScheduleChangeRequest) =>
+    rearmedTransaction(changeActive(request));
 
-  const earliestUnfiredDueAt = database
-    .select({ nextDueAt: schedules.nextDueAt })
-    .from(schedules)
-    .where(unfiredActive)
-    .orderBy(asc(schedules.nextDueAt))
-    .limit(1)
-    .pipe(
-      Effect.map(([row]) =>
-        Option.fromNullishOr(row).pipe(
-          Option.map(({ nextDueAt }) => DateTime.makeUnsafe(nextDueAt))
-        )
+  const cancelActive = Effect.fnUntraced(function* cancelActive(
+    request: ScheduleCancelRequest
+  ) {
+    const cancelled = yield* queries.updateActive(request.scheduleId, {
+      state: "cancelled",
+      changedAt: DateTime.formatIso(yield* DateTime.now),
+    });
+    if (Option.isSome(cancelled)) {
+      yield* journal.append({
+        _tag: "ScheduleCancelled",
+        eventId: request.eventId,
+        scheduleId: request.scheduleId,
+      });
+    }
+    return cancelled.pipe(Option.map(toSchedule));
+  });
+
+  const cancel = (request: ScheduleCancelRequest) =>
+    rearmedTransaction(cancelActive(request));
+
+  const completeDue = Effect.fnUntraced(function* completeDue(
+    scheduleId: string,
+    dueAt: string,
+    eventId: string
+  ) {
+    const now = yield* DateTime.now;
+    const due = yield* queries.dueRowById(scheduleId, dueAt);
+    if (Option.isNone(due)) {
+      return;
+    }
+    const { repeat } = toSchedule(due.value);
+    if (repeat === undefined) {
+      yield* queries.updateDue(scheduleId, dueAt, {
+        state: "done",
+        changedAt: DateTime.formatIso(now),
+      });
+      yield* journal.append({ _tag: "ScheduleCompleted", eventId, scheduleId });
+      return;
+    }
+    const nextDueAt = DateTime.formatIso(
+      nextOccurrence(
+        repeat.rule,
+        DateTime.max(DateTime.makeUnsafe(dueAt), now),
+        repeat.timeZone
       )
     );
-
-  const unfiredDueBy = (now: DateTime.Utc) =>
-    database
-      .select()
-      .from(schedules)
-      .where(
-        and(unfiredActive, lte(schedules.nextDueAt, DateTime.formatIso(now)))
-      )
-      .orderBy(asc(schedules.nextDueAt), asc(schedules.createdAt))
-      .pipe(Effect.map((rows) => rows.map(toSchedule)));
-
-  const dueActive = (scheduleId: string, dueAt: string) =>
-    and(
-      eq(schedules.ownerId, ownerId),
-      eq(schedules.scheduleId, scheduleId),
-      eq(schedules.state, "active"),
-      eq(schedules.nextDueAt, dueAt)
-    );
+    yield* queries.updateDue(scheduleId, dueAt, {
+      nextDueAt,
+      changedAt: DateTime.formatIso(now),
+    });
+    yield* journal.append({
+      _tag: "ScheduleRescheduled",
+      eventId,
+      scheduleId,
+      nextDueAt,
+    });
+  });
 
   const complete = (scheduleId: string, dueAt: string, eventId: string) =>
-    database.transaction(() =>
-      Effect.gen(function* completeEffect() {
-        const now = yield* DateTime.now;
-        const [due] = yield* database
-          .select()
-          .from(schedules)
-          .where(dueActive(scheduleId, dueAt));
-        if (due === undefined) {
-          return;
-        }
-        const { repeat } = toSchedule(due);
-        if (repeat === undefined) {
-          yield* database
-            .update(schedules)
-            .set({ state: "done", changedAt: DateTime.formatIso(now) })
-            .where(dueActive(scheduleId, dueAt));
-          yield* journal.append({
-            _tag: "ScheduleCompleted",
-            eventId,
-            scheduleId,
-          });
-          return;
-        }
-        const nextDueAt = nextOccurrence(
-          repeat.rule,
-          DateTime.max(DateTime.makeUnsafe(dueAt), now),
-          repeat.timeZone
+    rearmedTransaction(completeDue(scheduleId, dueAt, eventId));
+
+  const moveRepeatingInTransaction = Effect.fnUntraced(
+    function* moveRepeatingInTransaction(
+      timeZone: DateTime.TimeZone.Named,
+      eventId: string
+    ) {
+      const now = yield* DateTime.now;
+      const zoneName = DateTime.zoneToString(timeZone);
+      const rows = yield* queries.activeRepeatingOutsideZone(zoneName);
+      for (const row of rows) {
+        const { rule } = Option.getOrThrow(
+          Option.fromNullishOr(toSchedule(row).repeat)
         );
-        yield* database
-          .update(schedules)
-          .set({
-            nextDueAt: DateTime.formatIso(nextDueAt),
-            changedAt: DateTime.formatIso(now),
-          })
-          .where(dueActive(scheduleId, dueAt));
-        yield* journal.append({
-          _tag: "ScheduleRescheduled",
-          eventId,
-          scheduleId,
-          nextDueAt: DateTime.formatIso(nextDueAt),
+        yield* queries.updateActive(row.scheduleId, {
+          nextDueAt: DateTime.formatIso(nextOccurrence(rule, now, timeZone)),
+          recurrenceTimeZone: zoneName,
+          changedAt: DateTime.formatIso(now),
         });
-      })
-    );
+        yield* journal.append({
+          _tag: "ScheduleChanged",
+          eventId,
+          scheduleId: row.scheduleId,
+        });
+      }
+    }
+  );
+
+  const moveRepeatingToTimeZone = (
+    timeZone: DateTime.TimeZone.Named,
+    eventId: string
+  ) => rearmedTransaction(moveRepeatingInTransaction(timeZone, eventId));
+
+  const fireDue = <E, R>(
+    handOff: (due: readonly Schedule[]) => Effect.Effect<void, E, R>
+  ) =>
+    Effect.gen(function* fireDueEffect() {
+      const due = yield* queries.unfiredDueBy(yield* DateTime.now);
+      yield* handOff(due);
+      yield* rearm;
+    });
 
   return {
-    ...scheduleEdits,
-    ...repeatingSchedules,
+    listActive: queries.listActive,
+    byId: queries.byId,
+    requireRoomForScheduledTask,
     set,
-    byId,
-    earliestUnfiredDueAt,
-    unfiredDueBy,
+    change,
+    cancel,
     complete,
+    moveRepeatingToTimeZone,
+    fireDue,
   };
 });
 
@@ -248,6 +261,6 @@ export class Schedules extends Context.Service<
   Schedules,
   Effect.Success<ReturnType<typeof makeSchedules>>
 >()("Schedules") {
-  static readonly layer = (ownerId: OwnerId) =>
-    Layer.effect(Schedules, makeSchedules(ownerId));
+  static readonly layer = (ownerId: OwnerId, clock: AlarmClock) =>
+    Layer.effect(Schedules, makeSchedules(ownerId, clock));
 }

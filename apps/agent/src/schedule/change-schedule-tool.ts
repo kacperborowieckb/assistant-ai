@@ -73,7 +73,6 @@ const ChangeScheduleInput = Schema.Struct({
 export const changeScheduleTool = (
   {
     schedules,
-    alarm,
     ownerTimeZone,
     progress,
     redactor,
@@ -156,7 +155,6 @@ export const changeScheduleTool = (
             };
           })
         );
-        yield* alarm.rearm;
         return changed;
       }).pipe(failWithToolMessage(scheduleNotChangedMessage)),
   });
