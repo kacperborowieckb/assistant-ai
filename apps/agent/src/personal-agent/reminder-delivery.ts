@@ -73,11 +73,10 @@ const reminderResultOf = (state: DeliveryState): ReminderResult | undefined => {
       return { _tag: "Delivered", channelMessageId: state.channelMessageId };
     }
     case "SendFailed":
-    case "FailedNoticeRefused": {
+    case "SendFailureRecorded": {
       return { _tag: "Failed", reason: state.reason };
     }
-    case "Unconfirmed":
-    case "FailedNoticeUnconfirmed": {
+    case "Unconfirmed": {
       return { _tag: "Failed", reason: unconfirmedSendReason };
     }
     default: {

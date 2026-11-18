@@ -102,6 +102,7 @@ const settleState = Effect.fnUntraced(function* settleState({
       yield* inbox.markFailed([event]);
       return "settled" as const;
     }
+    case "SendFailureRecorded":
     case "FailedNoticeRefused": {
       yield* inbox.markFailed([event]);
       return "settled" as const;

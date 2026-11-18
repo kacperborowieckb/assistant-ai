@@ -9,6 +9,7 @@ const completesScheduleOfReminder = (state: DeliveryState) =>
   state._tag === "SendFailed" ||
   state._tag === "Unconfirmed" ||
   state._tag === "FailedNoticePending" ||
+  state._tag === "SendFailureRecorded" ||
   state._tag === "FailedNoticeRefused" ||
   state._tag === "FailedNoticeUnconfirmed";
 

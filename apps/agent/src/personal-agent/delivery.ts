@@ -35,6 +35,11 @@ export type DeliveryState =
       readonly reason: string;
     }
   | { readonly _tag: "Unconfirmed"; readonly text: string | undefined }
+  | {
+      readonly _tag: "SendFailureRecorded";
+      readonly text: string | undefined;
+      readonly reason: string;
+    }
   | { readonly _tag: "FailedNoticePending" }
   | { readonly _tag: "FailedNoticeSent"; readonly text: string }
   | {
@@ -57,30 +62,52 @@ const lastOf = <Tag extends JournalEntry["record"]["_tag"]>(
     | undefined;
 };
 
-export const deliveryStateOfEntries = (
-  entries: readonly JournalEntry[]
-): DeliveryState => {
-  const tags = new Set(entries.map((entry) => entry.record._tag));
+const failedStateOf = (entries: readonly JournalEntry[]): DeliveryState => {
+  const hasSendStarted = entries.some(
+    (entry) => entry.record._tag === "SendStarted"
+  );
   const planned = lastOf(entries, "ReplyPlanned");
   const sent = lastOf(entries, "ReplySent");
   const sendFailed = lastOf(entries, "ReplyFailed");
   const turnFailed = lastOf(entries, "TurnFailed");
+  const firstPlanned = entries.find(
+    (entry) => entry.record._tag === "ReplyPlanned"
+  );
+  const lastTurnFailed = entries.findLast(
+    (entry) => entry.record._tag === "TurnFailed"
+  );
+  const reason = turnFailed?.reason ?? "";
 
-  if (turnFailed !== undefined) {
-    if (!tags.has("SendStarted") && sendFailed === undefined) {
-      return { _tag: "FailedNoticePending" };
-    }
-    if (sent !== undefined && planned !== undefined) {
-      return { _tag: "FailedNoticeSent", text: planned.text };
-    }
-    if (sendFailed !== undefined) {
-      return {
-        _tag: "FailedNoticeRefused",
-        text: planned?.text,
-        reason: turnFailed.reason,
-      };
-    }
-    return { _tag: "FailedNoticeUnconfirmed", text: planned?.text };
+  if (
+    sendFailed !== undefined &&
+    firstPlanned !== undefined &&
+    lastTurnFailed !== undefined &&
+    firstPlanned.sequence < lastTurnFailed.sequence
+  ) {
+    return { _tag: "SendFailureRecorded", text: planned?.text, reason };
+  }
+  if (!hasSendStarted && sendFailed === undefined) {
+    return { _tag: "FailedNoticePending" };
+  }
+  if (sent !== undefined && planned !== undefined) {
+    return { _tag: "FailedNoticeSent", text: planned.text };
+  }
+  return sendFailed === undefined
+    ? { _tag: "FailedNoticeUnconfirmed", text: planned?.text }
+    : { _tag: "FailedNoticeRefused", text: planned?.text, reason };
+};
+
+export const deliveryStateOfEntries = (
+  entries: readonly JournalEntry[]
+): DeliveryState => {
+  const hasTag = (tag: JournalEntry["record"]["_tag"]) =>
+    entries.some((entry) => entry.record._tag === tag);
+  const planned = lastOf(entries, "ReplyPlanned");
+  const sent = lastOf(entries, "ReplySent");
+  const sendFailed = lastOf(entries, "ReplyFailed");
+
+  if (hasTag("TurnFailed")) {
+    return failedStateOf(entries);
   }
   if (sent !== undefined) {
     return {
@@ -96,7 +123,7 @@ export const deliveryStateOfEntries = (
       reason: sendFailed.reason,
     };
   }
-  return tags.has("SendStarted")
+  return hasTag("SendStarted")
     ? { _tag: "Unconfirmed", text: planned?.text }
     : { _tag: "Unsent" };
 };

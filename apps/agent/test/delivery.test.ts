@@ -113,7 +113,7 @@ describe("the Delivery state of an Event", () => {
     });
   });
 
-  it("is FailedNoticeRefused when the notice send fails, or after a failed send of a reply", () => {
+  it("is FailedNoticeRefused when the notice send fails, and SendFailureRecorded after a failed send of a reply", () => {
     expect(stateAfter(turnFailed, planned, started, refused)).toMatchObject({
       _tag: "FailedNoticeRefused",
     });
@@ -123,7 +123,7 @@ describe("the Delivery state of an Event", () => {
         reason: "refused",
       })
     ).toEqual({
-      _tag: "FailedNoticeRefused",
+      _tag: "SendFailureRecorded",
       text: "planned text",
       reason: "refused",
     });
@@ -268,7 +268,7 @@ describe("Delivery through its interface", () => {
       text: "the reply",
     });
     expect(states.settled).toMatchObject({
-      _tag: "FailedNoticeRefused",
+      _tag: "SendFailureRecorded",
       reason: unconfirmedSendReason,
     });
   });
@@ -460,6 +460,41 @@ describe("a Scheduled Task Event after a reset", () => {
     );
 
     expect(await traceTasksOf(ownerId)).toEqual(["scheduled_task_skip"]);
+  });
+
+  it("gets no reminder_delivery Trace when the reset comes after the start of a failure notice", async () => {
+    const {
+      ownerId,
+      agent,
+      eventId: firedEventId,
+    } = await seedFiredScheduledTask(9803);
+    await runInDurableObject(agent, (instance) =>
+      instance.runtime.runPromise(
+        Effect.gen(function* seedEffect() {
+          const journal = yield* Journal;
+          yield* journal.append({
+            _tag: "TurnFailed",
+            eventId: firedEventId,
+            reason: "step limit",
+          });
+          yield* journal.append({
+            _tag: "ReplyPlanned",
+            eventId: firedEventId,
+            text: "notice",
+          });
+          yield* journal.append({ _tag: "SendStarted", eventId: firedEventId });
+        })
+      )
+    );
+    await abortAllDurableObjects();
+
+    await runInDurableObject(
+      await personalAgentFor(env.PERSONAL_AGENT, OwnerIdSchema.make(ownerId)),
+      (instance) => instance.runTurn()
+    );
+
+    expect(await traceTasksOf(ownerId)).toEqual([]);
+    expect(fakeTelegram.sent).toHaveLength(0);
   });
 
   it("gets a scheduled_task Trace when the reset comes after ReplyPlanned", async () => {
