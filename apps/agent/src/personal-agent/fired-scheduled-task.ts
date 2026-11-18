@@ -11,17 +11,40 @@ import { Schedules } from "../schedule/schedules.ts";
 import { localTimeOf } from "../time/local-time.ts";
 import { ownerTimeZone } from "../time/owner-current-time.ts";
 import { Redactor } from "../tracing/redactor.ts";
+import { recordFailure, sendFailureNotice } from "./delivery.ts";
 import { scheduledTaskInputMessage } from "./event-message.ts";
+import { lateNoticeFor } from "./fired-schedule-lateness.ts";
+import { nameOfPrompt } from "./fired-scheduled-task-name.ts";
+import { skipOverBudget } from "./fired-scheduled-task-skip.ts";
 import type { ScheduleFiredEvent } from "./inbox.ts";
 import { runModelTurn } from "./model-turn.ts";
 import type { TurnPreparation } from "./model-turn.ts";
-import { lateNoticeFor } from "./reminder-delivery.ts";
-import { failScheduledTask } from "./scheduled-task-failure.ts";
 import { scheduledTaskSection } from "./scheduled-task-section.ts";
-import { skipScheduledTaskOverBudget } from "./scheduled-task-skip.ts";
 import { scheduledTaskTools } from "./scheduled-task-tools.ts";
 import { TurnProgress } from "./turn-progress.ts";
 import { scheduledTaskTraceOf } from "./turn-record.ts";
+
+export const scheduledTaskFailureText = Effect.fnUntraced(
+  function* scheduledTaskFailureText(prompt: string) {
+    const redactor = yield* Redactor;
+    return `Your Scheduled Task "${nameOfPrompt(redactor.redact(prompt))}" did not run. I could not finish it this time.`;
+  }
+);
+
+const failScheduledTask = Effect.fnUntraced(function* failScheduledTask(
+  event: ScheduleFiredEvent,
+  action: RunPrompt,
+  reason: string
+) {
+  const schedules = yield* Schedules;
+
+  yield* recordFailure(event, reason);
+  yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
+  yield* sendFailureNotice(
+    event,
+    yield* scheduledTaskFailureText(action.prompt)
+  );
+});
 
 const scheduledTaskPreparation = Effect.fnUntraced(
   function* scheduledTaskPreparation(
@@ -88,19 +111,13 @@ export const runScheduledTask = Effect.fnUntraced(function* runScheduledTask({
       prepare: scheduledTaskPreparation(behavior, event, schedule),
       traceOf: (model) => scheduledTaskTraceOf({ event, ...model }),
       checkBeforeFirstStep: (startedAt) =>
-        skipScheduledTaskOverBudget({
-          ownerId,
-          behavior,
-          event,
-          action,
-          startedAt,
-        }),
+        skipOverBudget({ ownerId, behavior, event, action, startedAt }),
       whenSent: schedules.complete(
         event.scheduleId,
         event.dueAt,
         event.eventId
       ),
-      whenFailed: (reason) => failScheduledTask({ event, action, reason }),
+      whenFailed: (reason) => failScheduledTask(event, action, reason),
     },
   });
 });

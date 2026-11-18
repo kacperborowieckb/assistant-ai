@@ -17,6 +17,7 @@ Use these terms with these meanings in code, docs, issues, and prompts. Use the 
 - **Personal Agent** (`PersonalAgent`): the Durable Object for one Owner. It holds the Owner's memory, Journal, Inbox, Schedules, and preferences. It sleeps when idle and wakes on any Event.
 - **Turn**: one run of the agent loop, from the Events it takes in to the messages and Journal Entries it produces.
 - **Model Turn**: the one module that runs a Turn which calls the model: the step limit, the model call through the Model Gateway, the Trace, the failure branches, the Conversation write, and the metric. The reply Turn and the Scheduled Task Turn each give it only what differs. It sends through Delivery.
+- **Fired Schedule**: the one module that handles a `ScheduleFired` Event: it reads the Schedule once, checks that it is still due, applies the lateness rule for its Action, sends the text of a Reminder or runs the Budget check and a Model Turn for a Scheduled Task, completes the Schedule, and recovers after a reset through the Delivery state. The Turn loop only routes Events to it.
 - **Delivery**: the record of the one message that the agent sends for an Event, and its state (`Unsent`, `Sent`, `SendFailed`, `Unconfirmed`, or a failed Event with a notice that is pending, sent, refused, or unconfirmed). Only the Delivery module reads and writes it.
 - **Helper**: a durable workflow that does long or expensive work outside the chat Turn and returns only its result. Not in the MVP.
 

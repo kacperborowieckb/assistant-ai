@@ -3,7 +3,8 @@ import {
   env,
   runInDurableObject,
 } from "cloudflare:test";
-import { DateTime, Effect, Layer } from "effect";
+import type { Layer } from "effect";
+import { DateTime, Effect } from "effect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { defaultBehaviorConfig } from "../src/behavior/behavior-config.ts";
@@ -12,9 +13,9 @@ import { UsageLedger } from "../src/model-gateway/usage-ledger.ts";
 import { searchNotesToolName } from "../src/notes/search-notes-tool.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
 import { storeDueScheduleEvents } from "../src/personal-agent/due-schedule-events.ts";
+import { handleFiredSchedule } from "../src/personal-agent/fired-schedule.ts";
 import type { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
-import { skipScheduledTask } from "../src/personal-agent/scheduled-task-skip.ts";
 import { TurnProgress } from "../src/personal-agent/turn-progress.ts";
 import { OwnerPreferences } from "../src/preferences/owner-preferences.ts";
 import { changeScheduleToolName } from "../src/schedule/change-schedule-tool.ts";
@@ -22,8 +23,7 @@ import { Schedules } from "../src/schedule/schedules.ts";
 import type { SetScheduleRequest } from "../src/schedule/schedules.ts";
 import { setScheduleToolName } from "../src/schedule/set-schedule-tool.ts";
 import { localTimeOf } from "../src/time/local-time.ts";
-import { OperatorMetrics } from "../src/tracing/operator-metrics.ts";
-import { redactedMark, Redactor } from "../src/tracing/redactor.ts";
+import { redactedMark } from "../src/tracing/redactor.ts";
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
 import {
   failModel,
@@ -1029,39 +1029,42 @@ describe("the daily Token Budget of Scheduled Tasks", () => {
     });
     await inAgent(ownerId, storeDueScheduleEvents);
     const eventId = await eventIdOfFire(ownerId, schedule.scheduleId);
-    await inAgent(
-      ownerId,
-      TurnTraces.pipe(
-        Effect.flatMap((traces) =>
-          Effect.exit(
-            skipScheduledTask({
-              ownerId: OwnerIdSchema.make(ownerId),
-              event: {
-                _tag: "ScheduleFired",
-                eventId,
-                scheduleId: schedule.scheduleId,
-                dueAt: DateTime.formatIso(schedule.nextDueAt),
-                state: "pending",
-              },
-              action: { _tag: "RunPrompt", prompt },
-              dailyTokenBudget: scheduledTaskDailyTokenBudget,
-              tokensSpent: scheduledTaskDailyTokenBudget,
-              startedAt: 0,
-            }).pipe(
-              Effect.provideService(TurnTraces, {
-                ...traces,
-                record: () => Effect.die("The Durable Object reset"),
-              })
+    const agent = await agentOf(ownerId);
+    await runInDurableObject(agent, (instance) =>
+      instance.runtime.runPromise(
+        TurnTraces.pipe(
+          Effect.flatMap((traces) =>
+            Effect.exit(
+              handleFiredSchedule(
+                OwnerIdSchema.make(ownerId),
+                defaultBehaviorConfig,
+                {
+                  _tag: "ScheduleFired",
+                  eventId,
+                  scheduleId: schedule.scheduleId,
+                  dueAt: DateTime.formatIso(schedule.nextDueAt),
+                  state: "pending",
+                }
+              ).pipe(
+                Effect.provide(
+                  (
+                    instance as unknown as {
+                      turnServices: (
+                        env: Env,
+                        id: string
+                      ) => Layer.Layer<never>;
+                    }
+                  ).turnServices(env, ownerId)
+                ),
+                Effect.provideService(TurnTraces, {
+                  ...traces,
+                  record: () => Effect.die("The Durable Object reset"),
+                })
+              )
             )
           )
-        ),
-        Effect.provide(
-          Layer.mergeAll(
-            OperatorMetrics.layer(fakeMetrics.dataset),
-            Redactor.layer([])
-          )
-        )
-      ) as never
+        ) as never
+      )
     );
     expect(skipPointsOf(eventId)).toHaveLength(1);
 
