@@ -1,10 +1,7 @@
 import { Cause, Effect, Option, Schema } from "effect";
 
-import {
-  agentTool,
-  effectInputSchema,
-  ToolFailed,
-} from "../model-gateway/agent-tool.ts";
+import { ToolFailed } from "../model-gateway/agent-tool.ts";
+import { recordedTool } from "../personal-agent/recorded-tool.ts";
 import { profileEntryKinds } from "../personal-agent/storage-schema.ts";
 import { ProfileFull } from "./profile-full.ts";
 import type { ProfileToolServices } from "./profile-tool-services.ts";
@@ -71,71 +68,44 @@ export const updateProfileTool = (
   { profile, progress, redactor, characterLimit }: ProfileToolServices,
   eventId: string
 ) =>
-  agentTool({
-    description:
-      "Add or remove one entry of the Profile: a core fact or a style rule about the Owner. The Profile is in every Turn, so keep only what the Owner states about themselves or asks for, and keep it short. Fails when the Profile has no room.",
-    inputSchema: effectInputSchema(UpdateProfileInput),
-    execute: ({ action, kind, text, entryId }, { toolCallId, modelStepKey }) =>
-      Effect.gen(function* updateProfileEffect() {
-        yield* progress
-          .markModelStep(eventId, modelStepKey)
-          .pipe(
-            Effect.catchCause(() =>
-              Effect.fail(new ToolFailed({ message: profileNotChangedMessage }))
-            )
-          );
-        const call = {
-          eventId,
-          toolCallId,
-          toolName: updateProfileToolName,
-          redactor,
-        };
-        if (action === "add") {
-          if (kind === undefined || text === undefined) {
+  recordedTool(
+    { eventId, progress, redactor },
+    {
+      name: updateProfileToolName,
+      description:
+        "Add or remove one entry of the Profile: a core fact or a style rule about the Owner. The Profile is in every Turn, so keep only what the Owner states about themselves or asks for, and keep it short. Fails when the Profile has no room.",
+      inputSchema: UpdateProfileInput,
+      failureMessage: failureMessageOf,
+      work: ({ action, kind, text, entryId }) =>
+        Effect.gen(function* updateProfileEffect() {
+          if (action === "add") {
+            if (kind === undefined || text === undefined) {
+              return yield* new ToolFailed({
+                message: profileEntryMissingFieldMessage.add,
+              });
+            }
+            const { entry, alreadyKept, charactersUsed } = yield* profile.add({
+              kind,
+              text: text.trim(),
+              eventId,
+              characterLimit,
+            });
+            return {
+              entryId: entry.entryId,
+              kind: entry.kind,
+              text: entry.text,
+              alreadyKept,
+              charactersUsed,
+              characterLimit,
+            };
+          }
+          if (entryId === undefined) {
             return yield* new ToolFailed({
-              message: profileEntryMissingFieldMessage.add,
+              message: profileEntryMissingFieldMessage.remove,
             });
           }
-          return yield* progress.recordingToolCall(
-            { ...call, input: { action, kind, text } },
-            profile
-              .add({ kind, text: text.trim(), eventId, characterLimit })
-              .pipe(
-                Effect.map(({ entry, alreadyKept, charactersUsed }) => ({
-                  entryId: entry.entryId,
-                  kind: entry.kind,
-                  text: entry.text,
-                  alreadyKept,
-                  charactersUsed,
-                  characterLimit,
-                }))
-              )
-          );
-        }
-        if (entryId === undefined) {
-          return yield* new ToolFailed({
-            message: profileEntryMissingFieldMessage.remove,
-          });
-        }
-        return yield* progress.recordingToolCall(
-          { ...call, input: { action, entryId } },
-          profile.remove({ entryId, eventId }).pipe(
-            Effect.map((entry) => ({
-              entryId: entry.entryId,
-              removed: true,
-            }))
-          )
-        );
-      }).pipe(
-        Effect.catchCause((cause) =>
-          Effect.fail(
-            Cause.findErrorOption(cause).pipe(
-              Option.filter((error) => error instanceof ToolFailed),
-              Option.getOrElse(
-                () => new ToolFailed({ message: failureMessageOf(cause) })
-              )
-            )
-          )
-        )
-      ),
-  });
+          const entry = yield* profile.remove({ entryId, eventId });
+          return { entryId: entry.entryId, removed: true };
+        }),
+    }
+  );

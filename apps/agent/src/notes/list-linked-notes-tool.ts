@@ -1,10 +1,6 @@
 import { Effect, Schema } from "effect";
 
-import {
-  agentTool,
-  effectInputSchema,
-  ToolFailed,
-} from "../model-gateway/agent-tool.ts";
+import { recordedTool } from "../personal-agent/recorded-tool.ts";
 import { maxLinkedNotesPerMatch } from "./note-links.ts";
 import { noteToolFailureMessage } from "./note-tool-failure-message.ts";
 import type { NoteToolServices } from "./note-tool-services.ts";
@@ -37,37 +33,23 @@ export const listLinkedNotesTool = (
   { notes, progress, redactor }: NoteToolServices,
   eventId: string
 ) =>
-  agentTool({
-    description: `List the Notes linked to one Note, newest link first, ${maxLinkedNotesPerMatch} at a time, with the total count. Use it when search_notes shows more linked Notes than it returned.`,
-    inputSchema: effectInputSchema(ListLinkedNotesInput),
-    execute: ({ noteId, offset }, { toolCallId, modelStepKey }) =>
-      Effect.gen(function* listLinkedNotesEffect() {
-        yield* progress.markModelStep(eventId, modelStepKey);
-        return yield* progress.recordingToolCall(
-          {
-            eventId,
-            toolCallId,
-            toolName: listLinkedNotesToolName,
-            input: offset === undefined ? { noteId } : { noteId, offset },
-            redactor,
-          },
-          notes.listLinked(noteId, offset ?? 0).pipe(
-            Effect.map(({ linkedNotes, linkedNoteCount }) => ({
-              linkedNotes: linkedNotes.map((linked) => recalledNote(linked)),
-              linkedNoteCount,
-            }))
-          )
-        );
-      }).pipe(
-        Effect.catchCause((cause) =>
-          Effect.fail(
-            new ToolFailed({
-              message: noteToolFailureMessage(cause, {
-                unknownNotesConsequence: "Nothing was listed.",
-                otherwise: linkedNotesNotListedMessage,
-              }),
-            })
-          )
-        )
-      ),
-  });
+  recordedTool(
+    { eventId, progress, redactor },
+    {
+      name: listLinkedNotesToolName,
+      description: `List the Notes linked to one Note, newest link first, ${maxLinkedNotesPerMatch} at a time, with the total count. Use it when search_notes shows more linked Notes than it returned.`,
+      inputSchema: ListLinkedNotesInput,
+      failureMessage: (cause) =>
+        noteToolFailureMessage(cause, {
+          unknownNotesConsequence: "Nothing was listed.",
+          otherwise: linkedNotesNotListedMessage,
+        }),
+      work: ({ noteId, offset }) =>
+        notes.listLinked(noteId, offset ?? 0).pipe(
+          Effect.map(({ linkedNotes, linkedNoteCount }) => ({
+            linkedNotes: linkedNotes.map((linked) => recalledNote(linked)),
+            linkedNoteCount,
+          }))
+        ),
+    }
+  );

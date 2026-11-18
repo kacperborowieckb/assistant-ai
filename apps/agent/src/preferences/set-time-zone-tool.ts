@@ -1,10 +1,6 @@
 import { Cause, Effect, Option, Schema } from "effect";
 
-import {
-  agentTool,
-  effectInputSchema,
-  ToolFailed,
-} from "../model-gateway/agent-tool.ts";
+import { recordedTool } from "../personal-agent/recorded-tool.ts";
 import type { TurnProgress } from "../personal-agent/turn-progress.ts";
 import type { Schedules } from "../schedule/schedules.ts";
 import { namedTimeZone } from "../time/time-zone.ts";
@@ -45,41 +41,22 @@ export const setTimeZoneTool = (
   { preferences, schedules, progress, redactor }: PreferenceToolServices,
   eventId: string
 ) =>
-  agentTool({
-    description:
-      "Set the time zone of the Owner. It decides the local date and time that you see in every Turn, and the repeating Reminders keep their local time in the new time zone. Call it when the Owner says where they live or gives their time zone, also when they change it. Fails with a message when the name is not an IANA time zone name, and then nothing changes.",
-    inputSchema: effectInputSchema(SetTimeZoneInput),
-    execute: ({ timeZone }, { toolCallId, modelStepKey }) =>
-      Effect.gen(function* setTimeZoneEffect() {
-        yield* progress.markModelStep(eventId, modelStepKey);
-        const change = yield* progress.recordingToolCall(
-          {
-            eventId,
-            toolCallId,
-            toolName: setTimeZoneToolName,
-            input: { timeZone },
-            redactor,
-          },
-          Effect.gen(function* changeTimeZoneEffect() {
-            const result = yield* preferences.setTimeZone(timeZone, eventId);
-            const zone = namedTimeZone(result.timeZone);
-            if (Option.isSome(zone)) {
-              yield* schedules.moveRepeatingToTimeZone(zone.value, eventId);
-            }
-            return result;
-          })
-        );
-        return change;
-      }).pipe(
-        Effect.catchCause((cause) =>
-          Effect.fail(
-            Cause.findErrorOption(cause).pipe(
-              Option.filter((error) => error instanceof ToolFailed),
-              Option.getOrElse(
-                () => new ToolFailed({ message: failureMessageOf(cause) })
-              )
-            )
-          )
-        )
-      ),
-  });
+  recordedTool(
+    { eventId, progress, redactor },
+    {
+      name: setTimeZoneToolName,
+      description:
+        "Set the time zone of the Owner. It decides the local date and time that you see in every Turn, and the repeating Reminders keep their local time in the new time zone. Call it when the Owner says where they live or gives their time zone, also when they change it. Fails with a message when the name is not an IANA time zone name, and then nothing changes.",
+      inputSchema: SetTimeZoneInput,
+      failureMessage: failureMessageOf,
+      work: ({ timeZone }) =>
+        Effect.gen(function* changeTimeZoneEffect() {
+          const result = yield* preferences.setTimeZone(timeZone, eventId);
+          const zone = namedTimeZone(result.timeZone);
+          if (Option.isSome(zone)) {
+            yield* schedules.moveRepeatingToTimeZone(zone.value, eventId);
+          }
+          return result;
+        }),
+    }
+  );

@@ -1,10 +1,7 @@
 import { Effect, Schema } from "effect";
 
-import {
-  agentTool,
-  effectInputSchema,
-  ToolFailed,
-} from "../model-gateway/agent-tool.ts";
+import { ToolFailed } from "../model-gateway/agent-tool.ts";
+import { recordedTool } from "../personal-agent/recorded-tool.ts";
 import { noteIdListSchema } from "./note-id-list-schema.ts";
 import { noteToolFailureMessage } from "./note-tool-failure-message.ts";
 import type { NoteToolServices } from "./note-tool-services.ts";
@@ -47,66 +44,41 @@ export const updateNoteTool = (
   { notes, progress, redactor }: NoteToolServices,
   eventId: string
 ) =>
-  agentTool({
-    description:
-      "Change one existing Note after a follow-up of the Owner: replace its text, or link or unlink other Notes. Creates no new Note. Search for the Note first when you do not know its id.",
-    inputSchema: effectInputSchema(UpdateNoteInput),
-    execute: (
-      { noteId, text, linkedNoteIds, unlinkedNoteIds },
-      { toolCallId, modelStepKey }
-    ) =>
-      Effect.gen(function* updateNoteEffect() {
-        yield* progress
-          .markModelStep(eventId, modelStepKey)
-          .pipe(
-            Effect.catchCause(() =>
-              Effect.fail(new ToolFailed({ message: noteNotUpdatedMessage }))
-            )
-          );
-        if (
-          text === undefined &&
-          (linkedNoteIds ?? []).length === 0 &&
-          (unlinkedNoteIds ?? []).length === 0
-        ) {
-          return yield* new ToolFailed({ message: nothingToUpdateMessage });
-        }
-        return yield* Effect.gen(function* recordUpdateEffect() {
-          return yield* progress.recordingToolCall(
-            {
-              eventId,
-              toolCallId,
-              toolName: updateNoteToolName,
-              input: {
-                noteId,
-                ...(text === undefined ? {} : { text }),
-                ...(linkedNoteIds === undefined ? {} : { linkedNoteIds }),
-                ...(unlinkedNoteIds === undefined ? {} : { unlinkedNoteIds }),
-              },
-              redactor,
-            },
-            notes
-              .update({ noteId, eventId, text, linkedNoteIds, unlinkedNoteIds })
-              .pipe(
-                Effect.map(({ note, linkedNoteIds: linked }) => ({
-                  noteId: note.noteId,
-                  text: textForModel(note),
-                  url: note.url ?? null,
-                  lastCheckedAt: note.lastCheckedAt,
-                  linkedNoteIds: linked,
-                }))
-              )
-          );
-        }).pipe(
-          Effect.catchCause((cause) =>
-            Effect.fail(
-              new ToolFailed({
-                message: noteToolFailureMessage(cause, {
-                  unknownNotesConsequence: "Nothing was changed.",
-                  otherwise: noteNotUpdatedMessage,
-                }),
-              })
-            )
-          )
-        );
-      }),
-  });
+  recordedTool(
+    { eventId, progress, redactor },
+    {
+      name: updateNoteToolName,
+      description:
+        "Change one existing Note after a follow-up of the Owner: replace its text, or link or unlink other Notes. Creates no new Note. Search for the Note first when you do not know its id.",
+      inputSchema: UpdateNoteInput,
+      failureMessage: (cause) =>
+        noteToolFailureMessage(cause, {
+          unknownNotesConsequence: "Nothing was changed.",
+          otherwise: noteNotUpdatedMessage,
+        }),
+      work: ({ noteId, text, linkedNoteIds, unlinkedNoteIds }) =>
+        Effect.gen(function* updateNoteEffect() {
+          if (
+            text === undefined &&
+            (linkedNoteIds ?? []).length === 0 &&
+            (unlinkedNoteIds ?? []).length === 0
+          ) {
+            return yield* new ToolFailed({ message: nothingToUpdateMessage });
+          }
+          const { note, linkedNoteIds: linked } = yield* notes.update({
+            noteId,
+            eventId,
+            text,
+            linkedNoteIds,
+            unlinkedNoteIds,
+          });
+          return {
+            noteId: note.noteId,
+            text: textForModel(note),
+            url: note.url ?? null,
+            lastCheckedAt: note.lastCheckedAt,
+            linkedNoteIds: linked,
+          };
+        }),
+    }
+  );
