@@ -81,7 +81,7 @@ const traceStepsOf = (
     usage: traceUsageOf(step.usage),
   }));
 
-interface ModelTraceInput {
+export interface ModelTraceInput {
   readonly system: string;
   readonly messages: readonly ModelMessage[];
   readonly outcome: ModelOutcome;

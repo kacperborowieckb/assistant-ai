@@ -13,8 +13,10 @@ import { AgentStorage } from "../src/personal-agent/agent-storage.ts";
 import type { AgentMigrations } from "../src/personal-agent/agent-storage.ts";
 import { Conversation } from "../src/personal-agent/conversation.ts";
 import { honestFailureText } from "../src/personal-agent/delivery.ts";
+import { Inbox } from "../src/personal-agent/inbox.ts";
 import personalAgentMigrations from "../src/personal-agent/migrations/migrations.js";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
+import { TurnProgress } from "../src/personal-agent/turn-progress.ts";
 import { redactedMark } from "../src/tracing/redactor.ts";
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
 import {
@@ -29,7 +31,11 @@ import { addOwner, telegramWebhook, textUpdate } from "./telegram-requests.ts";
 
 const inPersonalAgent = async <A, E>(
   ownerId: string,
-  effect: Effect.Effect<A, E, Journal | TurnTraces | UsageLedger | Conversation>
+  effect: Effect.Effect<
+    A,
+    E,
+    Journal | TurnTraces | UsageLedger | Conversation | Inbox | TurnProgress
+  >
 ) =>
   runInDurableObject(
     await personalAgentFor(env.PERSONAL_AGENT, OwnerIdSchema.make(ownerId)),
@@ -231,6 +237,68 @@ describe("Tool loop", () => {
       UsageLedger.pipe(Effect.flatMap((ledger) => ledger.read))
     );
     expect(usage).toHaveLength(defaultBehaviorConfig.maxToolSteps);
+  });
+
+  it("sends the honest failure without a model call when the steps of the Event are already used", async () => {
+    const ownerId = await addOwner(9010);
+    scriptModel([{ say: "never sent" }]);
+    const agent = await personalAgentFor(
+      env.PERSONAL_AGENT,
+      OwnerIdSchema.make(ownerId)
+    );
+    await runInDurableObject(agent, async (instance) => {
+      await instance.runtime.runPromise(
+        Effect.gen(function* seedEffect() {
+          const inbox = yield* Inbox;
+          const progress = yield* TurnProgress;
+          yield* inbox.store({
+            _tag: "OwnerMessage",
+            channel: "telegram",
+            channelUpdateId: "used-steps-1",
+            conversationId: "9010",
+            channelMessageId: "71",
+            text: "keep",
+            sentAt: new Date().toISOString(),
+          });
+          const [event] = yield* inbox.pending;
+          for (
+            let step = 0;
+            step < defaultBehaviorConfig.maxToolSteps;
+            step += 1
+          ) {
+            yield* progress.markModelStep(event?.eventId ?? "", step);
+          }
+        })
+      );
+      await instance.runTurn();
+    });
+
+    expect(fakeTelegram.sent.map((call) => call.body.text)).toEqual([
+      honestFailureText,
+    ]);
+    expect(fakeModel.doGenerateCalls).toHaveLength(0);
+    const journal = await inPersonalAgent(
+      ownerId,
+      Journal.pipe(Effect.flatMap((entries) => entries.read))
+    );
+    expect(journal.map((entry) => entry.record._tag)).toContain("TurnFailed");
+  });
+
+  it("saves no secret from the Owner message in the stored history", async () => {
+    const ownerId = await addOwner(9012);
+    scriptModel([{ say: "Kept" }]);
+
+    await telegramWebhook(
+      textUpdate({ fromUserId: 9012, text: `keep ${env.AI_GATEWAY_TOKEN}` })
+    );
+    await waitForReplies(1);
+
+    const history = await inPersonalAgent(
+      ownerId,
+      Conversation.pipe(Effect.flatMap((conversation) => conversation.recent))
+    );
+    expect(JSON.stringify(history)).not.toContain(env.AI_GATEWAY_TOKEN);
+    expect(JSON.stringify(history)).toContain(redactedMark);
   });
 
   it("redacts secrets in the Trace steps and in the stored history", async () => {
