@@ -30,7 +30,8 @@ const ownerMessage = (updateId: string, text: string): Event => ({
   sentAt: "2026-11-15T10:00:00.000Z",
 });
 
-const reminderDueAt = "2026-11-19T08:00:00.000Z";
+// Due now, so a fired Reminder is inside the grace period and is not late.
+const reminderDueAt = DateTime.formatIso(DateTime.nowUnsafe());
 
 const setReminder = (text: string) =>
   Schedules.pipe(
@@ -80,7 +81,12 @@ describe("ScheduleFired Event", () => {
         const stored = yield* storeAll([
           scheduleFired("schedule-1", reminderDueAt),
           scheduleFired("schedule-1", reminderDueAt),
-          scheduleFired("schedule-1", "2026-11-26T08:00:00.000Z"),
+          scheduleFired(
+            "schedule-1",
+            DateTime.formatIso(
+              DateTime.add(DateTime.makeUnsafe(reminderDueAt), { days: 7 })
+            )
+          ),
         ]);
         return { stored, pending: yield* inbox.pending };
       })
