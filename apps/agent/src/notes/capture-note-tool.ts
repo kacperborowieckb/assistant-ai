@@ -5,7 +5,6 @@ import { noteIdListSchema } from "./note-id-list-schema.ts";
 import { noteToolFailureMessage } from "./note-tool-failure-message.ts";
 import type { NoteSource } from "./note.ts";
 import {
-  kindForModel,
   openLoopForModel,
   openLoopLocalDueTimeSchema,
   resolveOpenLoopDue,
@@ -89,14 +88,6 @@ export const captureNoteTool = (
           text: keptTextOf(source, input.text),
           trustLevel: source.trustLevel,
         }),
-        ...(input.openLoop === undefined
-          ? {}
-          : {
-              openLoop: {
-                ...input.openLoop,
-                kind: kindForModel(input.openLoop.kind, source.trustLevel),
-              },
-            }),
       }),
       work: Effect.fnUntraced(function* captureNoteEffect({
         text,
@@ -127,7 +118,7 @@ export const captureNoteTool = (
           url: note.url ?? null,
           alreadyKept,
           linkedNoteIds: linked,
-          openLoop: openLoopForModel(note, timeZone),
+          openLoop: openLoopForModel(note.openLoop, timeZone),
         };
       }),
     }

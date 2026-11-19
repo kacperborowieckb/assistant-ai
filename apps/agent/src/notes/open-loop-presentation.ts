@@ -8,10 +8,8 @@ import {
   LocalDueTimeSchema,
 } from "../time/local-due-time.ts";
 import { localTimeOf } from "../time/local-time.ts";
-import { markUntrustedContent } from "./note.ts";
-import type { TrustLevel } from "./note.ts";
-import type { Note } from "./notes.ts";
 import type { OpenLoopToolServices } from "./open-loop-tool-services.ts";
+import type { OpenLoop } from "./open-loop.ts";
 
 export const openLoopLocalDueTimeSchema = LocalDueTimeSchema.pipe(
   Schema.annotate({
@@ -23,17 +21,14 @@ export const noTimeZoneForOpenLoopMessage = `The time zone of the Owner is not k
 
 export const invalidOpenLoopDueMessage = `The due time is not a real local date and time in the form ${localDueTimeFormat}. Nothing was written. Check the date and try again.`;
 
-export const kindForModel = (kind: string, trustLevel: TrustLevel) =>
-  trustLevel === "untrusted" ? markUntrustedContent(kind) : kind;
-
 export const openLoopForModel = (
-  { openLoop, trustLevel }: Pick<Note, "openLoop" | "trustLevel">,
+  openLoop: OpenLoop | undefined,
   timeZone: Option.Option<DateTime.TimeZone.Named>
 ) =>
   openLoop === undefined
     ? null
     : {
-        kind: kindForModel(openLoop.kind, trustLevel),
+        kind: openLoop.kind,
         state:
           openLoop._tag === "Open" ? ("open" as const) : ("closed" as const),
         closeReason: openLoop._tag === "Closed" ? openLoop.reason : null,
