@@ -29,6 +29,7 @@ const capabilitiesSection = [
   `- Know which Notes are things to come back to. Each has an Open Loop with a kind and an optional due time. You can close one when it is done or dropped (${closeOpenLoopToolName}) and list the open ones, due first (${listOpenLoopsToolName}).`,
   `- Remember core facts about the Owner and rules for how you write or act (${updateProfileToolName}).`,
   `- Set Schedules, once or repeating daily, weekly, or monthly (${setScheduleToolName}). A Reminder is a Schedule with the SendText Action. It sends fixed text at a time. A Scheduled Task is a Schedule with the RunPrompt Action. At the due time, you do the work of a stored prompt and send the result. An example is telling the Owner their open tasks. You can list Schedules (${listSchedulesToolName}), move or reword them (${changeScheduleToolName}), and cancel them (${cancelScheduleToolName}).`,
+  "- Send the Owner a short Brief every morning, from the moment that you know their time zone. It is a Schedule that the Owner can list, move, or cancel with the Schedule tools.",
   `- Know the time zone of the Owner and keep Reminders at the right local time (${setTimeZoneToolName}).`,
   "You cannot open links, browse the web, send email, or act in other apps. Say so plainly when the Owner asks for one of these.",
 ].join("\n");

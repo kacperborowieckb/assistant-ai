@@ -59,6 +59,15 @@ const ScheduledTaskTraceBodySchema = Schema.Struct({
   ...modelTraceFields,
 });
 
+const ProactiveTraceBodySchema = Schema.Struct({
+  task: Schema.Literal("proactive"),
+  scheduleId: Schema.String,
+  dueAt: Schema.String,
+  dailyTokenBudget: Schema.Number,
+  tokensSpentBefore: Schema.Number,
+  ...modelTraceFields,
+});
+
 const ScheduledTaskSkipTraceBodySchema = Schema.Struct({
   task: Schema.Literal("scheduled_task_skip"),
   scheduleId: Schema.String,
@@ -84,6 +93,7 @@ const ReminderDeliveryTraceBodySchema = Schema.Struct({
 const TraceBodySchema = Schema.Union([
   ReplyTraceBodySchema,
   ScheduledTaskTraceBodySchema,
+  ProactiveTraceBodySchema,
   ScheduledTaskSkipTraceBodySchema,
   ReminderDeliveryTraceBodySchema,
 ]);
@@ -103,6 +113,11 @@ export const ScheduledTaskTurnTraceSchema = Schema.Struct({
   ...ScheduledTaskTraceBodySchema.fields,
 });
 
+export const ProactiveTurnTraceSchema = Schema.Struct({
+  ...traceFields,
+  ...ProactiveTraceBodySchema.fields,
+});
+
 export const ScheduledTaskSkipTurnTraceSchema = Schema.Struct({
   ...traceFields,
   ...ScheduledTaskSkipTraceBodySchema.fields,
@@ -116,6 +131,7 @@ export const ReminderDeliveryTurnTraceSchema = Schema.Struct({
 export const TurnTraceSchema = Schema.Union([
   ReplyTurnTraceSchema,
   ScheduledTaskTurnTraceSchema,
+  ProactiveTurnTraceSchema,
   ScheduledTaskSkipTurnTraceSchema,
   ReminderDeliveryTurnTraceSchema,
 ]);
@@ -123,6 +139,8 @@ export const TurnTraceSchema = Schema.Union([
 export type ReplyTurnTrace = typeof ReplyTurnTraceSchema.Type;
 
 export type ScheduledTaskTurnTrace = typeof ScheduledTaskTurnTraceSchema.Type;
+
+export type ProactiveTurnTrace = typeof ProactiveTurnTraceSchema.Type;
 
 export type ReminderDeliveryTurnTrace =
   typeof ReminderDeliveryTurnTraceSchema.Type;

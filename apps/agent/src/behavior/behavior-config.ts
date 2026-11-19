@@ -5,6 +5,8 @@ export interface BehaviorConfig {
   readonly reminderGraceMillis: number;
   readonly scheduledTaskDailyTokenBudget: number;
   readonly maxActiveScheduledTasks: number;
+  readonly proactiveDailyTokenBudget: number;
+  readonly quietHours: { readonly start: string; readonly end: string };
   readonly defaultTimeZone?: string | undefined;
 }
 
@@ -16,4 +18,6 @@ export const defaultBehaviorConfig: BehaviorConfig = {
   reminderGraceMillis: 5 * 60 * 1000,
   scheduledTaskDailyTokenBudget: 200_000,
   maxActiveScheduledTasks: 10,
+  proactiveDailyTokenBudget: 200_000,
+  quietHours: { start: "22:00", end: "08:00" },
 };

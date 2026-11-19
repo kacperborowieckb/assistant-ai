@@ -13,6 +13,7 @@ import { Notes } from "../notes/notes.ts";
 import { OwnerIdSchema } from "../owner-id.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { OwnerPreferences } from "../preferences/owner-preferences.ts";
+import { ProactiveMessages } from "../proactive/proactive-messages.ts";
 import { Profile } from "../profile/profile.ts";
 import { Schedules } from "../schedule/schedules.ts";
 import type { AlarmClock } from "../schedule/schedules.ts";
@@ -44,6 +45,7 @@ const personalAgentLayer = (
     Notes.layer(ownerId).pipe(Layer.provide(journal)),
     Profile.layer(ownerId).pipe(Layer.provide(journal)),
     OwnerPreferences.layer.pipe(Layer.provide(journal)),
+    ProactiveMessages.layer,
     Conversation.layer,
     OwnerChannelConversation.layer,
     TurnProgress.layer,

@@ -50,6 +50,10 @@ describe("Model Gateway transport", () => {
             model: "anthropic/claude-sonnet-5-5",
             reasoningEffort: "none",
           },
+          proactive: {
+            model: "anthropic/claude-sonnet-5-5",
+            reasoningEffort: "none",
+          },
           eval_judge: {
             model: "anthropic/claude-opus-5-5",
             reasoningEffort: "low",

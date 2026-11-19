@@ -38,7 +38,7 @@ const unpreparedTurn: TurnPreparation = {
 };
 
 export interface ModelTurnKind<Failure, Requirements> {
-  readonly task: "reply" | "scheduled_task";
+  readonly task: "reply" | "scheduled_task" | "proactive";
   readonly event: InboxEvent;
   readonly input: ModelMessage;
   readonly tools: AgentTools;
@@ -48,6 +48,7 @@ export interface ModelTurnKind<Failure, Requirements> {
   ) => Effect.Effect<BeforeFirstStep, Failure, Requirements>;
   readonly prepare?: Effect.Effect<TurnPreparation, Failure, Requirements>;
   readonly whenSent?: Effect.Effect<void, Failure, Requirements>;
+  readonly whenSendFailed?: Effect.Effect<void, Failure, Requirements>;
   readonly whenFailed: (
     reason: string
   ) => Effect.Effect<void, Failure, Requirements>;
@@ -145,6 +146,9 @@ export const runModelTurn = <Failure, Requirements>({
     if (delivery._tag === "Failed") {
       yield* remember;
       yield* fail(event, delivery.reason);
+      if (kind.whenSendFailed !== undefined) {
+        yield* kind.whenSendFailed;
+      }
       yield* recordTurnMetric({
         ownerId,
         eventId: event.eventId,

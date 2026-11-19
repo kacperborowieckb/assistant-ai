@@ -70,6 +70,7 @@ export const makeScheduleQueries = Effect.fnUntraced(
         and(
           eq(schedules.ownerId, ownerId),
           eq(schedules.action, actionColumnOfTag("RunPrompt")),
+          eq(schedules.setBy, "owner"),
           eq(schedules.state, "active")
         )
       )

@@ -1,7 +1,9 @@
 import { Cause, Effect, Option, Schema } from "effect";
 
+import type { Journal } from "../journal/journal.ts";
 import { recordedTool } from "../personal-agent/recorded-tool.ts";
 import type { TurnProgress } from "../personal-agent/turn-progress.ts";
+import { ensureBrief } from "../schedule/brief.ts";
 import type { Schedules } from "../schedule/schedules.ts";
 import { namedTimeZone } from "../time/time-zone.ts";
 import type { Redactor } from "../tracing/redactor.ts";
@@ -16,6 +18,8 @@ export const timeZoneNotChangedMessage =
 export interface PreferenceToolServices {
   readonly preferences: OwnerPreferences["Service"];
   readonly schedules: Schedules["Service"];
+  readonly journal: Journal["Service"];
+  readonly briefLocalTime: string;
   readonly progress: TurnProgress["Service"];
   readonly redactor: Redactor["Service"];
 }
@@ -38,7 +42,14 @@ const failureMessageOf = (cause: Cause.Cause<unknown>) => {
 };
 
 export const setTimeZoneTool = (
-  { preferences, schedules, progress, redactor }: PreferenceToolServices,
+  {
+    preferences,
+    schedules,
+    journal,
+    briefLocalTime,
+    progress,
+    redactor,
+  }: PreferenceToolServices,
   eventId: string
 ) =>
   recordedTool(
@@ -54,6 +65,10 @@ export const setTimeZoneTool = (
         const zone = namedTimeZone(result.timeZone);
         if (Option.isSome(zone)) {
           yield* schedules.moveRepeatingToTimeZone(zone.value, eventId);
+          yield* ensureBrief(
+            { schedules, journal },
+            { timeZone: zone.value, localTime: briefLocalTime, eventId }
+          );
         }
         return result;
       }),
