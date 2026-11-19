@@ -1,17 +1,14 @@
-import { uniqueNoteIds } from "./note-links.ts";
-import type { UpdateRequest } from "./note-updates.ts";
+export interface UpdateEffect {
+  readonly textChanged: boolean;
+  readonly linksChanged: boolean;
+}
 
-export const changeOfUpdate = (request: UpdateRequest) => {
-  const textChanged = request.text !== undefined;
-  const linksChanged =
-    uniqueNoteIds(request.linkedNoteIds).length +
-      uniqueNoteIds(request.unlinkedNoteIds).length >
-    0;
-  if (!textChanged && !linksChanged) {
-    return;
-  }
+export const changeOfUpdate = ({ textChanged, linksChanged }: UpdateEffect) => {
   if (textChanged && linksChanged) {
     return "text_and_links" as const;
   }
-  return textChanged ? ("text" as const) : ("links" as const);
+  if (textChanged) {
+    return "text" as const;
+  }
+  return linksChanged ? ("links" as const) : undefined;
 };

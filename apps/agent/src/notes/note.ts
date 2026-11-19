@@ -1,7 +1,7 @@
 import type { OwnerMessage } from "../event.ts";
 import { trustLevelOfEvent } from "../personal-agent/event-trust.ts";
 import type { OwnerMessageEvent } from "../personal-agent/inbox.ts";
-import type { trustLevels } from "./notes-schema.ts";
+import type { trustLevels } from "../personal-agent/storage-values.ts";
 
 export type TrustLevel = (typeof trustLevels)[number];
 

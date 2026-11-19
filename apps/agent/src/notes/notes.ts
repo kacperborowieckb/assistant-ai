@@ -4,6 +4,7 @@ import { Context, Effect, Layer } from "effect";
 import { Journal } from "../journal/journal.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
+import { notes } from "../personal-agent/storage-schema.ts";
 import { makeNoteLinks, uniqueNoteIds } from "./note-links.ts";
 import { toNote } from "./note-row.ts";
 import { hashOfNoteText } from "./note-text-hash.ts";
@@ -15,7 +16,6 @@ import {
   matchesQuery,
   notesFts,
 } from "./notes-fts.ts";
-import { notes } from "./notes-schema.ts";
 import { openOpenLoopOf } from "./open-loop-change.ts";
 import type { OpenLoopRequest } from "./open-loop-change.ts";
 import { makeOpenLoopStore } from "./open-loop-store.ts";

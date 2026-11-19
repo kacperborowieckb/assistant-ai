@@ -1,10 +1,10 @@
 import { DateTime, Option, Schema } from "effect";
 
+import type { schedules } from "../personal-agent/storage-schema.ts";
 import type {
   scheduleSetBy,
   scheduleStates,
-  schedules,
-} from "../personal-agent/storage-schema.ts";
+} from "../personal-agent/storage-values.ts";
 import { RecurrenceRuleJsonSchema } from "../time/recurrence-rule.ts";
 import type { RecurrenceRule } from "../time/recurrence-rule.ts";
 import { namedTimeZone } from "../time/time-zone.ts";

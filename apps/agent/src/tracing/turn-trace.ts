@@ -6,7 +6,8 @@ import { ReasoningEffortSchema } from "../model-gateway/model-provider.ts";
 import { OwnerIdSchema } from "../owner-id.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
-import { turnResults, turnTraces } from "../personal-agent/storage-schema.ts";
+import { turnTraces } from "../personal-agent/storage-schema.ts";
+import { turnResults } from "../personal-agent/storage-values.ts";
 
 const TraceUsageSchema = Schema.Struct({
   inputTokens: Schema.NullOr(Schema.Number),

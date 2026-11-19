@@ -12,34 +12,20 @@ import {
 
 import { valueIn } from "../check-values.ts";
 import type { OwnerMessage } from "../event.ts";
-import { notes } from "../notes/notes-schema.ts";
+import { openLoopChecks } from "../notes/open-loop-checks.ts";
 import type { OwnerId } from "../owner-id.ts";
-
-export const eventKinds = ["OwnerMessage", "ScheduleFired"] as const;
-
-export const inboxStates = ["pending", "done", "failed"] as const;
-
-export const profileEntryKinds = ["fact", "style_rule"] as const;
-
-export const ownerPreferenceKeys = ["time_zone"] as const;
-
-export const turnResults = [
-  "model_replied",
-  "model_failed",
-  "reminder_delivered",
-  "reminder_delivery_failed",
-  "scheduled_task_replied",
-  "scheduled_task_failed",
-  "scheduled_task_skipped",
-] as const;
-
-export const scheduleActions = ["send_text", "run_prompt"] as const;
-
-export const scheduleSetBy = ["owner", "agent"] as const;
-
-export const scheduleStates = ["active", "done", "cancelled"] as const;
-
-export const modelTasks = ["reply", "scheduled_task", "eval_judge"] as const;
+import {
+  eventKinds,
+  inboxStates,
+  modelTasks,
+  ownerPreferenceKeys,
+  profileEntryKinds,
+  scheduleActions,
+  scheduleSetBy,
+  scheduleStates,
+  trustLevels,
+  turnResults,
+} from "./storage-values.ts";
 
 export const inboxEvents = sqliteTable(
   "inbox_events",
@@ -156,6 +142,60 @@ export const turnTraces = sqliteTable(
   (table) => [
     index("turn_traces_event").on(table.eventId),
     check("turn_traces_result_check", valueIn(table.result, turnResults)),
+  ]
+);
+
+export const notes = sqliteTable(
+  "notes",
+  {
+    noteId: text("note_id").primaryKey(),
+    ownerId: text("owner_id").$type<OwnerId>().notNull(),
+    text: text("text").notNull(),
+    url: text("url"),
+    sourceEventId: text("source_event_id").notNull(),
+    sourceChannel: text("source_channel")
+      .$type<OwnerMessage["channel"]>()
+      .notNull(),
+    sourceConversationId: text("source_conversation_id").notNull(),
+    sourceChannelMessageId: text("source_channel_message_id").notNull(),
+    sourceForwardOrigin: text("source_forward_origin"),
+    trustLevel: text("trust_level", {
+      enum: trustLevels,
+    }).notNull(),
+    textHash: text("text_hash").notNull(),
+    capturedAt: text("captured_at").notNull(),
+    lastCheckedAt: text("last_checked_at").notNull(),
+    openLoopKind: text("open_loop_kind"),
+    openLoopState: text("open_loop_state"),
+    openLoopClosedReason: text("open_loop_closed_reason"),
+    openLoopDueAt: text("open_loop_due_at"),
+  },
+  (table) => [
+    unique().on(table.sourceEventId, table.textHash),
+    index("notes_open_loops").on(table.openLoopState, table.openLoopDueAt),
+    check("notes_trust_level_check", valueIn(table.trustLevel, trustLevels)),
+    ...openLoopChecks(table),
+  ]
+);
+
+export const noteLinks = sqliteTable(
+  "note_links",
+  {
+    fromNoteId: text("from_note_id")
+      .notNull()
+      .references(() => notes.noteId, { onDelete: "cascade" }),
+    toNoteId: text("to_note_id")
+      .notNull()
+      .references(() => notes.noteId, { onDelete: "cascade" }),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.fromNoteId, table.toNoteId] }),
+    index("note_links_to_note").on(table.toNoteId),
+    check(
+      "note_links_ordered_check",
+      sql`${table.fromNoteId} < ${table.toNoteId}`
+    ),
   ]
 );
 

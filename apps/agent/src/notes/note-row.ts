@@ -1,4 +1,4 @@
-import type { notes } from "./notes-schema.ts";
+import type { notes } from "../personal-agent/storage-schema.ts";
 import type { Note } from "./notes.ts";
 import { openLoopOfColumns } from "./open-loop.ts";
 

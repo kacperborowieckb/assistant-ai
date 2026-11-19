@@ -3,39 +3,42 @@ import { DateTime, Effect } from "effect";
 
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
-import { makeNoteLinks } from "./note-links.ts";
+import { notes } from "../personal-agent/storage-schema.ts";
 import { toNote } from "./note-row.ts";
-import { notes } from "./notes-schema.ts";
+import type { columnsOfOpenLoop } from "./open-loop.ts";
+import { UnknownNotes } from "./unknown-notes.ts";
+
+export type NoteChange = { readonly text?: string } & Partial<
+  ReturnType<typeof columnsOfOpenLoop>
+>;
 
 export const makeNoteRows = Effect.fnUntraced(function* makeNoteRows(
   ownerId: OwnerId
 ) {
   const { database } = yield* AgentStorage;
-  const { requireOwnNotes } = yield* makeNoteLinks(ownerId);
+
+  const isOwnNote = (noteId: string) =>
+    and(eq(notes.ownerId, ownerId), eq(notes.noteId, noteId));
 
   const ownNote = Effect.fnUntraced(function* ownNote(noteId: string) {
-    yield* requireOwnNotes([noteId]);
-    const [row] = yield* database
-      .select()
-      .from(notes)
-      .where(and(eq(notes.ownerId, ownerId), eq(notes.noteId, noteId)));
+    const [row] = yield* database.select().from(notes).where(isOwnNote(noteId));
     if (row === undefined) {
-      return yield* Effect.die("The Note is not found after the check");
+      return yield* new UnknownNotes({ noteIds: [noteId] });
     }
     return toNote(row);
   });
 
-  const writeNoteColumns = Effect.fnUntraced(function* writeNoteColumns(
+  const changeNote = Effect.fnUntraced(function* changeNote(
     noteId: string,
-    columns: Partial<typeof notes.$inferInsert>
+    change: NoteChange
   ) {
     const [row] = yield* database
       .update(notes)
       .set({
-        ...columns,
+        ...change,
         lastCheckedAt: DateTime.formatIso(yield* DateTime.now),
       })
-      .where(and(eq(notes.ownerId, ownerId), eq(notes.noteId, noteId)))
+      .where(isOwnNote(noteId))
       .returning();
     if (row === undefined) {
       return yield* Effect.die("The Note is not found after the check");
@@ -43,5 +46,5 @@ export const makeNoteRows = Effect.fnUntraced(function* makeNoteRows(
     return toNote(row);
   });
 
-  return { ownNote, writeNoteColumns };
+  return { ownNote, changeNote };
 });

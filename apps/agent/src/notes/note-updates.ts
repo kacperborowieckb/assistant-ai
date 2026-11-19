@@ -33,32 +33,47 @@ export const makeNoteUpdates = Effect.fnUntraced(function* makeNoteUpdates(
   const journal = yield* Journal;
   const { requireOwnNotes, linkedNoteIdsOf, addLinks, removeLinks } =
     yield* makeNoteLinks(ownerId);
-  const { ownNote, writeNoteColumns } = yield* makeNoteRows(ownerId);
+  const { ownNote, changeNote } = yield* makeNoteRows(ownerId);
   const { journalOpenLoopChange } = yield* makeOpenLoopStore(ownerId);
 
   const writeUpdate = Effect.fnUntraced(function* writeUpdate(
     request: UpdateRequest
   ) {
-    const { noteId, eventId, text } = request;
-    yield* requireOwnNotes([
-      noteId,
-      ...uniqueNoteIds(request.linkedNoteIds),
-      ...uniqueNoteIds(request.unlinkedNoteIds),
-    ]);
+    const { noteId, eventId } = request;
     const current = yield* ownNote(noteId);
+    const requestedLinks = uniqueNoteIds(request.linkedNoteIds);
+    const requestedUnlinks = uniqueNoteIds(request.unlinkedNoteIds);
+    yield* requireOwnNotes([...requestedLinks, ...requestedUnlinks]);
+    const linkedBefore = yield* linkedNoteIdsOf(noteId);
+    const newLinks = requestedLinks.filter(
+      (linkedId) => linkedId !== noteId && !linkedBefore.includes(linkedId)
+    );
+    const goneLinks = requestedUnlinks.filter((linkedId) =>
+      linkedBefore.includes(linkedId)
+    );
+    const text =
+      request.text === undefined || request.text === current.text
+        ? undefined
+        : request.text;
     const openLoopChange =
       request.openLoop === undefined
         ? undefined
         : openLoopChangeOf(current.openLoop, request.openLoop);
-    const note = yield* writeNoteColumns(noteId, {
+    const change = changeOfUpdate({
+      textChanged: text !== undefined,
+      linksChanged: newLinks.length + goneLinks.length > 0,
+    });
+    if (change === undefined && openLoopChange === undefined) {
+      return { note: current, linkedNoteIds: linkedBefore } satisfies Update;
+    }
+    const note = yield* changeNote(noteId, {
       ...(text === undefined ? {} : { text }),
       ...(openLoopChange === undefined
         ? {}
         : columnsOfOpenLoop(openLoopChange.openLoop)),
     });
-    yield* addLinks(noteId, uniqueNoteIds(request.linkedNoteIds));
-    yield* removeLinks(noteId, uniqueNoteIds(request.unlinkedNoteIds));
-    const change = changeOfUpdate(request);
+    yield* addLinks(noteId, newLinks);
+    yield* removeLinks(noteId, goneLinks);
     if (change !== undefined) {
       yield* journal.append({ _tag: "NoteUpdated", eventId, noteId, change });
     }

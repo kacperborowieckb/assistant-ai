@@ -1,13 +1,13 @@
-import { and, asc, count, eq, sql } from "drizzle-orm";
+import { and, asc, count, eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { Journal } from "../journal/journal.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
+import { notes } from "../personal-agent/storage-schema.ts";
 import { NoOpenLoop } from "./no-open-loop.ts";
 import { toNote } from "./note-row.ts";
 import { makeNoteRows } from "./note-rows.ts";
-import { notes } from "./notes-schema.ts";
 import type { Note } from "./notes.ts";
 import type { OpenLoopChange } from "./open-loop-change.ts";
 import { columnsOfOpenLoop, dueAtOfOpenLoop } from "./open-loop.ts";
@@ -37,7 +37,7 @@ export interface OpenLoopPage {
 const isOpenLoopOpen = eq(notes.openLoopState, "open");
 
 const dueFirst = [
-  asc(sql`${notes.openLoopDueAt} IS NULL`),
+  asc(isNull(notes.openLoopDueAt)),
   asc(notes.openLoopDueAt),
   asc(notes.capturedAt),
   asc(notes.noteId),
@@ -48,7 +48,7 @@ export const makeOpenLoopStore = Effect.fnUntraced(function* makeOpenLoopStore(
 ) {
   const { database } = yield* AgentStorage;
   const journal = yield* Journal;
-  const { ownNote, writeNoteColumns } = yield* makeNoteRows(ownerId);
+  const { ownNote, changeNote } = yield* makeNoteRows(ownerId);
 
   const journalOpenLoopChange = (
     eventId: string,
@@ -92,7 +92,7 @@ export const makeOpenLoopStore = Effect.fnUntraced(function* makeOpenLoopStore(
     if (openLoop?._tag !== "Open") {
       return yield* new NoOpenLoop({ noteId });
     }
-    const note = yield* writeNoteColumns(
+    const note = yield* changeNote(
       noteId,
       columnsOfOpenLoop({ ...openLoop, _tag: "Closed", reason })
     );

@@ -2,7 +2,7 @@ import { Cause, Effect, Option, Schema } from "effect";
 
 import { ToolFailed } from "../model-gateway/agent-tool.ts";
 import { recordedTool } from "../personal-agent/recorded-tool.ts";
-import { profileEntryKinds } from "../personal-agent/storage-schema.ts";
+import { profileEntryKinds } from "../personal-agent/storage-values.ts";
 import { ProfileFull } from "./profile-full.ts";
 import type { ProfileToolServices } from "./profile-tool-services.ts";
 import { UnknownProfileEntry } from "./unknown-profile-entry.ts";

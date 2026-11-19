@@ -42,7 +42,6 @@ export default defineConfig({
         test: {
           name: "worker",
           include: ["test/**/*.test.ts"],
-          fsModuleCache: false,
           setupFiles: ["./test/apply-migrations.ts"],
           provide: { directoryMigrations },
           deps: {

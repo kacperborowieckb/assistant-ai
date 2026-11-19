@@ -5,7 +5,8 @@ import { ownerMessageFields, scheduleFiredFields } from "../event.ts";
 import type { Event, OwnerMessage, ScheduleFired } from "../event.ts";
 import { Journal } from "../journal/journal.ts";
 import { AgentStorage } from "./agent-storage.ts";
-import { inboxEvents, inboxStates } from "./storage-schema.ts";
+import { inboxEvents } from "./storage-schema.ts";
+import { inboxStates } from "./storage-values.ts";
 
 const inboxFields = {
   eventId: Schema.String,

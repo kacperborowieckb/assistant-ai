@@ -582,28 +582,45 @@ describe("Open Loops on Notes", () => {
     });
   });
 
-  it("writes no second Journal Entry when an update repeats after a Durable Object reset", async () => {
+  it("writes no second change or Journal Entry when an update repeats after a Durable Object reset", async () => {
     const ownerId = await addOwner(9811);
-    const noteId = await inAgent(
+    const [noteId, shopId] = await inAgent(
       ownerId,
       Notes.pipe(
         Effect.flatMap((notes) =>
-          notes.capture({ text: "fix the bike", source: sourceOfEvent("bike") })
+          Effect.all(
+            ["fix the bike", "the bike shop on Main Street"].map((text) =>
+              notes.capture({ text, source: sourceOfEvent(text) })
+            )
+          )
         ),
-        Effect.map(({ note }) => note.noteId)
+        Effect.map((captures) => captures.map(({ note }) => note.noteId))
       )
     );
     const open = {
       callTool: updateNoteToolName,
-      input: { noteId, openLoop: { kind: "task" } },
+      input: {
+        noteId,
+        text: "fix the bike on Sunday",
+        linkedNoteIds: [shopId],
+        openLoop: { kind: "task" },
+      },
     } as const;
+    const storedState = async () =>
+      runInDurableObject(await agentOf(ownerId), (_, state) => ({
+        note: state.storage.sql
+          .exec("SELECT * FROM notes WHERE note_id = ?", noteId)
+          .toArray(),
+        links: state.storage.sql.exec("SELECT * FROM note_links").toArray(),
+      }));
     scriptModel([open, { say: "Open" }]);
     const releaseModel = holdModel(1);
 
     await telegramWebhook(
-      textUpdate({ fromUserId: 9811, text: "still need to fix the bike" })
+      textUpdate({ fromUserId: 9811, text: "fix the bike on Sunday" })
     );
     await vi.waitFor(() => expect(fakeModel.doGenerateCalls).toHaveLength(2));
+    const afterFirstCall = await storedState();
     await abortAllDurableObjects();
     scriptModel([open, { say: "Open" }]);
     releaseModel();
@@ -612,7 +629,23 @@ describe("Open Loops on Notes", () => {
       timeout: 10_000,
     });
 
-    expect(await openLoopRecordsOf(ownerId)).toEqual([
+    expect(await storedState()).toEqual(afterFirstCall);
+    expect(afterFirstCall.links).toHaveLength(1);
+    const entries = await inAgent(
+      ownerId,
+      Journal.pipe(Effect.flatMap((journal) => journal.read))
+    );
+    const changes = entries
+      .map((entry) => entry.record)
+      .filter(
+        (record) =>
+          record._tag === "NoteUpdated" || record._tag === "OpenLoopOpened"
+      );
+    expect(changes).toEqual([
+      expect.objectContaining({
+        _tag: "NoteUpdated",
+        change: "text_and_links",
+      }),
       expect.objectContaining({ _tag: "OpenLoopOpened", noteId }),
     ]);
   });

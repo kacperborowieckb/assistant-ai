@@ -1,7 +1,7 @@
 import type { LanguageModel } from "ai";
 import { Context, Schema } from "effect";
 
-import type { modelTasks } from "../personal-agent/storage-schema.ts";
+import type { modelTasks } from "../personal-agent/storage-values.ts";
 
 export type ModelTask = (typeof modelTasks)[number];
 

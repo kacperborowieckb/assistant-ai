@@ -5,8 +5,10 @@ import type {
   AgentObservation,
   ObservedNote,
 } from "../../eval/eval-contract.ts";
-import { trustLevels } from "../../src/notes/notes-schema.ts";
-import { profileEntryKinds } from "../../src/personal-agent/storage-schema.ts";
+import {
+  trustLevels,
+  profileEntryKinds,
+} from "../../src/personal-agent/storage-values.ts";
 import { OwnerLabelSchema } from "./owner-label.ts";
 import { counted } from "./wording.ts";
 

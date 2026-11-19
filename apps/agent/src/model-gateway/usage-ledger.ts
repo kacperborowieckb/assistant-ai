@@ -4,7 +4,8 @@ import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import { OwnerIdSchema } from "../owner-id.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
-import { modelTasks, modelUsage } from "../personal-agent/storage-schema.ts";
+import { modelUsage } from "../personal-agent/storage-schema.ts";
+import { modelTasks } from "../personal-agent/storage-values.ts";
 import type { ModelTask } from "./model-provider.ts";
 
 export interface Usage {

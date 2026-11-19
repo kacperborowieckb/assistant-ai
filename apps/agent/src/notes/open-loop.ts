@@ -1,6 +1,6 @@
 import { DateTime, Function, Schema, SchemaTransformation } from "effect";
 
-import { openLoopClosedReasons } from "./notes-schema.ts";
+import { openLoopClosedReasons } from "../personal-agent/storage-values.ts";
 
 export const maxOpenLoopKindLength = 40;
 
