@@ -142,7 +142,7 @@ export const updateNoteTool = (
             )
           );
         return {
-          openLoop: openLoopForModel(note.openLoop, timeZone),
+          openLoop: openLoopForModel(note, timeZone),
           noteId: note.noteId,
           text: textForModel(note),
           url: note.url ?? null,

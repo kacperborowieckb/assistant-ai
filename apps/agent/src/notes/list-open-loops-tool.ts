@@ -50,7 +50,7 @@ export const listOpenLoopsTool = (
             source: sourceForModel(note),
             trustLevel: note.trustLevel,
             capturedAt: note.capturedAt,
-            openLoop: openLoopForModel(note.openLoop, timeZone),
+            openLoop: openLoopForModel(note, timeZone),
           })),
           openLoopCount,
         };
