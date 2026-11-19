@@ -228,6 +228,21 @@ describe("creating the Brief", () => {
   });
 });
 
+describe("an edited Brief", () => {
+  it("creates no second Brief after the Owner changed its prompt", async () => {
+    const ownerId = await ownerWithBrief(9606);
+    await runInDurableObject(await agentOf(ownerId), (_, state) => {
+      state.storage.sql.exec(
+        "UPDATE schedules SET text = 'Tell me the weather' WHERE set_by = 'agent'"
+      );
+    });
+
+    await ownerSetsTimeZone(9606, "America/New_York", 1);
+
+    expect(await schedulesOf(ownerId)).toHaveLength(1);
+  });
+});
+
 describe("an orphaned Brief Schedule", () => {
   it("creates no second Brief when the Schedule exists without its Journal Entry", async () => {
     const ownerId = await addOwner(9605);

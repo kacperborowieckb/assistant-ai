@@ -20,7 +20,10 @@ export const ensureBrief = Effect.fnUntraced(function* ensureBrief(
   { timeZone, localTime, eventId }: BriefRequest
 ) {
   const { schedules, journal } = services;
-  if (yield* schedules.hasAgentPrompt(briefPrompt)) {
+  const alreadyCreated =
+    (yield* journal.hasEntryOfKind("BriefCreated")) ||
+    (yield* schedules.hasAgentPrompt(briefPrompt));
+  if (alreadyCreated) {
     return;
   }
   const rule: RecurrenceRule = { _tag: "Daily", time: localTime };
