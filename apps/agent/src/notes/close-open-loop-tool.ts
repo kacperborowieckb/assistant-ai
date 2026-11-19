@@ -57,7 +57,7 @@ export const closeOpenLoopTool = (
           ),
           Effect.map(({ note }) => ({
             noteId: note.noteId,
-            openLoop: openLoopForModel(note.openLoop, Option.none()),
+            openLoop: openLoopForModel(note, Option.none()),
           }))
         ),
     }

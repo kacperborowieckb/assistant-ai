@@ -24,5 +24,5 @@ export const recalledNote = (note: Note) => ({
   source: sourceForModel(note),
   trustLevel: note.trustLevel,
   capturedAt: note.capturedAt,
-  openLoop: openLoopForModel(note.openLoop, Option.none()),
+  openLoop: openLoopForModel(note, Option.none()),
 });
