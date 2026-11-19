@@ -10,7 +10,6 @@ import type { Note } from "./notes.ts";
 import { openLoopChangeOf } from "./open-loop-change.ts";
 import type { OpenLoopRequest } from "./open-loop-change.ts";
 import { makeOpenLoopStore } from "./open-loop-store.ts";
-import { columnsOfOpenLoop } from "./open-loop.ts";
 
 export interface UpdateRequest {
   readonly noteId: string;
@@ -67,10 +66,8 @@ export const makeNoteUpdates = Effect.fnUntraced(function* makeNoteUpdates(
       return { note: current, linkedNoteIds: linkedBefore } satisfies Update;
     }
     const note = yield* changeNote(noteId, {
-      ...(text === undefined ? {} : { text }),
-      ...(openLoopChange === undefined
-        ? {}
-        : columnsOfOpenLoop(openLoopChange.openLoop)),
+      text,
+      openLoop: openLoopChange?.openLoop,
     });
     yield* addLinks(noteId, newLinks);
     yield* removeLinks(noteId, goneLinks);

@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "22c17f88-9e8b-481e-ad4d-b4a45ec64d55",
+  "id": "121efcd8-2a7c-4f43-aae9-4acb5ae7040c",
   "prevIds": ["0852eb5f-2498-4374-90ec-730ddcaf85c7"],
   "ddl": [
     {
@@ -1327,20 +1327,8 @@
     },
     {
       "table": "notes",
-      "name": "notes_open_loop_state_check",
-      "value": "\"open_loop_state\" IN ('open', 'closed')",
-      "entityType": "checks"
-    },
-    {
-      "table": "notes",
-      "name": "notes_open_loop_closed_reason_check",
-      "value": "\"open_loop_closed_reason\" IN ('done', 'dropped', 'replaced')",
-      "entityType": "checks"
-    },
-    {
-      "table": "notes",
       "name": "notes_open_loop_check",
-      "value": "(\"open_loop_kind\" IS NULL AND \"open_loop_state\" IS NULL AND \"open_loop_closed_reason\" IS NULL AND \"open_loop_due_at\" IS NULL) OR (\"open_loop_kind\" IS NOT NULL AND trim(\"open_loop_kind\") <> '' AND \"open_loop_state\" IS 'open' AND \"open_loop_closed_reason\" IS NULL) OR (\"open_loop_kind\" IS NOT NULL AND trim(\"open_loop_kind\") <> '' AND \"open_loop_state\" IS 'closed' AND \"open_loop_closed_reason\" IS NOT NULL)",
+      "value": "(\"open_loop_kind\" IS NULL AND \"open_loop_state\" IS NULL AND \"open_loop_closed_reason\" IS NULL AND \"open_loop_due_at\" IS NULL) OR (\"open_loop_kind\" IS NOT NULL AND trim(\"open_loop_kind\") <> '' AND \"open_loop_state\" IS 'open' AND \"open_loop_closed_reason\" IS NULL) OR (\"open_loop_kind\" IS NOT NULL AND trim(\"open_loop_kind\") <> '' AND \"open_loop_state\" IS 'closed' AND \"open_loop_closed_reason\" IS NOT NULL AND \"open_loop_closed_reason\" IN ('done', 'dropped', 'replaced'))",
       "entityType": "checks"
     },
     {

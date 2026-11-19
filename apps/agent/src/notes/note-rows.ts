@@ -5,12 +5,14 @@ import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { notes } from "../personal-agent/storage-schema.ts";
 import { toNote } from "./note-row.ts";
-import type { columnsOfOpenLoop } from "./open-loop.ts";
+import { columnsOfOpenLoop } from "./open-loop.ts";
+import type { OpenLoop } from "./open-loop.ts";
 import { UnknownNotes } from "./unknown-notes.ts";
 
-export type NoteChange = { readonly text?: string } & Partial<
-  ReturnType<typeof columnsOfOpenLoop>
->;
+export interface NoteChange {
+  readonly text?: string | undefined;
+  readonly openLoop?: OpenLoop | undefined;
+}
 
 export const makeNoteRows = Effect.fnUntraced(function* makeNoteRows(
   ownerId: OwnerId
@@ -30,12 +32,13 @@ export const makeNoteRows = Effect.fnUntraced(function* makeNoteRows(
 
   const changeNote = Effect.fnUntraced(function* changeNote(
     noteId: string,
-    change: NoteChange
+    { text, openLoop }: NoteChange
   ) {
     const [row] = yield* database
       .update(notes)
       .set({
-        ...change,
+        ...(text === undefined ? {} : { text }),
+        ...(openLoop === undefined ? {} : columnsOfOpenLoop(openLoop)),
         lastCheckedAt: DateTime.formatIso(yield* DateTime.now),
       })
       .where(isOwnNote(noteId))

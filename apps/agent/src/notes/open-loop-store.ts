@@ -10,7 +10,7 @@ import { toNote } from "./note-row.ts";
 import { makeNoteRows } from "./note-rows.ts";
 import type { Note } from "./notes.ts";
 import type { OpenLoopChange } from "./open-loop-change.ts";
-import { columnsOfOpenLoop, dueAtOfOpenLoop } from "./open-loop.ts";
+import { dueAtOfOpenLoop } from "./open-loop.ts";
 import type { OpenLoopClosedReason } from "./open-loop.ts";
 
 export interface CloseOpenLoopRequest {
@@ -92,10 +92,9 @@ export const makeOpenLoopStore = Effect.fnUntraced(function* makeOpenLoopStore(
     if (openLoop?._tag !== "Open") {
       return yield* new NoOpenLoop({ noteId });
     }
-    const note = yield* changeNote(
-      noteId,
-      columnsOfOpenLoop({ ...openLoop, _tag: "Closed", reason })
-    );
+    const note = yield* changeNote(noteId, {
+      openLoop: { ...openLoop, _tag: "Closed", reason },
+    });
     yield* journal.append({
       _tag: "OpenLoopClosed",
       eventId,

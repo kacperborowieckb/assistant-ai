@@ -11,7 +11,7 @@ import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 import { resetFakes } from "./fakes.ts";
 import { addOwner } from "./telegram-requests.ts";
 
-const openLoopMigration = "20261119094927_open_loops";
+const openLoopMigration = "20261119122949_open_loops";
 
 const migrationsBeforeOpenLoops = Object.fromEntries(
   Object.entries(personalAgentMigrations.migrations).filter(

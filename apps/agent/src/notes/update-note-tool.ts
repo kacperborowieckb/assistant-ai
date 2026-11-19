@@ -13,6 +13,9 @@ export const updateNoteToolName = "update_note";
 export const noteNotUpdatedMessage =
   "The Note was not updated. Tell the Owner that you could not change it.";
 
+export const linkedAndUnlinkedMessage = (noteIds: readonly string[]) =>
+  `The Note was not updated. The Note ids ${noteIds.join(", ")} are in both linkedNoteIds and unlinkedNoteIds. Give each id in one list only and call ${updateNoteToolName} again.`;
+
 export const nothingToUpdateMessage =
   "The Note was not updated. Give new text, Notes to link, Notes to unlink, or an Open Loop.";
 
@@ -79,6 +82,14 @@ export const updateNoteTool = (
           openLoop === undefined
         ) {
           return yield* new ToolFailed({ message: nothingToUpdateMessage });
+        }
+        const linkedAndUnlinked = (linkedNoteIds ?? []).filter((linkedId) =>
+          (unlinkedNoteIds ?? []).includes(linkedId)
+        );
+        if (linkedAndUnlinked.length > 0) {
+          return yield* new ToolFailed({
+            message: linkedAndUnlinkedMessage(linkedAndUnlinked),
+          });
         }
         const openLoopRequest = yield* openLoopRequestOf(
           openLoop,

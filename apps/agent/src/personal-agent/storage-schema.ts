@@ -12,12 +12,12 @@ import {
 
 import { valueIn } from "../check-values.ts";
 import type { OwnerMessage } from "../event.ts";
-import { openLoopChecks } from "../notes/open-loop-checks.ts";
 import type { OwnerId } from "../owner-id.ts";
 import {
   eventKinds,
   inboxStates,
   modelTasks,
+  openLoopClosedReasons,
   ownerPreferenceKeys,
   profileEntryKinds,
   scheduleActions,
@@ -159,9 +159,7 @@ export const notes = sqliteTable(
     sourceConversationId: text("source_conversation_id").notNull(),
     sourceChannelMessageId: text("source_channel_message_id").notNull(),
     sourceForwardOrigin: text("source_forward_origin"),
-    trustLevel: text("trust_level", {
-      enum: trustLevels,
-    }).notNull(),
+    trustLevel: text("trust_level", { enum: trustLevels }).notNull(),
     textHash: text("text_hash").notNull(),
     capturedAt: text("captured_at").notNull(),
     lastCheckedAt: text("last_checked_at").notNull(),
@@ -174,7 +172,10 @@ export const notes = sqliteTable(
     unique().on(table.sourceEventId, table.textHash),
     index("notes_open_loops").on(table.openLoopState, table.openLoopDueAt),
     check("notes_trust_level_check", valueIn(table.trustLevel, trustLevels)),
-    ...openLoopChecks(table),
+    check(
+      "notes_open_loop_check",
+      sql`(${table.openLoopKind} IS NULL AND ${table.openLoopState} IS NULL AND ${table.openLoopClosedReason} IS NULL AND ${table.openLoopDueAt} IS NULL) OR (${table.openLoopKind} IS NOT NULL AND trim(${table.openLoopKind}) <> '' AND ${table.openLoopState} IS 'open' AND ${table.openLoopClosedReason} IS NULL) OR (${table.openLoopKind} IS NOT NULL AND trim(${table.openLoopKind}) <> '' AND ${table.openLoopState} IS 'closed' AND ${table.openLoopClosedReason} IS NOT NULL AND ${valueIn(table.openLoopClosedReason, openLoopClosedReasons)})`
+    ),
   ]
 );
 

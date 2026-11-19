@@ -1,5 +1,0 @@
-ALTER TABLE `notes` ADD `open_loop_kind` text;--> statement-breakpoint
-ALTER TABLE `notes` ADD `open_loop_state` text CONSTRAINT "notes_open_loop_state_check" CHECK("open_loop_state" IN ('open', 'closed'));--> statement-breakpoint
-ALTER TABLE `notes` ADD `open_loop_closed_reason` text CONSTRAINT "notes_open_loop_closed_reason_check" CHECK("open_loop_closed_reason" IN ('done', 'dropped', 'replaced'));--> statement-breakpoint
-ALTER TABLE `notes` ADD `open_loop_due_at` text CONSTRAINT "notes_open_loop_check" CHECK(("open_loop_kind" IS NULL AND "open_loop_state" IS NULL AND "open_loop_closed_reason" IS NULL AND "open_loop_due_at" IS NULL) OR ("open_loop_kind" IS NOT NULL AND trim("open_loop_kind") <> '' AND "open_loop_state" IS 'open' AND "open_loop_closed_reason" IS NULL) OR ("open_loop_kind" IS NOT NULL AND trim("open_loop_kind") <> '' AND "open_loop_state" IS 'closed' AND "open_loop_closed_reason" IS NOT NULL));--> statement-breakpoint
-CREATE INDEX `notes_open_loops` ON `notes` (`open_loop_state`,`open_loop_due_at`);
