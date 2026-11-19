@@ -707,6 +707,19 @@ describe("Open Loops on Notes", () => {
         openLoop: { kind: markUntrustedContent("waiting"), state: "open" },
       },
     });
+    const savedSteps = await runInDurableObject(
+      await agentOf(ownerId),
+      (_, state) =>
+        state.storage.sql
+          .exec<{ message: string }>("SELECT message FROM turn_progress")
+          .toArray()
+          .map((row) => row.message)
+          .join("\n")
+    );
+    expect(savedSteps).toContain(
+      JSON.stringify(markUntrustedContent("waiting"))
+    );
+    expect(savedSteps).not.toContain('"kind":"waiting"');
     expect(offered).not.toContain(updateNoteToolName);
   });
 });

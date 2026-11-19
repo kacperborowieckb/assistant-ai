@@ -62,6 +62,17 @@ export const captureNoteTool = (
           text: keptTextOf(source, input.text),
           trustLevel: source.trustLevel,
         }),
+        ...(input.openLoop === undefined
+          ? {}
+          : {
+              openLoop: {
+                ...input.openLoop,
+                kind: textForModel({
+                  text: input.openLoop.kind,
+                  trustLevel: source.trustLevel,
+                }),
+              },
+            }),
       }),
       work: Effect.fnUntraced(function* captureNoteEffect({
         text,
