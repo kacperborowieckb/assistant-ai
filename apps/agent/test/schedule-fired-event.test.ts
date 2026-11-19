@@ -31,9 +31,12 @@ const ownerMessage = (updateId: string, text: string): Event => ({
 });
 
 // The Durable Object reads the real clock, so a fixed due time turns late once
-// the grace period has passed. Each test takes its due time right before it
-// sets the Reminder, so the Reminder stays on time however long the run is.
-const dueNow = () => DateTime.formatIso(DateTime.nowUnsafe());
+// the grace period has passed. A due time now would also make the real alarm
+// fire the Schedule at once, racing the Event that each test sends itself. Each
+// test takes a due time an hour ahead, so the Reminder is on time and no alarm
+// fires during the run.
+const dueLater = () =>
+  DateTime.formatIso(DateTime.add(DateTime.nowUnsafe(), { hours: 1 }));
 
 const setReminder = (text: string, dueAt: string) =>
   Schedules.pipe(
@@ -75,7 +78,7 @@ beforeEach(() => {
 describe("ScheduleFired Event", () => {
   it("keeps one Inbox Event for the same Schedule id and due instant", async () => {
     const ownerId = "owner-schedule-duplicate";
-    const dueAt = dueNow();
+    const dueAt = dueLater();
 
     const results = await inPersonalAgent(
       ownerId,
@@ -153,7 +156,7 @@ describe("Owner Channel Conversation", () => {
       env.PERSONAL_AGENT,
       OwnerIdSchema.make(ownerId)
     );
-    const dueAt = dueNow();
+    const dueAt = dueLater();
     const scheduleId = await inPersonalAgent(
       ownerId,
       setReminder("buy the gift", dueAt)
@@ -172,7 +175,7 @@ describe("Owner Channel Conversation", () => {
       env.PERSONAL_AGENT,
       OwnerIdSchema.make(ownerId)
     );
-    const dueAt = dueNow();
+    const dueAt = dueLater();
     const scheduleId = await inPersonalAgent(
       ownerId,
       setReminder("call Ana", dueAt)
@@ -203,7 +206,7 @@ describe("Owner Channel Conversation", () => {
         Effect.gen(function* seedEffect() {
           const inbox = yield* Inbox;
           const journal = yield* Journal;
-          const dueAt = dueNow();
+          const dueAt = dueLater();
           yield* inbox.store(
             scheduleFired(yield* setReminder("x", dueAt), dueAt)
           );
