@@ -31,16 +31,17 @@ const ownerMessage = (updateId: string, text: string): Event => ({
 });
 
 // The Durable Object reads the real clock, so a fixed due time turns late once
-// the grace period has passed. Due now, it stays on time for the whole test run.
-const reminderDueAt = DateTime.formatIso(DateTime.nowUnsafe());
+// the grace period has passed. Each test takes its due time right before it
+// sets the Reminder, so the Reminder stays on time however long the run is.
+const dueNow = () => DateTime.formatIso(DateTime.nowUnsafe());
 
-const setReminder = (text: string) =>
+const setReminder = (text: string, dueAt: string) =>
   Schedules.pipe(
     Effect.flatMap((schedules) =>
       schedules.set({
         action: { _tag: "SendText", text },
         setBy: "owner",
-        dueAt: DateTime.makeUnsafe(reminderDueAt),
+        dueAt: DateTime.makeUnsafe(dueAt),
         sourceEventId: "test-source",
       })
     ),
@@ -74,14 +75,15 @@ beforeEach(() => {
 describe("ScheduleFired Event", () => {
   it("keeps one Inbox Event for the same Schedule id and due instant", async () => {
     const ownerId = "owner-schedule-duplicate";
+    const dueAt = dueNow();
 
     const results = await inPersonalAgent(
       ownerId,
       Effect.gen(function* duplicateEffect() {
         const inbox = yield* Inbox;
         const stored = yield* storeAll([
-          scheduleFired("schedule-1", reminderDueAt),
-          scheduleFired("schedule-1", reminderDueAt),
+          scheduleFired("schedule-1", dueAt),
+          scheduleFired("schedule-1", dueAt),
           scheduleFired("schedule-1", "2026-11-26T08:00:00.000Z"),
         ]);
         return { stored, pending: yield* inbox.pending };
@@ -151,11 +153,12 @@ describe("Owner Channel Conversation", () => {
       env.PERSONAL_AGENT,
       OwnerIdSchema.make(ownerId)
     );
+    const dueAt = dueNow();
     const scheduleId = await inPersonalAgent(
       ownerId,
-      setReminder("buy the gift")
+      setReminder("buy the gift", dueAt)
     );
-    await agent.receive(scheduleFired(scheduleId, reminderDueAt));
+    await agent.receive(scheduleFired(scheduleId, dueAt));
 
     await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
     expect(fakeTelegram.sent[1]?.body.text).toBe("buy the gift");
@@ -169,8 +172,12 @@ describe("Owner Channel Conversation", () => {
       env.PERSONAL_AGENT,
       OwnerIdSchema.make(ownerId)
     );
-    const scheduleId = await inPersonalAgent(ownerId, setReminder("call Ana"));
-    await agent.receive(scheduleFired(scheduleId, reminderDueAt));
+    const dueAt = dueNow();
+    const scheduleId = await inPersonalAgent(
+      ownerId,
+      setReminder("call Ana", dueAt)
+    );
+    await agent.receive(scheduleFired(scheduleId, dueAt));
 
     await vi.waitFor(async () => {
       const pending = await inPersonalAgent(
@@ -196,8 +203,9 @@ describe("Owner Channel Conversation", () => {
         Effect.gen(function* seedEffect() {
           const inbox = yield* Inbox;
           const journal = yield* Journal;
+          const dueAt = dueNow();
           yield* inbox.store(
-            scheduleFired(yield* setReminder("x"), reminderDueAt)
+            scheduleFired(yield* setReminder("x", dueAt), dueAt)
           );
           const pending = yield* inbox.pending;
           const eventId = pending[0]?.eventId ?? "";
