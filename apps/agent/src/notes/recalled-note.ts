@@ -1,10 +1,37 @@
+import { Option } from "effect";
+import type { DateTime } from "effect";
+
+import { localTimeOf } from "../time/local-time.ts";
 import { markUntrustedContent } from "./note.ts";
 import type { Note } from "./notes.ts";
+import { dueAtOfOpenLoop } from "./open-loop.ts";
+import type { OpenLoop } from "./open-loop.ts";
+
+export type OwnerTimeZone = Option.Option<DateTime.TimeZone.Named>;
 
 export const textForModel = (note: Pick<Note, "text" | "trustLevel">) =>
   note.trustLevel === "untrusted" ? markUntrustedContent(note.text) : note.text;
 
-export const recalledNote = (note: Note) => ({
+const localDueTimeOf = (openLoop: OpenLoop, timeZone: OwnerTimeZone) =>
+  openLoop.dueAt === undefined || Option.isNone(timeZone)
+    ? null
+    : localTimeOf(openLoop.dueAt, timeZone.value);
+
+export const openLoopForModel = (
+  { openLoop, trustLevel }: Pick<Note, "openLoop" | "trustLevel">,
+  timeZone: OwnerTimeZone
+) =>
+  openLoop === undefined
+    ? null
+    : {
+        kind: textForModel({ text: openLoop.kind, trustLevel }),
+        state: openLoop._tag === "Open" ? "open" : "closed",
+        closedReason: openLoop._tag === "Closed" ? openLoop.reason : null,
+        dueAt: dueAtOfOpenLoop(openLoop),
+        localDueTime: localDueTimeOf(openLoop, timeZone),
+      };
+
+export const recalledNote = (note: Note, timeZone: OwnerTimeZone) => ({
   noteId: note.noteId,
   text: textForModel(note),
   url: note.url ?? null,
@@ -19,4 +46,5 @@ export const recalledNote = (note: Note) => ({
   },
   trustLevel: note.trustLevel,
   capturedAt: note.capturedAt,
+  openLoop: openLoopForModel(note, timeZone),
 });

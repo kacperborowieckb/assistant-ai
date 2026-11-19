@@ -13,36 +13,19 @@ import {
 import { valueIn } from "../check-values.ts";
 import type { OwnerMessage } from "../event.ts";
 import type { OwnerId } from "../owner-id.ts";
-
-export const eventKinds = ["OwnerMessage", "ScheduleFired"] as const;
-
-export const inboxStates = ["pending", "done", "failed"] as const;
-
-export const trustLevels = ["owner", "untrusted"] as const;
-
-export const noteChanges = ["text", "links", "text_and_links"] as const;
-
-export const profileEntryKinds = ["fact", "style_rule"] as const;
-
-export const ownerPreferenceKeys = ["time_zone"] as const;
-
-export const turnResults = [
-  "model_replied",
-  "model_failed",
-  "reminder_delivered",
-  "reminder_delivery_failed",
-  "scheduled_task_replied",
-  "scheduled_task_failed",
-  "scheduled_task_skipped",
-] as const;
-
-export const scheduleActions = ["send_text", "run_prompt"] as const;
-
-export const scheduleSetBy = ["owner", "agent"] as const;
-
-export const scheduleStates = ["active", "done", "cancelled"] as const;
-
-export const modelTasks = ["reply", "scheduled_task", "eval_judge"] as const;
+import {
+  eventKinds,
+  inboxStates,
+  modelTasks,
+  openLoopClosedReasons,
+  ownerPreferenceKeys,
+  profileEntryKinds,
+  scheduleActions,
+  scheduleSetBy,
+  scheduleStates,
+  trustLevels,
+  turnResults,
+} from "./storage-values.ts";
 
 export const inboxEvents = sqliteTable(
   "inbox_events",
@@ -180,10 +163,19 @@ export const notes = sqliteTable(
     textHash: text("text_hash").notNull(),
     capturedAt: text("captured_at").notNull(),
     lastCheckedAt: text("last_checked_at").notNull(),
+    openLoopKind: text("open_loop_kind"),
+    openLoopState: text("open_loop_state"),
+    openLoopClosedReason: text("open_loop_closed_reason"),
+    openLoopDueAt: text("open_loop_due_at"),
   },
   (table) => [
     unique().on(table.sourceEventId, table.textHash),
+    index("notes_open_loops").on(table.openLoopState, table.openLoopDueAt),
     check("notes_trust_level_check", valueIn(table.trustLevel, trustLevels)),
+    check(
+      "notes_open_loop_check",
+      sql`(${table.openLoopKind} IS NULL AND ${table.openLoopState} IS NULL AND ${table.openLoopClosedReason} IS NULL AND ${table.openLoopDueAt} IS NULL) OR (${table.openLoopKind} IS NOT NULL AND trim(${table.openLoopKind}) <> '' AND ${table.openLoopState} IS 'open' AND ${table.openLoopClosedReason} IS NULL) OR (${table.openLoopKind} IS NOT NULL AND trim(${table.openLoopKind}) <> '' AND ${table.openLoopState} IS 'closed' AND ${table.openLoopClosedReason} IS NOT NULL AND ${valueIn(table.openLoopClosedReason, openLoopClosedReasons)})`
+    ),
   ]
 );
 

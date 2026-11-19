@@ -3,12 +3,13 @@ import { Context, Effect, Layer, Schema } from "effect";
 
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
+import { journalEntries } from "../personal-agent/storage-schema.ts";
 import {
-  journalEntries,
   noteChanges,
+  openLoopClosedReasons,
   ownerPreferenceKeys,
   profileEntryKinds,
-} from "../personal-agent/storage-schema.ts";
+} from "../personal-agent/storage-values.ts";
 
 export const JournalRecordSchema = Schema.TaggedUnion({
   EventReceived: { eventId: Schema.String },
@@ -22,6 +23,23 @@ export const JournalRecordSchema = Schema.TaggedUnion({
     eventId: Schema.String,
     noteId: Schema.String,
     change: Schema.Literals(noteChanges),
+  },
+  OpenLoopOpened: {
+    eventId: Schema.String,
+    noteId: Schema.String,
+    kind: Schema.String,
+    dueAt: Schema.NullOr(Schema.String),
+  },
+  OpenLoopChanged: {
+    eventId: Schema.String,
+    noteId: Schema.String,
+    kind: Schema.String,
+    dueAt: Schema.NullOr(Schema.String),
+  },
+  OpenLoopClosed: {
+    eventId: Schema.String,
+    noteId: Schema.String,
+    reason: Schema.Literals(openLoopClosedReasons),
   },
   ProfileEntryAdded: {
     eventId: Schema.String,

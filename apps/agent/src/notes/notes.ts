@@ -1,14 +1,14 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
-import { Context, DateTime, Effect, Layer } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { Journal } from "../journal/journal.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { notes } from "../personal-agent/storage-schema.ts";
-import { changeOfUpdate } from "./change-of-update.ts";
 import { makeNoteLinks, uniqueNoteIds } from "./note-links.ts";
 import { toNote } from "./note-row.ts";
 import { hashOfNoteText } from "./note-text-hash.ts";
+import { makeNoteUpdates } from "./note-updates.ts";
 import type { NoteSource, NoteSourceLocation, TrustLevel } from "./note.ts";
 import {
   bestMatchFirst,
@@ -16,6 +16,11 @@ import {
   matchesQuery,
   notesFts,
 } from "./notes-fts.ts";
+import { openOpenLoopOf } from "./open-loop-change.ts";
+import type { OpenLoopRequest } from "./open-loop-change.ts";
+import { makeOpenLoopStore } from "./open-loop-store.ts";
+import { columnsOfOpenLoop } from "./open-loop.ts";
+import type { OpenLoop } from "./open-loop.ts";
 
 export interface Note {
   readonly noteId: string;
@@ -25,6 +30,7 @@ export interface Note {
   readonly trustLevel: TrustLevel;
   readonly capturedAt: string;
   readonly lastCheckedAt: string;
+  readonly openLoop: OpenLoop | undefined;
 }
 
 export interface CaptureRequest {
@@ -32,14 +38,7 @@ export interface CaptureRequest {
   readonly url?: string | undefined;
   readonly source: NoteSource;
   readonly linkedNoteIds?: readonly string[] | undefined;
-}
-
-export interface UpdateRequest {
-  readonly noteId: string;
-  readonly eventId: string;
-  readonly text?: string | undefined;
-  readonly linkedNoteIds?: readonly string[] | undefined;
-  readonly unlinkedNoteIds?: readonly string[] | undefined;
+  readonly openLoop?: OpenLoopRequest | undefined;
 }
 
 export interface RecalledNote extends Note {
@@ -62,22 +61,15 @@ export interface ListedNote extends Note {
   readonly linkedNoteIds: readonly string[];
 }
 
-export interface Update {
-  readonly note: Note;
-  readonly linkedNoteIds: readonly string[];
-}
-
 const makeNotes = (ownerId: OwnerId) =>
   Effect.gen(function* makeNotesEffect() {
     const { database } = yield* AgentStorage;
     const journal = yield* Journal;
-    const {
-      requireOwnNotes,
-      linkedNoteIdsOf,
-      linkedNotesOf,
-      addLinks,
-      removeLinks,
-    } = yield* makeNoteLinks(ownerId);
+    const { requireOwnNotes, linkedNoteIdsOf, linkedNotesOf, addLinks } =
+      yield* makeNoteLinks(ownerId);
+    const { journalOpenLoopChange, closeOpenLoop, listOpenLoops } =
+      yield* makeOpenLoopStore(ownerId);
+    const { update } = yield* makeNoteUpdates(ownerId);
 
     const journalCapture = (eventId: string, noteId: string) =>
       Effect.gen(function* journalCaptureEffect() {
@@ -93,7 +85,7 @@ const makeNotes = (ownerId: OwnerId) =>
       });
 
     const writeNote = (
-      { text, url, source, linkedNoteIds }: CaptureRequest,
+      { text, url, source, linkedNoteIds, openLoop }: CaptureRequest,
       textHash: string
     ) =>
       Effect.gen(function* writeNoteEffect() {
@@ -114,6 +106,9 @@ const makeNotes = (ownerId: OwnerId) =>
             textHash,
             capturedAt: now,
             lastCheckedAt: now,
+            ...columnsOfOpenLoop(
+              openLoop === undefined ? undefined : openOpenLoopOf(openLoop)
+            ),
           })
           .onConflictDoNothing({
             target: [notes.sourceEventId, notes.textHash],
@@ -137,6 +132,12 @@ const makeNotes = (ownerId: OwnerId) =>
         yield* journalCapture(source.eventId, row.noteId);
         if (inserted !== undefined) {
           yield* addLinks(row.noteId, uniqueNoteIds(linkedNoteIds));
+          if (openLoop !== undefined) {
+            yield* journalOpenLoopChange(source.eventId, row.noteId, {
+              openLoop: openOpenLoopOf(openLoop),
+              record: "OpenLoopOpened",
+            });
+          }
         }
         return {
           note: toNote(row),
@@ -155,43 +156,6 @@ const makeNotes = (ownerId: OwnerId) =>
           )
         )
       );
-
-    const writeUpdate = Effect.fnUntraced(function* writeUpdate(
-      request: UpdateRequest
-    ) {
-      const { noteId, eventId, text } = request;
-      yield* requireOwnNotes([
-        noteId,
-        ...uniqueNoteIds(request.linkedNoteIds),
-        ...uniqueNoteIds(request.unlinkedNoteIds),
-      ]);
-      const [row] = yield* database
-        .update(notes)
-        .set({
-          lastCheckedAt: DateTime.formatIso(yield* DateTime.now),
-          ...(text === undefined ? {} : { text }),
-        })
-        .where(and(eq(notes.ownerId, ownerId), eq(notes.noteId, noteId)))
-        .returning();
-      if (row === undefined) {
-        return yield* Effect.die("The Note is not found after the check");
-      }
-      yield* addLinks(noteId, uniqueNoteIds(request.linkedNoteIds));
-      yield* removeLinks(noteId, uniqueNoteIds(request.unlinkedNoteIds));
-      yield* journal.append({
-        _tag: "NoteUpdated",
-        eventId,
-        noteId,
-        change: changeOfUpdate(request),
-      });
-      return {
-        note: toNote(row),
-        linkedNoteIds: yield* linkedNoteIdsOf(noteId),
-      } satisfies Update;
-    });
-
-    const update = (request: UpdateRequest) =>
-      database.transaction(() => writeUpdate(request));
 
     const listLinked = Effect.fnUntraced(function* listLinked(
       noteId: string,
@@ -256,7 +220,15 @@ const makeNotes = (ownerId: OwnerId) =>
         )
       );
 
-    return { capture, update, search, listLinked, list };
+    return {
+      capture,
+      update,
+      closeOpenLoop,
+      listOpenLoops,
+      search,
+      listLinked,
+      list,
+    };
   });
 
 export class Notes extends Context.Service<

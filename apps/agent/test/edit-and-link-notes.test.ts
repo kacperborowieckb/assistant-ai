@@ -9,7 +9,11 @@ import { listLinkedNotesToolName } from "../src/notes/list-linked-notes-tool.ts"
 import { maxLinkedNotesPerMatch } from "../src/notes/note-links.ts";
 import { Notes } from "../src/notes/notes.ts";
 import { searchNotesToolName } from "../src/notes/search-notes-tool.ts";
-import { updateNoteToolName } from "../src/notes/update-note-tool.ts";
+import {
+  linkedAndUnlinkedMessage,
+  nothingToUpdateMessage,
+  updateNoteToolName,
+} from "../src/notes/update-note-tool.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
@@ -335,7 +339,7 @@ describe("Edit and link Notes", () => {
     await ownerSays(7207, "hm", 2);
 
     expect(JSON.stringify(fakeModel.doGenerateCalls.at(-1)?.prompt)).toContain(
-      "Give new text, Notes to link, or Notes to unlink"
+      nothingToUpdateMessage
     );
     const markedSteps = await runInDurableObject(
       await agentOf(ownerId),
@@ -348,6 +352,37 @@ describe("Edit and link Notes", () => {
     );
     expect(markedSteps).toBe(2);
     expect(await notesOf(ownerId)).toEqual([original]);
+  });
+
+  it("refuses an update that links and unlinks the same Note and writes nothing", async () => {
+    const ownerId = await addOwner(7230);
+    scriptModel([
+      { callTool: captureNoteToolName, input: { text: "buy a gift" } },
+      { callTool: captureNoteToolName, input: { text: "the gift shop" } },
+      { say: "Kept" },
+    ]);
+    await ownerSays(7230, "gift and shop", 1);
+    const [gift, shop] = await notesOf(ownerId);
+    scriptModel([
+      {
+        callTool: updateNoteToolName,
+        input: {
+          noteId: gift?.note_id,
+          linkedNoteIds: [shop?.note_id],
+          unlinkedNoteIds: [shop?.note_id],
+        },
+      },
+      { say: "Sorry" },
+    ]);
+
+    await ownerSays(7230, "link and unlink", 2);
+
+    expect(await notesOf(ownerId)).toEqual([gift, shop]);
+    expect(await linksOf(ownerId)).toEqual([]);
+    expect(await recordsTagged(ownerId, "NoteUpdated")).toEqual([]);
+    expect(JSON.stringify(fakeModel.doGenerateCalls.at(-1)?.prompt)).toContain(
+      linkedAndUnlinkedMessage([shop?.note_id ?? ""])
+    );
   });
 
   it("links and unlinks Notes with an update and records the kind of change", async () => {

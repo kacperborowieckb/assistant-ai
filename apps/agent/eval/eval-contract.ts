@@ -1,10 +1,10 @@
 import { Schema } from "effect";
 
 import {
+  trustLevels,
   modelTasks,
   profileEntryKinds,
-  trustLevels,
-} from "../src/personal-agent/storage-schema.ts";
+} from "../src/personal-agent/storage-values.ts";
 
 export const evalRoutes = {
   seed: "/eval/seed",

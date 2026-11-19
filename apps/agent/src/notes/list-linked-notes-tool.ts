@@ -30,7 +30,7 @@ const ListLinkedNotesInput = Schema.Struct({
 });
 
 export const listLinkedNotesTool = (
-  { notes, progress, redactor }: NoteToolServices,
+  { notes, ownerTimeZone, progress, redactor }: NoteToolServices,
   eventId: string
 ) =>
   recordedTool(
@@ -45,11 +45,18 @@ export const listLinkedNotesTool = (
           otherwise: linkedNotesNotListedMessage,
         }),
       work: ({ noteId, offset }) =>
-        notes.listLinked(noteId, offset ?? 0).pipe(
-          Effect.map(({ linkedNotes, linkedNoteCount }) => ({
-            linkedNotes: linkedNotes.map((linked) => recalledNote(linked)),
-            linkedNoteCount,
-          }))
+        Effect.all({
+          page: notes.listLinked(noteId, offset ?? 0),
+          timeZone: ownerTimeZone,
+        }).pipe(
+          Effect.map(
+            ({ page: { linkedNotes, linkedNoteCount }, timeZone }) => ({
+              linkedNotes: linkedNotes.map((linked) =>
+                recalledNote(linked, timeZone)
+              ),
+              linkedNoteCount,
+            })
+          )
         ),
     }
   );

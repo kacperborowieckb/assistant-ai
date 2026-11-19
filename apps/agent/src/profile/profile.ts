@@ -5,7 +5,7 @@ import { Journal } from "../journal/journal.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { profileEntries } from "../personal-agent/storage-schema.ts";
-import type { profileEntryKinds } from "../personal-agent/storage-schema.ts";
+import type { profileEntryKinds } from "../personal-agent/storage-values.ts";
 import { ProfileFull } from "./profile-full.ts";
 import { UnknownProfileEntry } from "./unknown-profile-entry.ts";
 

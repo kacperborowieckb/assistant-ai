@@ -6,9 +6,9 @@ import type {
   ObservedNote,
 } from "../../eval/eval-contract.ts";
 import {
-  profileEntryKinds,
   trustLevels,
-} from "../../src/personal-agent/storage-schema.ts";
+  profileEntryKinds,
+} from "../../src/personal-agent/storage-values.ts";
 import { OwnerLabelSchema } from "./owner-label.ts";
 import { counted } from "./wording.ts";
 

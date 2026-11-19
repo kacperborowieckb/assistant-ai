@@ -23,13 +23,16 @@ export const scheduledTaskTools = (
   services: ScheduledTaskToolServices
 ) => {
   const { notes, progress, redactor } = services;
-  const noteServices = { notes, progress, redactor };
+  const scheduleServices = scheduleToolServicesOf(services);
+  const noteServices = {
+    notes,
+    ownerTimeZone: scheduleServices.ownerTimeZone,
+    progress,
+    redactor,
+  };
   return {
     [searchNotesToolName]: searchNotesTool(noteServices, eventId),
     [listLinkedNotesToolName]: listLinkedNotesTool(noteServices, eventId),
-    [listSchedulesToolName]: listSchedulesTool(
-      scheduleToolServicesOf(services),
-      eventId
-    ),
+    [listSchedulesToolName]: listSchedulesTool(scheduleServices, eventId),
   };
 };

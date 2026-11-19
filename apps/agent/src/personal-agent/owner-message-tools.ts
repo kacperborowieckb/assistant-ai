@@ -35,7 +35,10 @@ import { ownerTimeZone } from "../time/owner-current-time.ts";
 import { trustLevelOfEvent } from "./event-trust.ts";
 import type { OwnerMessageEvent } from "./inbox.ts";
 
-export interface OwnerMessageToolServices extends NoteToolServices {
+export interface OwnerMessageToolServices extends Omit<
+  NoteToolServices,
+  "ownerTimeZone"
+> {
   readonly profile: Profile["Service"];
   readonly preferences: OwnerPreferences["Service"];
   readonly schedules: Schedules["Service"];
@@ -81,7 +84,10 @@ export const ownerMessageTools = (
     redactor,
   });
   return {
-    ...noteToolsFor(noteServices, event),
+    ...noteToolsFor(
+      { ...noteServices, ownerTimeZone: scheduleServices.ownerTimeZone },
+      event
+    ),
     ...(trustLevelOfEvent(event) === "owner"
       ? {
           [updateProfileToolName]: updateProfileTool(

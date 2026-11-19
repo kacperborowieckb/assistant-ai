@@ -5,7 +5,8 @@ import { noteIdListSchema } from "./note-id-list-schema.ts";
 import { noteToolFailureMessage } from "./note-tool-failure-message.ts";
 import type { NoteToolServices } from "./note-tool-services.ts";
 import type { NoteSource } from "./note.ts";
-import { textForModel } from "./recalled-note.ts";
+import { OpenLoopInputSchema, openLoopRequestOf } from "./open-loop-input.ts";
+import { openLoopForModel, textForModel } from "./recalled-note.ts";
 
 export const captureNoteToolName = "capture_note";
 
@@ -33,13 +34,14 @@ const CaptureNoteInput = Schema.Struct({
       "Note ids of existing Notes that this Note relates to. Use ids that search_notes or capture_note returned."
     )
   ),
+  openLoop: Schema.optionalKey(OpenLoopInputSchema),
 });
 
 const keptTextOf = (source: NoteSource, text: string) =>
   source.forwardedText ?? text;
 
 export const captureNoteTool = (
-  { notes, progress, redactor }: NoteToolServices,
+  { notes, ownerTimeZone, progress, redactor }: NoteToolServices,
   source: NoteSource
 ) =>
   recordedTool(
@@ -47,7 +49,7 @@ export const captureNoteTool = (
     {
       name: captureNoteToolName,
       description:
-        "Keep a Note for the Owner at once: a task, a text, a link, or a text with a link. Call it without asking the Owner first. Does not open the link.",
+        "Keep a Note for the Owner at once: a task, a text, a link, or a text with a link. Call it without asking the Owner first. Does not open the link. Give openLoop when the Note is something to do or to come back to; give none for a fact. Fails with a message when a due time is given and the time zone of the Owner is not known.",
       inputSchema: CaptureNoteInput,
       failureMessage: (cause) =>
         noteToolFailureMessage(cause, {
@@ -60,23 +62,48 @@ export const captureNoteTool = (
           text: keptTextOf(source, input.text),
           trustLevel: source.trustLevel,
         }),
+        ...(input.openLoop === undefined
+          ? {}
+          : {
+              openLoop: {
+                ...input.openLoop,
+                kind: textForModel({
+                  text: input.openLoop.kind,
+                  trustLevel: source.trustLevel,
+                }),
+              },
+            }),
       }),
-      work: ({ text, url, linkedNoteIds }) =>
-        notes
-          .capture({
-            text: keptTextOf(source, text),
-            url,
-            source,
-            linkedNoteIds,
-          })
-          .pipe(
-            Effect.map(({ note, alreadyKept, linkedNoteIds: linked }) => ({
-              noteId: note.noteId,
-              text: textForModel(note),
-              url: note.url ?? null,
-              alreadyKept,
-              linkedNoteIds: linked,
-            }))
-          ),
+      work: Effect.fnUntraced(function* captureNoteEffect({
+        text,
+        url,
+        linkedNoteIds,
+        openLoop,
+      }) {
+        const openLoopRequest = yield* openLoopRequestOf(
+          openLoop,
+          ownerTimeZone,
+          { toolName: captureNoteToolName, consequence: "Nothing was kept." }
+        );
+        const {
+          note,
+          alreadyKept,
+          linkedNoteIds: linked,
+        } = yield* notes.capture({
+          text: keptTextOf(source, text),
+          url,
+          source,
+          linkedNoteIds,
+          openLoop: openLoopRequest,
+        });
+        return {
+          noteId: note.noteId,
+          text: textForModel(note),
+          url: note.url ?? null,
+          alreadyKept,
+          linkedNoteIds: linked,
+          openLoop: openLoopForModel(note, yield* ownerTimeZone),
+        };
+      }),
     }
   );

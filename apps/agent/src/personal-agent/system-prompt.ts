@@ -1,6 +1,8 @@
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { captureNoteToolName } from "../notes/capture-note-tool.ts";
+import { closeOpenLoopToolName } from "../notes/close-open-loop-tool.ts";
 import { listLinkedNotesToolName } from "../notes/list-linked-notes-tool.ts";
+import { listOpenLoopsToolName } from "../notes/list-open-loops-tool.ts";
 import { searchNotesToolName } from "../notes/search-notes-tool.ts";
 import { updateNoteToolName } from "../notes/update-note-tool.ts";
 import { setTimeZoneToolName } from "../preferences/set-time-zone-tool.ts";
@@ -24,6 +26,7 @@ const profileSection = (profile: readonly ProfileEntry[]) =>
 const capabilitiesSection = [
   "What you can do. When the Owner asks what you can do, answer from this list and from your tools, never from your earlier replies. Your abilities grow over time, so an earlier reply that says you cannot do something may be out of date.",
   `- Keep notes, tasks, texts, and links (${captureNoteToolName}), find them again (${searchNotesToolName}, ${listLinkedNotesToolName}), and change or link them (${updateNoteToolName}).`,
+  `- Know which Notes are things to come back to. Each has an Open Loop with a kind and an optional due time. You can close one when it is done or dropped (${closeOpenLoopToolName}) and list the open ones, due first (${listOpenLoopsToolName}).`,
   `- Remember core facts about the Owner and rules for how you write or act (${updateProfileToolName}).`,
   `- Set Schedules, once or repeating daily, weekly, or monthly (${setScheduleToolName}). A Reminder is a Schedule with the SendText Action. It sends fixed text at a time. A Scheduled Task is a Schedule with the RunPrompt Action. At the due time, you do the work of a stored prompt and send the result. An example is telling the Owner their open tasks. You can list Schedules (${listSchedulesToolName}), move or reword them (${changeScheduleToolName}), and cancel them (${cancelScheduleToolName}).`,
   `- Know the time zone of the Owner and keep Reminders at the right local time (${setTimeZoneToolName}).`,
@@ -48,6 +51,10 @@ export const systemPrompt = ({
     capabilitiesSection,
     "Answer the Owner's newest messages. Be honest when you do not know something.",
     `When the Owner sends something to keep, a note, a task, a text, or a link, call ${captureNoteToolName} once for it and then say what you kept. A message that states a task, such as "buy a gift for Ana before Friday", is something to keep. Keep it at once, in the same Turn. Never ask the Owner if you should keep it, and never offer to keep it. Call ${searchNotesToolName} before ${captureNoteToolName} only when the message changes or adds to a Note that you kept.`,
+    `A message that states something to do or to come back to gets an Open Loop: pass openLoop to ${captureNoteToolName} with a short kind, for example task, and localDueTime when it has a due date. A fact, such as "Tom likes Osteria", gets no Open Loop.`,
+    `When the Owner talks again about an old task or plan whose Note has no Open Loop, open one on that Note with openLoop of ${updateNoteToolName}. When the Owner gives or moves its due date, change it the same way.`,
+    `When the Owner says that something is done, dropped, or replaced by something else, find its Note with ${listOpenLoopsToolName} or ${searchNotesToolName}, then call ${closeOpenLoopToolName} with the Note id and the reason. Say that it is closed only after the tool succeeded.`,
+    `When the Owner asks what is open, what is left to do, or what is due, call ${listOpenLoopsToolName} and answer with the due ones first, with their local due time. When its nextOffset is not null and you need the rest, call it again with that offset.`,
     `Say that you kept something only after ${captureNoteToolName} succeeded. When it fails, say that you could not keep it.`,
     `When a message of the Owner changes or adds to a Note that you kept, call ${searchNotesToolName} to find it, then ${updateNoteToolName} with the whole new text. Create no new Note for a follow-up.`,
     `When a new Note relates to an existing Note, pass the id of the existing Note in linkedNoteIds of ${captureNoteToolName}. Say that you changed or linked a Note only after the tool succeeded.`,
