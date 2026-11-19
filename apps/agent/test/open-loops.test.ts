@@ -18,6 +18,7 @@ import {
   listOpenLoopsToolName,
   openLoopsPerPage,
 } from "../src/notes/list-open-loops-tool.ts";
+import { markUntrustedContent } from "../src/notes/note.ts";
 import { Notes } from "../src/notes/notes.ts";
 import { noTimeZoneForOpenLoopMessage } from "../src/notes/open-loop-input.ts";
 import { searchNotesToolName } from "../src/notes/search-notes-tool.ts";
@@ -642,6 +643,14 @@ describe("Open Loops on Notes", () => {
         (record) =>
           record._tag === "NoteUpdated" || record._tag === "OpenLoopOpened"
       );
+    const updateResults = (fakeModel.doGenerateCalls.at(-1)?.prompt ?? [])
+      .flatMap((message) => (message.role === "tool" ? message.content : []))
+      .flatMap((part) =>
+        part.type === "tool-result" && part.toolName === updateNoteToolName
+          ? [part.output.type]
+          : []
+      );
+    expect(updateResults).toEqual(["json", "json"]);
     expect(changes).toEqual([
       expect.objectContaining({
         _tag: "NoteUpdated",
@@ -692,6 +701,12 @@ describe("Open Loops on Notes", () => {
       expect.arrayContaining([captureNoteToolName, listOpenLoopsToolName])
     );
     expect(offered).not.toContain(closeOpenLoopToolName);
+    expect(lastToolResultOf(captureNoteToolName)).toMatchObject({
+      type: "json",
+      value: {
+        openLoop: { kind: markUntrustedContent("waiting"), state: "open" },
+      },
+    });
     expect(offered).not.toContain(updateNoteToolName);
   });
 });

@@ -18,13 +18,13 @@ const localDueTimeOf = (openLoop: OpenLoop, timeZone: OwnerTimeZone) =>
     : localTimeOf(openLoop.dueAt, timeZone.value);
 
 export const openLoopForModel = (
-  openLoop: OpenLoop | undefined,
+  { openLoop, trustLevel }: Pick<Note, "openLoop" | "trustLevel">,
   timeZone: OwnerTimeZone
 ) =>
   openLoop === undefined
     ? null
     : {
-        kind: openLoop.kind,
+        kind: textForModel({ text: openLoop.kind, trustLevel }),
         state: openLoop._tag === "Open" ? "open" : "closed",
         closedReason: openLoop._tag === "Closed" ? openLoop.reason : null,
         dueAt: dueAtOfOpenLoop(openLoop),
@@ -46,5 +46,5 @@ export const recalledNote = (note: Note, timeZone: OwnerTimeZone) => ({
   },
   trustLevel: note.trustLevel,
   capturedAt: note.capturedAt,
-  openLoop: openLoopForModel(note.openLoop, timeZone),
+  openLoop: openLoopForModel(note, timeZone),
 });

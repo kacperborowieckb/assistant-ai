@@ -91,7 +91,7 @@ export const captureNoteTool = (
           url: note.url ?? null,
           alreadyKept,
           linkedNoteIds: linked,
-          openLoop: openLoopForModel(note.openLoop, yield* ownerTimeZone),
+          openLoop: openLoopForModel(note, yield* ownerTimeZone),
         };
       }),
     }

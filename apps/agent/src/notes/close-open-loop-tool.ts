@@ -65,7 +65,7 @@ export const closeOpenLoopTool = (
         return {
           noteId: note.noteId,
           text: textForModel(note),
-          openLoop: openLoopForModel(note.openLoop, yield* ownerTimeZone),
+          openLoop: openLoopForModel(note, yield* ownerTimeZone),
           alreadyClosed,
         };
       }),

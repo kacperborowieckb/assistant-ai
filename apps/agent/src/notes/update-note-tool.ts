@@ -46,7 +46,7 @@ const UpdateNoteInput = Schema.Struct({
     OpenLoopInputSchema.pipe(
       Schema.annotate({
         description:
-          "The whole new Open Loop of the Note. It opens one when the Note has none, and replaces the kind and the due time of an open one. Leave out localDueTime only when it has no due date. To close an Open Loop, use close_open_loop.",
+          "The whole new Open Loop of the Note. It opens one when the Note has none, and replaces the kind and the due time of an open one. On a closed Open Loop it opens it again and clears its close reason, so give it only when the Owner takes the task up again. Leave out localDueTime only when it has no due date. To close an Open Loop, use close_open_loop.",
       })
     )
   ),
@@ -110,7 +110,7 @@ export const updateNoteTool = (
           url: note.url ?? null,
           lastCheckedAt: note.lastCheckedAt,
           linkedNoteIds: linked,
-          openLoop: openLoopForModel(note.openLoop, yield* ownerTimeZone),
+          openLoop: openLoopForModel(note, yield* ownerTimeZone),
         };
       }),
     }
