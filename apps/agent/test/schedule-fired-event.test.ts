@@ -30,7 +30,9 @@ const ownerMessage = (updateId: string, text: string): Event => ({
   sentAt: "2026-11-15T10:00:00.000Z",
 });
 
-const reminderDueAt = "2026-11-19T08:00:00.000Z";
+// The Durable Object reads the real clock, so a fixed due time turns late once
+// the grace period has passed. Due now, it stays on time for the whole test run.
+const reminderDueAt = DateTime.formatIso(DateTime.nowUnsafe());
 
 const setReminder = (text: string) =>
   Schedules.pipe(
