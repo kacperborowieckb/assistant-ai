@@ -463,6 +463,7 @@ describe("Open Loops on Notes", () => {
       type: "json",
       value: {
         openLoopCount: 1,
+        nextOffset: null,
         openLoops: [
           {
             text: giftTask.text,

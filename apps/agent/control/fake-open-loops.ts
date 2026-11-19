@@ -20,6 +20,7 @@ const ListedOpenLoopsSchema = Schema.fromJsonString(
       Schema.Struct({ noteId: Schema.String, text: Schema.String })
     ),
     openLoopCount: Schema.Number,
+    nextOffset: Schema.NullOr(Schema.Number),
   })
 );
 
@@ -39,7 +40,7 @@ const toolCall = (name: string, input: Record<string, unknown>) => ({
   content: null,
   tool_calls: [
     {
-      id: `call-${name}-1`,
+      id: `call-${name}-${JSON.stringify(input)}`,
       type: "function",
       function: { name, arguments: JSON.stringify(input) },
     },
@@ -90,9 +91,15 @@ const fakeDoneMessage = (ownerText: string, toolResult: string | undefined) => {
     const match = listed.value.openLoops.find((openLoop) =>
       openLoop.text.includes(words)
     );
-    return match === undefined
+    if (match !== undefined) {
+      return toolCall("close_open_loop", {
+        noteId: match.noteId,
+        reason: "done",
+      });
+    }
+    return listed.value.nextOffset === null
       ? say(`Nothing open matches: ${words}`)
-      : toolCall("close_open_loop", { noteId: match.noteId, reason: "done" });
+      : toolCall("list_open_loops", { offset: listed.value.nextOffset });
   }
   const closed = decodeClosed(toolResult);
   return Option.isSome(closed)
