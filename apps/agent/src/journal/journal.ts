@@ -1,11 +1,11 @@
 import { asc, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
+import { noteChanges, openLoopClosedReasons } from "../notes/notes-schema.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import {
   journalEntries,
-  noteChanges,
   ownerPreferenceKeys,
   profileEntryKinds,
 } from "../personal-agent/storage-schema.ts";
@@ -22,6 +22,23 @@ export const JournalRecordSchema = Schema.TaggedUnion({
     eventId: Schema.String,
     noteId: Schema.String,
     change: Schema.Literals(noteChanges),
+  },
+  OpenLoopOpened: {
+    eventId: Schema.String,
+    noteId: Schema.String,
+    kind: Schema.String,
+    dueAt: Schema.NullOr(Schema.String),
+  },
+  OpenLoopChanged: {
+    eventId: Schema.String,
+    noteId: Schema.String,
+    kind: Schema.String,
+    dueAt: Schema.NullOr(Schema.String),
+  },
+  OpenLoopClosed: {
+    eventId: Schema.String,
+    noteId: Schema.String,
+    reason: Schema.Literals(openLoopClosedReasons),
   },
   ProfileEntryAdded: {
     eventId: Schema.String,

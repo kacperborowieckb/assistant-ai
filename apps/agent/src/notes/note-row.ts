@@ -1,5 +1,6 @@
-import type { notes } from "../personal-agent/storage-schema.ts";
+import type { notes } from "./notes-schema.ts";
 import type { Note } from "./notes.ts";
+import { openLoopOfColumns } from "./open-loop.ts";
 
 export const toNote = (row: typeof notes.$inferSelect): Note => ({
   noteId: row.noteId,
@@ -14,4 +15,10 @@ export const toNote = (row: typeof notes.$inferSelect): Note => ({
   trustLevel: row.trustLevel,
   capturedAt: row.capturedAt,
   lastCheckedAt: row.lastCheckedAt,
+  openLoop: openLoopOfColumns({
+    openLoopKind: row.openLoopKind,
+    openLoopState: row.openLoopState,
+    openLoopClosedReason: row.openLoopClosedReason,
+    openLoopDueAt: row.openLoopDueAt,
+  }),
 });

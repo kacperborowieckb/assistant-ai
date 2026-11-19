@@ -1,5 +1,5 @@
 import { uniqueNoteIds } from "./note-links.ts";
-import type { UpdateRequest } from "./notes.ts";
+import type { UpdateRequest } from "./note-updates.ts";
 
 export const changeOfUpdate = (request: UpdateRequest) => {
   const textChanged = request.text !== undefined;
@@ -7,6 +7,9 @@ export const changeOfUpdate = (request: UpdateRequest) => {
     uniqueNoteIds(request.linkedNoteIds).length +
       uniqueNoteIds(request.unlinkedNoteIds).length >
     0;
+  if (!textChanged && !linksChanged) {
+    return;
+  }
   if (textChanged && linksChanged) {
     return "text_and_links" as const;
   }

@@ -3,8 +3,8 @@ import { DateTime, Effect } from "effect";
 
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
-import { noteLinks, notes } from "../personal-agent/storage-schema.ts";
 import { toNote } from "./note-row.ts";
+import { noteLinks, notes } from "./notes-schema.ts";
 import { UnknownNotes } from "./unknown-notes.ts";
 
 export const maxLinkedNotesPerMatch = 5;

@@ -5,6 +5,7 @@ import { maxLinkedNotesPerMatch } from "./note-links.ts";
 import type { NoteToolServices } from "./note-tool-services.ts";
 import type { RecalledNote } from "./notes.ts";
 import { recalledNote } from "./recalled-note.ts";
+import type { OwnerTimeZone } from "./recalled-note.ts";
 
 export const searchNotesToolName = "search_notes";
 
@@ -32,27 +33,32 @@ const SearchNotesInput = Schema.Struct({
   ),
 });
 
-const foundNote = (note: RecalledNote) => ({
-  ...recalledNote(note),
+const foundNote = (note: RecalledNote, timeZone: OwnerTimeZone) => ({
+  ...recalledNote(note, timeZone),
   lastCheckedAt: note.lastCheckedAt,
-  linkedNotes: note.linkedNotes.map((linked) => recalledNote(linked)),
+  linkedNotes: note.linkedNotes.map((linked) => recalledNote(linked, timeZone)),
   linkedNoteCount: note.linkedNoteCount,
 });
 
 export const searchNotesTool = (
-  { notes, progress, redactor }: NoteToolServices,
+  { notes, ownerTimeZone, progress, redactor }: NoteToolServices,
   eventId: string
 ) =>
   recordedTool(
     { eventId, progress, redactor },
     {
       name: searchNotesToolName,
-      description: `Search the Owner's Notes by keywords. Returns the best matches first, each with its source, captured date, and the newest linked Notes (at most ${maxLinkedNotesPerMatch}, with the total count). An empty list means that no Note matches.`,
+      description: `Search the Owner's Notes by keywords. Returns the best matches first, each with its source, captured date, Open Loop (null when it has none), and the newest linked Notes (at most ${maxLinkedNotesPerMatch}, with the total count). An empty list means that no Note matches.`,
       inputSchema: SearchNotesInput,
       failureMessage: notesNotSearchedMessage,
       work: ({ query, limit }) =>
-        notes
-          .search({ query, limit: limit ?? defaultSearchLimit })
-          .pipe(Effect.map((found) => ({ notes: found.map(foundNote) }))),
+        Effect.all({
+          found: notes.search({ query, limit: limit ?? defaultSearchLimit }),
+          timeZone: ownerTimeZone,
+        }).pipe(
+          Effect.map(({ found, timeZone }) => ({
+            notes: found.map((note) => foundNote(note, timeZone)),
+          }))
+        ),
     }
   );

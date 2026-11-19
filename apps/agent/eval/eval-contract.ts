@@ -1,9 +1,9 @@
 import { Schema } from "effect";
 
+import { trustLevels } from "../src/notes/notes-schema.ts";
 import {
   modelTasks,
   profileEntryKinds,
-  trustLevels,
 } from "../src/personal-agent/storage-schema.ts";
 
 export const evalRoutes = {

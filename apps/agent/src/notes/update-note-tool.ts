@@ -5,7 +5,8 @@ import { recordedTool } from "../personal-agent/recorded-tool.ts";
 import { noteIdListSchema } from "./note-id-list-schema.ts";
 import { noteToolFailureMessage } from "./note-tool-failure-message.ts";
 import type { NoteToolServices } from "./note-tool-services.ts";
-import { textForModel } from "./recalled-note.ts";
+import { OpenLoopInputSchema, openLoopRequestOf } from "./open-loop-input.ts";
+import { openLoopForModel, textForModel } from "./recalled-note.ts";
 
 export const updateNoteToolName = "update_note";
 
@@ -13,7 +14,7 @@ export const noteNotUpdatedMessage =
   "The Note was not updated. Tell the Owner that you could not change it.";
 
 export const nothingToUpdateMessage =
-  "The Note was not updated. Give new text, Notes to link, or Notes to unlink.";
+  "The Note was not updated. Give new text, Notes to link, Notes to unlink, or an Open Loop.";
 
 const UpdateNoteInput = Schema.Struct({
   noteId: Schema.String.pipe(
@@ -38,10 +39,18 @@ const UpdateNoteInput = Schema.Struct({
   unlinkedNoteIds: Schema.optionalKey(
     noteIdListSchema("Note ids of Notes to unlink from this Note.")
   ),
+  openLoop: Schema.optionalKey(
+    OpenLoopInputSchema.pipe(
+      Schema.annotate({
+        description:
+          "The whole new Open Loop of the Note. It opens one when the Note has none, and replaces the kind and the due time of an open one. Leave out localDueTime only when it has no due date. To close an Open Loop, use close_open_loop.",
+      })
+    )
+  ),
 });
 
 export const updateNoteTool = (
-  { notes, progress, redactor }: NoteToolServices,
+  { notes, ownerTimeZone, progress, redactor }: NoteToolServices,
   eventId: string
 ) =>
   recordedTool(
@@ -49,7 +58,7 @@ export const updateNoteTool = (
     {
       name: updateNoteToolName,
       description:
-        "Change one existing Note after a follow-up of the Owner: replace its text, or link or unlink other Notes. Creates no new Note. Search for the Note first when you do not know its id.",
+        "Change one existing Note after a follow-up of the Owner: replace its text, link or unlink other Notes, or open or change its Open Loop. Creates no new Note. Search for the Note first when you do not know its id.",
       inputSchema: UpdateNoteInput,
       failureMessage: (cause) =>
         noteToolFailureMessage(cause, {
@@ -61,20 +70,28 @@ export const updateNoteTool = (
         text,
         linkedNoteIds,
         unlinkedNoteIds,
+        openLoop,
       }) {
         if (
           text === undefined &&
           (linkedNoteIds ?? []).length === 0 &&
-          (unlinkedNoteIds ?? []).length === 0
+          (unlinkedNoteIds ?? []).length === 0 &&
+          openLoop === undefined
         ) {
           return yield* new ToolFailed({ message: nothingToUpdateMessage });
         }
+        const openLoopRequest = yield* openLoopRequestOf(
+          openLoop,
+          ownerTimeZone,
+          { toolName: updateNoteToolName, consequence: "Nothing was changed." }
+        );
         const { note, linkedNoteIds: linked } = yield* notes.update({
           noteId,
           eventId,
           text,
           linkedNoteIds,
           unlinkedNoteIds,
+          openLoop: openLoopRequest,
         });
         return {
           noteId: note.noteId,
@@ -82,6 +99,7 @@ export const updateNoteTool = (
           url: note.url ?? null,
           lastCheckedAt: note.lastCheckedAt,
           linkedNoteIds: linked,
+          openLoop: openLoopForModel(note.openLoop, yield* ownerTimeZone),
         };
       }),
     }

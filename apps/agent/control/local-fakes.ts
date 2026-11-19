@@ -2,12 +2,17 @@ import { once } from "node:events";
 import { createServer } from "node:http";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
-import { Effect, Option, Queue, Schema } from "effect";
+import { Effect, Queue, Schema } from "effect";
 
 import { scheduledTaskMarker } from "../src/personal-agent/scheduled-task-section.ts";
 import { fakeJudgeMessage, fakeJudgeModel } from "./fake-judge.ts";
 import type { FakeJudgeVerdict } from "./fake-judge.ts";
+import { fakeKeepMessage, fakeKeepPrefix } from "./fake-keep.ts";
 import { fakeNoteEditMessage, isFakeNoteEdit } from "./fake-note-edits.ts";
+import {
+  fakeOpenLoopMessage,
+  isFakeOpenLoopMessage,
+} from "./fake-open-loops.ts";
 import { fakeRecallMessage, fakeRecallPrefix } from "./fake-recall.ts";
 import {
   fakeCancelReminderMessage,
@@ -53,14 +58,6 @@ const ChatCompletionBodySchema = Schema.Struct({
     Schema.Struct({ role: Schema.String, content: Schema.Unknown })
   ),
 });
-
-export const fakeKeepPrefix = "keep: ";
-
-const KeptNoteSchema = Schema.fromJsonString(
-  Schema.Struct({ noteId: Schema.String, text: Schema.String })
-);
-
-const decodeKeptNote = Schema.decodeUnknownOption(KeptNoteSchema);
 
 const readBody = async (request: IncomingMessage) => {
   const chunks: Buffer[] = [];
@@ -125,34 +122,12 @@ const fakeAssistantMessage = (
   if (isFakeNoteEdit(ownerText)) {
     return fakeNoteEditMessage(ownerText, toolResult);
   }
-  if (!ownerText.startsWith(fakeKeepPrefix)) {
-    return { role: "assistant", content: `${fakeReplyPrefix}${ownerText}` };
+  if (isFakeOpenLoopMessage(ownerText)) {
+    return fakeOpenLoopMessage(ownerText, toolResult);
   }
-  if (toolResult === undefined) {
-    return {
-      role: "assistant",
-      content: null,
-      tool_calls: [
-        {
-          id: "call-keep-1",
-          type: "function",
-          function: {
-            name: "capture_note",
-            arguments: JSON.stringify({
-              text: ownerText.slice(fakeKeepPrefix.length),
-            }),
-          },
-        },
-      ],
-    };
-  }
-  const kept = decodeKeptNote(toolResult);
-  return {
-    role: "assistant",
-    content: Option.isSome(kept)
-      ? `Kept note ${kept.value.noteId}: ${kept.value.text}`
-      : "Sorry, I could not keep that.",
-  };
+  return ownerText.startsWith(fakeKeepPrefix)
+    ? fakeKeepMessage(ownerText, toolResult)
+    : { role: "assistant", content: `${fakeReplyPrefix}${ownerText}` };
 };
 
 const headerValue = (request: IncomingMessage, name: string) => {

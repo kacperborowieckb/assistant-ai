@@ -189,7 +189,15 @@ describe("Recorded tool", () => {
               }
             );
             const input = { text: "red" };
-            const tool = captureNoteTool({ notes, progress, redactor }, source);
+            const tool = captureNoteTool(
+              {
+                notes,
+                ownerTimeZone: Effect.succeedNone,
+                progress,
+                redactor,
+              },
+              source
+            );
             yield* call(crashing, {
               input: { word: "red" },
               toolCallId: "call-1",

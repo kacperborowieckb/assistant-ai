@@ -9,7 +9,10 @@ import { listLinkedNotesToolName } from "../src/notes/list-linked-notes-tool.ts"
 import { maxLinkedNotesPerMatch } from "../src/notes/note-links.ts";
 import { Notes } from "../src/notes/notes.ts";
 import { searchNotesToolName } from "../src/notes/search-notes-tool.ts";
-import { updateNoteToolName } from "../src/notes/update-note-tool.ts";
+import {
+  nothingToUpdateMessage,
+  updateNoteToolName,
+} from "../src/notes/update-note-tool.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
@@ -335,7 +338,7 @@ describe("Edit and link Notes", () => {
     await ownerSays(7207, "hm", 2);
 
     expect(JSON.stringify(fakeModel.doGenerateCalls.at(-1)?.prompt)).toContain(
-      "Give new text, Notes to link, or Notes to unlink"
+      nothingToUpdateMessage
     );
     const markedSteps = await runInDurableObject(
       await agentOf(ownerId),
