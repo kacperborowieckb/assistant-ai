@@ -88,6 +88,7 @@ export interface ModelTraceInput {
   readonly outcome: ModelOutcome;
   readonly modelLatencyMillis: number;
   readonly redactor: Redactor["Service"];
+  readonly delivered?: boolean;
 }
 
 const modelTraceOf = ({
@@ -170,6 +171,7 @@ export const proactiveTraceOf = ({
   event,
   dailyTokenBudget,
   tokensSpentBefore,
+  delivered = false,
   ...input
 }: ProactiveTraceInput): ProactiveTurnTrace => ({
   ...modelTraceOf(input),
@@ -180,7 +182,7 @@ export const proactiveTraceOf = ({
   dailyTokenBudget,
   tokensSpentBefore,
   result:
-    input.outcome._tag === "Replied"
+    input.outcome._tag === "Replied" && delivered
       ? "proactive_message_sent"
       : "proactive_message_failed",
 });

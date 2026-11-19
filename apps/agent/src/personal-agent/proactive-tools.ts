@@ -1,4 +1,8 @@
 import {
+  closeOpenLoopTool,
+  closeOpenLoopToolName,
+} from "../notes/close-open-loop-tool.ts";
+import {
   listLinkedNotesTool,
   listLinkedNotesToolName,
 } from "../notes/list-linked-notes-tool.ts";
@@ -32,6 +36,7 @@ export const proactiveTools = (
   return {
     [searchNotesToolName]: searchNotesTool(noteServices, eventId),
     [listLinkedNotesToolName]: listLinkedNotesTool(noteServices, eventId),
+    [closeOpenLoopToolName]: closeOpenLoopTool(noteServices, eventId),
     [listOpenLoopsToolName]: listOpenLoopsTool(noteServices, eventId),
     [listSchedulesToolName]: listSchedulesTool(scheduleServices, eventId),
   };

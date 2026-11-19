@@ -247,6 +247,7 @@ describe("a Brief that fires", () => {
     expect(system?.content).toContain(`- ${note.noteId} (task`);
     expect(system?.content).toContain("Buy a gift for Ana");
     expect((call.tools ?? []).map((tool) => tool.name).toSorted()).toEqual([
+      "close_open_loop",
       "list_linked_notes",
       "list_open_loops",
       "list_schedules",
@@ -333,6 +334,29 @@ describe("a Brief that fires", () => {
   });
 });
 
+describe("a Brief that Telegram refuses", () => {
+  it("records no proactive_message_sent Trace and still moves the Brief on", async () => {
+    const ownerId = await ownerWithBrief(9614);
+    fakeTelegram.answerWith("refuse");
+
+    await makeBriefDue(ownerId);
+
+    await vi.waitFor(async () =>
+      expect(await firstScheduleDueAt(ownerId)).toSatisfy(isInTheFuture)
+    );
+    const traces = await inAgent(
+      ownerId,
+      TurnTraces.pipe(Effect.flatMap((stored) => stored.read))
+    );
+    expect(traces.at(-1)?.trace.result).toBe("proactive_message_failed");
+    expect(
+      fakeMetrics.dataPoints.some(
+        (point) => point.blobs?.[0] === "proactive_message"
+      )
+    ).toBe(false);
+  });
+});
+
 const seedFiredBriefWithConfirmedSend = async (telegramUserId: number) => {
   const ownerId = await ownerWithBrief(telegramUserId);
   const agent = await agentOf(ownerId);
@@ -385,6 +409,12 @@ describe("a Brief after a reset", () => {
     expect(fakeTelegram.sent).toHaveLength(1);
     const [row] = await proactiveRowsOf(ownerId);
     expect(row).toMatchObject({ event_id: eventId, sent_message_id: "9555" });
+    expect(
+      fakeMetrics.dataPoints.filter(
+        (point) =>
+          point.blobs?.[0] === "proactive_message" && point.blobs[4] === eventId
+      )
+    ).toHaveLength(1);
     const [brief] = await schedulesOf(ownerId);
     expect(
       DateTime.isGreaterThan(

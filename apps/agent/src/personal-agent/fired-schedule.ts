@@ -7,7 +7,10 @@ import type { Schedule } from "../schedule/schedule.ts";
 import { Schedules } from "../schedule/schedules.ts";
 import { deliveryStateOf, honestFailureText } from "./delivery.ts";
 import type { DeliveryState } from "./delivery.ts";
-import { runProactiveMessage } from "./fired-proactive.ts";
+import {
+  recordProactiveMessageSent,
+  runProactiveMessage,
+} from "./fired-proactive.ts";
 import { deliverReminder, recoverReminderOutcome } from "./fired-reminder.ts";
 import { resumeSkippedScheduledTask } from "./fired-scheduled-task-skip.ts";
 import {
@@ -61,6 +64,7 @@ const recover = Effect.fnUntraced(function* recover(
   if (schedule.value.setBy === "agent" && state._tag === "Sent") {
     const proactiveMessages = yield* ProactiveMessages;
     yield* proactiveMessages.recordSent(event.eventId, state.channelMessageId);
+    yield* recordProactiveMessageSent(ownerId, event.eventId, 0);
   }
   if (completesScheduleAfter(schedule.value, state)) {
     yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);

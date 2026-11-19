@@ -47,6 +47,7 @@ export interface ModelTurnKind<Failure, Requirements> {
     startedAt: number
   ) => Effect.Effect<BeforeFirstStep, Failure, Requirements>;
   readonly prepare?: Effect.Effect<TurnPreparation, Failure, Requirements>;
+  readonly recordsTraceAfterSend?: boolean;
   readonly whenSent?: Effect.Effect<void, Failure, Requirements>;
   readonly whenSendFailed?: Effect.Effect<void, Failure, Requirements>;
   readonly whenFailed: (
@@ -119,9 +120,22 @@ export const runModelTurn = <Failure, Requirements>({
         })
       );
     const modelLatencyMillis = (yield* Clock.currentTimeMillis) - startedAt;
-    yield* traces.record(
-      kind.traceOf({ system, messages, outcome, modelLatencyMillis, redactor })
-    );
+    const recordTrace = (delivered: boolean) =>
+      traces.record(
+        kind.traceOf({
+          system,
+          messages,
+          outcome,
+          modelLatencyMillis,
+          redactor,
+          delivered,
+        })
+      );
+    const tracesAfterSend =
+      kind.recordsTraceAfterSend === true && outcome._tag === "Replied";
+    if (!tracesAfterSend) {
+      yield* recordTrace(false);
+    }
 
     const remember = rememberCompletedSteps({
       eventId: event.eventId,
@@ -143,6 +157,9 @@ export const runModelTurn = <Failure, Requirements>({
     }
     const replyText = redactor.redact(outcome.reply.text);
     const delivery = yield* send(event, preparation.lateText(replyText));
+    if (tracesAfterSend) {
+      yield* recordTrace(delivery._tag !== "Failed");
+    }
     if (delivery._tag === "Failed") {
       yield* remember;
       yield* fail(event, delivery.reason);

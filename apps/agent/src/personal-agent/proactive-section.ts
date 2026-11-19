@@ -15,7 +15,7 @@ export const proactiveSection = (
 ) =>
   [
     `${proactiveMarker} The Owner is not present. You start this message yourself. The Owner did not ask for it. It comes from a Schedule that you set. It is due now.`,
-    "The stored prompt is your only input. Do the work with your read tools only. You can search and read Notes, list Open Loops, and list Schedules. You cannot change anything.",
+    "The stored prompt is your only input. Do the work with your read tools. You can search and read Notes, list Open Loops, and list Schedules. You can close an Open Loop only when your Notes already show that it is done or dropped. Do not close one to tidy up. You cannot change anything else.",
     "Your answer goes to the Owner as one message. Write it as a message to the Owner, and make it short. Do not ask a question that needs a reply to finish the work.",
     openLoops.length === 0
       ? "The Open Loops in reach: none are open."

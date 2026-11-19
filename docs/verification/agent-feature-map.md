@@ -25,7 +25,7 @@ The Owner sets, lists, changes, and cancels Schedules (Reminders, with the `Send
 
 ## The Brief
 
-When the Owner's time zone becomes known for the first time, code creates the Brief: a Daily `RunPrompt` Schedule with `setBy: agent` at the end of the default Quiet Hours (08:00 local). When it fires, the agent runs a proactive Turn (Model Task `proactive`) with read tools and `list_open_loops`, and sends one message to the Owner Channel Conversation. The Owner moves, changes, or cancels the Brief with `list_schedules`, `change_schedule`, and `cancel_schedule`. A second time zone change creates no second Brief, and a cancelled Brief is not created again.
+When the Owner's time zone becomes known for the first time, code creates the Brief: a Daily `RunPrompt` Schedule with `setBy: agent` at the end of the default Quiet Hours (08:00 local). When it fires, the agent runs a proactive Turn (Model Task `proactive`) with read tools, `list_open_loops`, and `close_open_loop`, and sends one message to the Owner Channel Conversation. The Owner moves, changes, or cancels the Brief with `list_schedules`, `change_schedule`, and `cancel_schedule`. A second time zone change creates no second Brief, and a cancelled Brief is not created again.
 
 In the local fake model, `brief soon` moves the Brief to the next minute, and the fake model answers its proactive Turn with `Brief: <n> open Open Loops`. Example: `pnpm control request --message "zone: Europe/Warsaw" --message "todo: buy a gift for Ana" --message "brief soon" --contains "Brief: 1 open Open Loops" --wait-for-later-message`.
 

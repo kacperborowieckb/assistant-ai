@@ -63,6 +63,23 @@ interface SentProactiveMessage {
   readonly startedAt: number;
 }
 
+export const recordProactiveMessageSent = Effect.fnUntraced(
+  function* recordProactiveMessageSent(
+    ownerId: OwnerId,
+    eventId: string,
+    latencyMillis: number
+  ) {
+    const metrics = yield* OperatorMetrics;
+    yield* metrics.record({
+      kind: "proactive_message",
+      ownerId,
+      eventId,
+      result: "sent",
+      latencyMillis,
+    });
+  }
+);
+
 const finishSentProactiveMessage = Effect.fnUntraced(
   function* finishSentProactiveMessage({
     ownerId,
@@ -71,7 +88,6 @@ const finishSentProactiveMessage = Effect.fnUntraced(
   }: SentProactiveMessage) {
     const schedules = yield* Schedules;
     const proactiveMessages = yield* ProactiveMessages;
-    const metrics = yield* OperatorMetrics;
 
     const state = yield* deliveryStateOf(event.eventId);
     if (state._tag === "Sent") {
@@ -81,13 +97,11 @@ const finishSentProactiveMessage = Effect.fnUntraced(
       );
     }
     yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
-    yield* metrics.record({
-      kind: "proactive_message",
+    yield* recordProactiveMessageSent(
       ownerId,
-      eventId: event.eventId,
-      result: "sent",
-      latencyMillis: (yield* Clock.currentTimeMillis) - startedAt,
-    });
+      event.eventId,
+      (yield* Clock.currentTimeMillis) - startedAt
+    );
   }
 );
 
@@ -135,6 +149,7 @@ export const runProactiveMessage = Effect.fnUntraced(
         input: scheduledTaskInputMessage(action.prompt),
         tools: proactiveTools(event.eventId, { ...toolServices, behavior }),
         prepare: proactivePreparation(behavior, event),
+        recordsTraceAfterSend: true,
         traceOf: (model) =>
           proactiveTraceOf({
             event,
