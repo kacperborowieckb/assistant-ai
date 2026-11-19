@@ -94,6 +94,21 @@ export const makeScheduleQueries = Effect.fnUntraced(
         .where(ownRow(scheduleId))
         .pipe(Effect.map((rows) => firstOf(rows).pipe(Option.map(toSchedule))));
 
+    const hasAgentPrompt = (prompt: string) =>
+      database
+        .select({ scheduleId: schedules.scheduleId })
+        .from(schedules)
+        .where(
+          and(
+            eq(schedules.ownerId, ownerId),
+            eq(schedules.setBy, "agent"),
+            eq(schedules.action, actionColumnOfTag("RunPrompt")),
+            eq(schedules.text, prompt)
+          )
+        )
+        .limit(1)
+        .pipe(Effect.map((rows) => rows.length > 0));
+
     const activeRowById = (scheduleId: string) =>
       database
         .select()
@@ -192,6 +207,7 @@ export const makeScheduleQueries = Effect.fnUntraced(
       listActive,
       requireRoomForScheduledTask,
       byId,
+      hasAgentPrompt,
       activeRowById,
       dueRowById,
       findByRequest,

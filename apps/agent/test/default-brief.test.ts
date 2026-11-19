@@ -18,7 +18,7 @@ import { setTimeZoneToolName } from "../src/preferences/set-time-zone-tool.ts";
 import { ProactiveMessages } from "../src/proactive/proactive-messages.ts";
 import { briefPrompt } from "../src/schedule/brief-prompt.ts";
 import { cancelScheduleToolName } from "../src/schedule/cancel-schedule-tool.ts";
-import type { Schedules } from "../src/schedule/schedules.ts";
+import { Schedules } from "../src/schedule/schedules.ts";
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
 import {
   failModel,
@@ -225,6 +225,29 @@ describe("creating the Brief", () => {
     const rows = await schedulesOf(ownerId);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.state).toBe("cancelled");
+  });
+});
+
+describe("an orphaned Brief Schedule", () => {
+  it("creates no second Brief when the Schedule exists without its Journal Entry", async () => {
+    const ownerId = await addOwner(9605);
+    await inAgent(
+      ownerId,
+      Schedules.pipe(
+        Effect.flatMap((schedules) =>
+          schedules.set({
+            action: { _tag: "RunPrompt", prompt: briefPrompt },
+            setBy: "agent",
+            dueAt: DateTime.add(DateTime.nowUnsafe(), { days: 1 }),
+            sourceEventId: "orphaned-brief",
+          })
+        )
+      )
+    );
+
+    await ownerSetsTimeZone(9605, "Europe/Warsaw", 0);
+
+    expect(await schedulesOf(ownerId)).toHaveLength(1);
   });
 });
 

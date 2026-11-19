@@ -56,7 +56,8 @@ const makeProactiveMessages = Effect.gen(
             isNull(proactiveMessages.sentMessageId)
           )
         )
-        .pipe(Effect.asVoid);
+        .returning({ eventId: proactiveMessages.eventId })
+        .pipe(Effect.map((rows) => rows.length > 0));
 
     return { plan, recordSent, forEvent };
   }

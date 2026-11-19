@@ -63,8 +63,13 @@ const recover = Effect.fnUntraced(function* recover(
   }
   if (schedule.value.setBy === "agent" && state._tag === "Sent") {
     const proactiveMessages = yield* ProactiveMessages;
-    yield* proactiveMessages.recordSent(event.eventId, state.channelMessageId);
-    yield* recordProactiveMessageSent(ownerId, event.eventId, 0);
+    const recorded = yield* proactiveMessages.recordSent(
+      event.eventId,
+      state.channelMessageId
+    );
+    if (recorded) {
+      yield* recordProactiveMessageSent(ownerId, event.eventId, 0);
+    }
   }
   if (completesScheduleAfter(schedule.value, state)) {
     yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);

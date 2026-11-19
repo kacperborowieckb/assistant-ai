@@ -7,7 +7,16 @@ const ListedRemindersSchema = Schema.fromJsonString(
     schedules: Schema.Array(
       Schema.Struct({
         scheduleId: Schema.String,
-        action: Schema.Struct({ text: Schema.String }),
+        action: Schema.Union([
+          Schema.Struct({
+            _tag: Schema.Literal("SendText"),
+            text: Schema.String,
+          }),
+          Schema.Struct({
+            _tag: Schema.Literal("RunPrompt"),
+            prompt: Schema.String,
+          }),
+        ]),
       })
     ),
   })
@@ -52,7 +61,10 @@ export const fakeCancelReminderMessage = (
   }
   const match = decodeListed(toolResult).pipe(
     Option.flatMapNullishOr(({ schedules }) =>
-      schedules.find(({ action }) => action.text.includes(words))
+      schedules.find(
+        ({ action }) =>
+          action._tag === "SendText" && action.text.includes(words)
+      )
     )
   );
   return Option.isSome(match)

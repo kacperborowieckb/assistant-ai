@@ -90,18 +90,20 @@ const finishSentProactiveMessage = Effect.fnUntraced(
     const proactiveMessages = yield* ProactiveMessages;
 
     const state = yield* deliveryStateOf(event.eventId);
-    if (state._tag === "Sent") {
-      yield* proactiveMessages.recordSent(
+    const recorded =
+      state._tag === "Sent" &&
+      (yield* proactiveMessages.recordSent(
         event.eventId,
         state.channelMessageId
+      ));
+    yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
+    if (recorded) {
+      yield* recordProactiveMessageSent(
+        ownerId,
+        event.eventId,
+        (yield* Clock.currentTimeMillis) - startedAt
       );
     }
-    yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
-    yield* recordProactiveMessageSent(
-      ownerId,
-      event.eventId,
-      (yield* Clock.currentTimeMillis) - startedAt
-    );
   }
 );
 

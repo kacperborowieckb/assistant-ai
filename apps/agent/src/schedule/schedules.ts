@@ -247,6 +247,7 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
   return {
     listActive: queries.listActive,
     byId: queries.byId,
+    hasAgentPrompt: queries.hasAgentPrompt,
     requireRoomForScheduledTask,
     set,
     change,
