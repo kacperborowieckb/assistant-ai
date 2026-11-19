@@ -1,4 +1,4 @@
-import { DateTime, Effect } from "effect";
+import { DateTime, Effect, Option } from "effect";
 
 import type { Journal } from "../journal/journal.ts";
 import { nextOccurrence } from "../time/next-occurrence.ts";
@@ -20,10 +20,16 @@ export const ensureBrief = Effect.fnUntraced(function* ensureBrief(
   { timeZone, localTime, eventId }: BriefRequest
 ) {
   const { schedules, journal } = services;
-  const alreadyCreated =
-    (yield* journal.hasEntryOfKind("BriefCreated")) ||
-    (yield* schedules.hasAgentPrompt(briefPrompt));
-  if (alreadyCreated) {
+  if (yield* journal.hasEntryOfKind("BriefCreated")) {
+    return;
+  }
+  const orphaned = yield* schedules.agentPromptScheduleId(briefPrompt);
+  if (Option.isSome(orphaned)) {
+    yield* journal.append({
+      _tag: "BriefCreated",
+      eventId,
+      scheduleId: orphaned.value,
+    });
     return;
   }
   const rule: RecurrenceRule = { _tag: "Daily", time: localTime };

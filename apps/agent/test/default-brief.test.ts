@@ -263,6 +263,8 @@ describe("an orphaned Brief Schedule", () => {
     await ownerSetsTimeZone(9605, "Europe/Warsaw", 0);
 
     expect(await schedulesOf(ownerId)).toHaveLength(1);
+    const tags = await journalTagsOf(ownerId);
+    expect(tags.filter((tag) => tag === "BriefCreated")).toHaveLength(1);
   });
 });
 
