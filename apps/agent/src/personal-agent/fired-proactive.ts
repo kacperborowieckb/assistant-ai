@@ -112,10 +112,10 @@ const endUnsentProactiveMessage = Effect.fnUntraced(
   ) {
     const schedules = yield* Schedules;
 
+    yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
     if (reason !== undefined) {
       yield* fail(event, reason);
     }
-    yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
   }
 );
 
@@ -149,7 +149,7 @@ export const runProactiveMessage = Effect.fnUntraced(
         input: scheduledTaskInputMessage(action.prompt),
         tools: proactiveTools(event.eventId, { ...toolServices, behavior }),
         prepare: proactivePreparation(behavior, event),
-        recordsTraceAfterSend: true,
+        tracesSendFailure: true,
         traceOf: (model) =>
           proactiveTraceOf({
             event,

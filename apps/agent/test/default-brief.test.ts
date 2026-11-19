@@ -335,7 +335,7 @@ describe("a Brief that fires", () => {
 });
 
 describe("a Brief that Telegram refuses", () => {
-  it("records no proactive_message_sent Trace and still moves the Brief on", async () => {
+  it("records a proactive_message_failed Trace after the Trace of the reply and still moves the Brief on", async () => {
     const ownerId = await ownerWithBrief(9614);
     fakeTelegram.answerWith("refuse");
 
@@ -348,7 +348,10 @@ describe("a Brief that Telegram refuses", () => {
       ownerId,
       TurnTraces.pipe(Effect.flatMap((stored) => stored.read))
     );
-    expect(traces.at(-1)?.trace.result).toBe("proactive_message_failed");
+    expect(traces.map(({ trace }) => trace.result).slice(-2)).toEqual([
+      "proactive_message_sent",
+      "proactive_message_failed",
+    ]);
     expect(
       fakeMetrics.dataPoints.some(
         (point) => point.blobs?.[0] === "proactive_message"
