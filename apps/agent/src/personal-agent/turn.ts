@@ -4,6 +4,7 @@ import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { noTools } from "../model-gateway/agent-tool.ts";
 import type { AgentTools } from "../model-gateway/agent-tool.ts";
 import type { OwnerId } from "../owner-id.ts";
+import { whileAcknowledging } from "./acknowledge.ts";
 import { agentToolServices } from "./agent-tool-services.ts";
 import {
   burstInputs,
@@ -37,12 +38,12 @@ const answer = (
   ownerId: OwnerId,
   { behavior, tools }: TurnSettings,
   burst: Burst
-) =>
-  Effect.gen(function* answerEffect() {
+) => {
+  const event = turnEventOf(burst);
+  const replyTo = newestEventOf(burst);
+  return Effect.gen(function* answerEffect() {
     const toolServices = yield* agentToolServices;
     const preparation = yield* connectedProactivePreparation(behavior, burst);
-    const event = turnEventOf(burst);
-    const replyTo = newestEventOf(burst);
 
     yield* linkBurst(burst);
     yield* runModelTurn({
@@ -62,7 +63,10 @@ const answer = (
         whenFailed: (reason) => failWithNotice(event, reason, replyTo),
       },
     });
-  });
+  }).pipe(
+    whileAcknowledging(replyTo.conversationId, behavior.typingRepeatMillis)
+  );
+};
 
 const answerBurst = Effect.fnUntraced(function* answerBurst(
   ownerId: OwnerId,

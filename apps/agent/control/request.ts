@@ -1,5 +1,6 @@
 import { Data, Effect, Option } from "effect";
 
+import type { FakeTelegramChatAction } from "./fake-chat-actions.ts";
 import { startLocalFakes } from "./local-fakes.ts";
 import type { FakeTelegramMessage } from "./local-fakes.ts";
 import { startLocalWorker, temporarySecrets } from "./local-worker.ts";
@@ -21,6 +22,15 @@ const replyPartsContain = (parts: readonly string[], contains: string) => {
     collapseWhitespace(parts.join(separator)).includes(wanted)
   );
 };
+
+const renderChatActions = (chatActions: readonly FakeTelegramChatAction[]) =>
+  chatActions.length === 0
+    ? "Telegram sendChatAction: none before the reply"
+    : `Telegram sendChatAction before the reply: ${chatActions
+        .map(
+          (chatAction) => `"${chatAction.action}" to chat ${chatAction.chatId}`
+        )
+        .join(", ")}`;
 
 export class ReplyMissing extends Data.TaggedError("ReplyMissing")<{
   readonly contains: string;
@@ -64,6 +74,7 @@ export const requestReply = ({
     let replyParts: readonly string[] = [];
     const unprompted: FakeTelegramMessage[] = [];
     for (const [index, message] of messages.entries()) {
+      const chatActionsBefore = fakes.chatActions().length;
       const webhook = yield* sendTelegramUpdate({
         workerUrl: url,
         webhookSecret: secrets.TELEGRAM_WEBHOOK_SECRET,
@@ -91,6 +102,9 @@ export const requestReply = ({
       unprompted.push(...selection.unprompted);
       replyParts = selection.replyParts.map((part) => part.text);
       lines.push(
+        renderChatActions(
+          fakes.chatActions().slice(chatActionsBefore, sent.chatActionsBefore)
+        ),
         `Telegram sendMessage to chat ${sent.chatId}, reply to message ${sent.replyToMessageId ?? "none"}: "${replyParts.join("")}"`
       );
     }

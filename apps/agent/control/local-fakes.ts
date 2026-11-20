@@ -11,6 +11,7 @@ import {
   fakeBriefMoveMessage,
   isFakeBriefMove,
 } from "./fake-brief.ts";
+import { fakeChatActions, isSendChatAction } from "./fake-chat-actions.ts";
 import { fakeJudgeMessage, fakeJudgeModel } from "./fake-judge.ts";
 import type { FakeJudgeVerdict } from "./fake-judge.ts";
 import { fakeKeepMessage, fakeKeepPrefix } from "./fake-keep.ts";
@@ -40,6 +41,7 @@ export interface FakeTelegramMessage {
   readonly chatId: number;
   readonly text: string;
   readonly replyToMessageId: number | undefined;
+  readonly chatActionsBefore?: number;
 }
 
 export interface FakeModelCall {
@@ -159,6 +161,7 @@ export const startLocalFakes = Effect.fnUntraced(function* startLocalFakes({
 }: LocalFakesOptions = {}) {
   const telegramMessages = yield* Queue.unbounded<FakeTelegramMessage>();
   const sentTelegramMessages: FakeTelegramMessage[] = [];
+  const chatActions = fakeChatActions();
   const modelCalls: FakeModelCall[] = [];
   const pendingJudgeVerdicts = [...judgeVerdicts];
   let nextMessageId = 1;
@@ -169,6 +172,7 @@ export const startLocalFakes = Effect.fnUntraced(function* startLocalFakes({
       chatId: message.chat_id,
       text: message.text,
       replyToMessageId: message.reply_parameters?.message_id,
+      chatActionsBefore: chatActions.list().length,
     };
     sentTelegramMessages.push(sent);
     Queue.offerUnsafe(telegramMessages, sent);
@@ -223,6 +227,10 @@ export const startLocalFakes = Effect.fnUntraced(function* startLocalFakes({
         answerSendMessage(body, response);
         return;
       }
+      if (isSendChatAction(request.url)) {
+        sendJson(response, 200, chatActions.record(body));
+        return;
+      }
       if (request.url === chatCompletionsPath) {
         answerChatCompletion(request, body, response);
         return;
@@ -256,6 +264,7 @@ export const startLocalFakes = Effect.fnUntraced(function* startLocalFakes({
     aiGatewayUrl: `${origin}/ai-gateway`,
     nextTelegramMessage: Queue.take(telegramMessages),
     sentTelegramMessages: () => [...sentTelegramMessages],
+    chatActions: chatActions.list,
     modelCalls: () => [...modelCalls],
   };
 });
