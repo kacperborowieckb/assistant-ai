@@ -6,6 +6,10 @@ import type { NoteToolServices } from "../notes/note-tool-services.ts";
 import { noteToolsFor } from "../notes/note-tools.ts";
 import { OwnerPreferences } from "../preferences/owner-preferences.ts";
 import {
+  quietHoursTool,
+  quietHoursToolName,
+} from "../preferences/quiet-hours-tool.ts";
+import {
   setTimeZoneTool,
   setTimeZoneToolName,
 } from "../preferences/set-time-zone-tool.ts";
@@ -109,7 +113,18 @@ export const ownerMessageTools = (
               journal,
               progress,
               redactor,
-              briefLocalTime: behavior.quietHours.end,
+              defaultQuietHours: behavior.quietHours,
+            },
+            event.eventId
+          ),
+          [quietHoursToolName]: quietHoursTool(
+            {
+              preferences,
+              schedules,
+              journal,
+              progress,
+              redactor,
+              defaultQuietHours: behavior.quietHours,
             },
             event.eventId
           ),

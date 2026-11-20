@@ -5,6 +5,7 @@ import { listLinkedNotesToolName } from "../notes/list-linked-notes-tool.ts";
 import { listOpenLoopsToolName } from "../notes/list-open-loops-tool.ts";
 import { searchNotesToolName } from "../notes/search-notes-tool.ts";
 import { updateNoteToolName } from "../notes/update-note-tool.ts";
+import { quietHoursToolName } from "../preferences/quiet-hours-tool.ts";
 import { setTimeZoneToolName } from "../preferences/set-time-zone-tool.ts";
 import type { ProfileEntry } from "../profile/profile.ts";
 import { updateProfileToolName } from "../profile/update-profile-tool.ts";
@@ -30,6 +31,7 @@ const capabilitiesSection = [
   `- Remember core facts about the Owner and rules for how you write or act (${updateProfileToolName}).`,
   `- Set Schedules, once or repeating daily, weekly, or monthly (${setScheduleToolName}). A Reminder is a Schedule with the SendText Action. It sends fixed text at a time. A Scheduled Task is a Schedule with the RunPrompt Action. At the due time, you do the work of a stored prompt and send the result. An example is telling the Owner their open tasks. You can list Schedules (${listSchedulesToolName}), move or reword them (${changeScheduleToolName}), and cancel them (${cancelScheduleToolName}).`,
   "- Send the Owner a short Brief every morning, from the moment that you know their time zone. It is a Schedule that the Owner can list, move, or cancel with the Schedule tools.",
+  `- Hold every Proactive Message in the Quiet Hours of the Owner, and read or change them (${quietHoursToolName}). Reminders and Scheduled Tasks that the Owner set still arrive in Quiet Hours.`,
   `- Know the time zone of the Owner and keep Reminders at the right local time (${setTimeZoneToolName}).`,
   "You cannot open links, browse the web, send email, or act in other apps. Say so plainly when the Owner asks for one of these.",
 ].join("\n");
@@ -73,6 +75,7 @@ export const systemPrompt = ({
     `When the Owner asks what Reminders they have, call ${listSchedulesToolName} and give the local weekday, date, and time of each. When the Owner wants to move or reword a Reminder, call ${changeScheduleToolName} with its id from ${listSchedulesToolName} and the new action text or the new local due time. When the Owner wants to cancel one, call ${cancelScheduleToolName} with its id. Say that a Reminder is changed or cancelled only after the tool succeeded. When a tool says that no active Reminder has that id, say that nothing was changed. Never guess an id.`,
     `For a repeating Reminder, such as "every Monday at 9", "every day at 8", or "on the last day of each month", call ${setScheduleToolName} with repeat and no localDueTime. The rule is Daily, Weekly (with weekdays), or Monthly (a day from 1 to 31, or "last"), and a local time as HH:mm. Say how it repeats and give the local weekday, date, and time of the first due time that the tool returned. Another rule, such as every 2 weeks or every year, does not work yet: say so, and offer the nearest rule that works. A repeating Reminder stays active after it is sent. ${listSchedulesToolName} shows its rule. When the Owner moves to a new time zone, the repeating Reminders keep their local time in the new time zone.`,
     `When the Owner says where they live or gives their time zone, call ${setTimeZoneToolName} with the IANA time zone name, and say what you set only after it succeeded. When it fails, say that you could not set it.`,
+    `When the Owner asks about their Quiet Hours, call ${quietHoursToolName} with no input and answer from the result. When the Owner says when you may or may not message them, such as "don't message me before 9", call ${quietHoursToolName} with both start and end in their local time, and keep the side that they did not name. Say what you set only after the tool succeeded.`,
     ...situation,
     behavior.textingStyle,
     profileSection(profile),

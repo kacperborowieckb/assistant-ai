@@ -7,6 +7,7 @@ import { journalEntries } from "../personal-agent/storage-schema.ts";
 import {
   noteChanges,
   openLoopClosedReasons,
+  proactiveHoldReasons,
   ownerPreferenceKeys,
   profileEntryKinds,
 } from "../personal-agent/storage-values.ts";
@@ -69,6 +70,13 @@ export const JournalRecordSchema = Schema.TaggedUnion({
     tokensSpent: Schema.Number,
   },
   BriefCreated: { eventId: Schema.String, scheduleId: Schema.String },
+  ProactiveMessageHeld: {
+    eventId: Schema.String,
+    scheduleId: Schema.String,
+    fromDueAt: Schema.String,
+    toDueAt: Schema.String,
+    reason: Schema.Literals(proactiveHoldReasons),
+  },
   ScheduleCompleted: { eventId: Schema.String, scheduleId: Schema.String },
   ScheduleRescheduled: {
     eventId: Schema.String,
@@ -142,7 +150,15 @@ const makeJournal = (ownerId: OwnerId) =>
         .limit(1)
         .pipe(Effect.map((rows) => rows.length > 0));
 
-    return { append, read, readForEvent, hasEntryOfKind };
+    const readOfKind = (kind: JournalRecord["_tag"]) =>
+      database
+        .select()
+        .from(journalEntries)
+        .where(eq(journalEntries.kind, kind))
+        .orderBy(asc(journalEntries.sequence))
+        .pipe(Effect.map((rows) => rows.map(toJournalEntry)));
+
+    return { append, read, readForEvent, hasEntryOfKind, readOfKind };
   });
 
 export class Journal extends Context.Service<

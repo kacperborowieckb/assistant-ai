@@ -2,11 +2,13 @@ import { DateTime, Effect, Option } from "effect";
 
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import type { OwnerId } from "../owner-id.ts";
+import { decideProactiveMessage } from "../proactive/proactive-gate.ts";
 import { ProactiveMessages } from "../proactive/proactive-messages.ts";
 import type { Schedule } from "../schedule/schedule.ts";
 import { Schedules } from "../schedule/schedules.ts";
 import { deliveryStateOf, honestFailureText } from "./delivery.ts";
 import type { DeliveryState } from "./delivery.ts";
+import { holdProactiveMessage } from "./fired-hold.ts";
 import {
   recordProactiveMessageSent,
   runProactiveMessage,
@@ -126,6 +128,12 @@ export const handleFiredSchedule = Effect.fnUntraced(
     if (Option.isNone(schedule) || !isStillDue(schedule.value, event)) {
       yield* inbox.markDone([event]);
       return;
+    }
+    if (schedule.value.setBy === "agent") {
+      const decision = yield* decideProactiveMessage(behavior);
+      if (decision._tag === "Hold") {
+        return yield* holdProactiveMessage({ event, ...decision });
+      }
     }
     const { action } = schedule.value;
     switch (action._tag) {
