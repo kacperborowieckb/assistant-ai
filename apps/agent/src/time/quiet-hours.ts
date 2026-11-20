@@ -32,3 +32,8 @@ export const endOfQuietHours = (
     ? Option.some(nextEnd)
     : Option.none();
 };
+
+export const quietHoursText = ({ start, end }: QuietHours) => `${start}-${end}`;
+
+export const sameQuietHours = (left: QuietHours, right: QuietHours) =>
+  left.start === right.start && left.end === right.end;

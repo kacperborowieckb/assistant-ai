@@ -17,7 +17,7 @@ interface BriefRequest {
   readonly eventId: string;
 }
 
-const briefScheduleIdOf = Effect.fnUntraced(function* briefScheduleIdOf(
+export const briefScheduleIdOf = Effect.fnUntraced(function* briefScheduleIdOf(
   services: BriefServices
 ) {
   const { schedules, journal } = services;
@@ -98,3 +98,16 @@ export const ensureBrief = Effect.fnUntraced(function* ensureBrief(
     scheduleId: schedule.scheduleId,
   });
 });
+
+export const activeBriefScheduleId = Effect.fnUntraced(
+  function* activeBriefScheduleId(services: BriefServices) {
+    const scheduleId = yield* briefScheduleIdOf(services);
+    if (Option.isNone(scheduleId)) {
+      return Option.none<string>();
+    }
+    const brief = yield* services.schedules.byId(scheduleId.value);
+    return Option.isSome(brief) && brief.value.state === "active"
+      ? scheduleId
+      : Option.none<string>();
+  }
+);

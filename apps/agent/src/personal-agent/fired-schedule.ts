@@ -145,7 +145,7 @@ export const handleFiredSchedule = Effect.fnUntraced(
     if (schedule.value.setBy === "agent") {
       const decision = yield* decideProactiveMessage(behavior, schedule.value);
       if (decision._tag === "FoldIntoBrief") {
-        return yield* foldProactiveMessage({ event, ...decision });
+        return yield* foldProactiveMessage({ ownerId, event, ...decision });
       }
       if (decision._tag === "Hold") {
         return yield* holdProactiveMessage({ event, ...decision });

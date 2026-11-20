@@ -86,6 +86,8 @@ const ProactiveFoldTraceBodySchema = Schema.Struct({
   dueAt: Schema.String,
   openLoopIds: Schema.Array(Schema.String),
   reason: Schema.Literals(proactiveFoldReasons),
+  budget: Schema.optionalKey(Schema.Number),
+  used: Schema.optionalKey(Schema.Number),
 });
 
 const ScheduledTaskSkipTraceBodySchema = Schema.Struct({

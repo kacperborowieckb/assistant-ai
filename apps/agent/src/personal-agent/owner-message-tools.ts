@@ -6,6 +6,10 @@ import type { NoteToolServices } from "../notes/note-tool-services.ts";
 import { noteToolsFor } from "../notes/note-tools.ts";
 import { OwnerPreferences } from "../preferences/owner-preferences.ts";
 import {
+  proactiveMessageBudgetTool,
+  proactiveMessageBudgetToolName,
+} from "../preferences/proactive-message-budget-tool.ts";
+import {
   quietHoursTool,
   quietHoursToolName,
 } from "../preferences/quiet-hours-tool.ts";
@@ -144,6 +148,15 @@ export const ownerMessageTools = (
               progress,
               redactor,
               defaultQuietHours: behavior.quietHours,
+            },
+            event.eventId
+          ),
+          [proactiveMessageBudgetToolName]: proactiveMessageBudgetTool(
+            {
+              preferences,
+              progress,
+              redactor,
+              defaultSends: behavior.proactiveMessageBudget,
             },
             event.eventId
           ),

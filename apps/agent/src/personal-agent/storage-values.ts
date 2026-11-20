@@ -16,6 +16,7 @@ export const ownerPreferenceKeys = [
   "time_zone",
   "quiet_hours",
   "muted_proactive_messages",
+  "proactive_message_budget",
 ] as const;
 
 export const ownerPreferenceSources = ["owner"] as const;
@@ -32,6 +33,7 @@ export const turnResults = [
   "proactive_message_failed",
   "proactive_message_held",
   "proactive_message_folded",
+  "proactive_message_skipped",
 ] as const;
 
 export const scheduleActions = ["send_text", "run_prompt"] as const;
@@ -56,7 +58,11 @@ export const proactiveOutcomes = [
 
 export const proactiveHoldReasons = ["quiet_hours"] as const;
 
-export const proactiveFoldReasons = ["muted"] as const;
+export const proactiveFoldReasons = [
+  "muted",
+  "message_budget",
+  "token_budget",
+] as const;
 
 export const proactiveMuteChanges = ["muted", "unmuted"] as const;
 

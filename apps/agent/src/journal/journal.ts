@@ -86,6 +86,12 @@ export const JournalRecordSchema = Schema.TaggedUnion({
     openLoopIds: Schema.Array(Schema.String),
     reason: Schema.Literals(proactiveFoldReasons),
   },
+  ProactiveMessageSkipped: {
+    eventId: Schema.String,
+    scheduleId: Schema.String,
+    openLoopIds: Schema.Array(Schema.String),
+    reason: Schema.Literals(proactiveFoldReasons),
+  },
   ProactiveMessagePlanned: { eventId: Schema.String },
   ProactiveMuteChanged: {
     eventId: Schema.String,
