@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 
 import { Channel } from "../channels/channel.ts";
+import type { OutgoingReaction as Reaction } from "../channels/channel.ts";
 import { Journal } from "../journal/journal.ts";
 import type { JournalEntry } from "../journal/journal.ts";
 import { OperatorMetrics } from "../tracing/operator-metrics.ts";
@@ -37,7 +38,7 @@ export type DeliveryState =
       readonly reason: string;
     }
   | { readonly _tag: "Unconfirmed"; readonly text: string | undefined }
-  | { readonly _tag: "ReactionUnconfirmed"; readonly emoji: string }
+  | { readonly _tag: "ReactionUnconfirmed"; readonly reaction: Reaction }
   | {
       readonly _tag: "SendFailureRecorded";
       readonly text: string | undefined;
@@ -145,7 +146,7 @@ export const deliveryStateOfEntries = (
   }
   return reaction === undefined
     ? { _tag: "Unconfirmed", text: planned?.text }
-    : { _tag: "ReactionUnconfirmed", emoji: reaction.emoji };
+    : { _tag: "ReactionUnconfirmed", reaction };
 };
 
 export const deliveryStateOf = (eventId: string) =>

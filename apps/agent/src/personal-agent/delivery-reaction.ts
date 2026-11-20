@@ -1,7 +1,10 @@
 import { Effect } from "effect";
 
 import { Channel } from "../channels/channel.ts";
-import type { ReactionDelivery } from "../channels/channel.ts";
+import type {
+  OutgoingReaction,
+  ReactionDelivery,
+} from "../channels/channel.ts";
 import { Journal } from "../journal/journal.ts";
 import { Redactor } from "../tracing/redactor.ts";
 import { recordSend } from "./delivery-send.ts";
@@ -28,22 +31,10 @@ const recordReactionFailure = Effect.fnUntraced(function* recordReactionFailure(
 
 const attemptReaction = Effect.fnUntraced(function* attemptReaction(
   event: InboxEvent,
-  emoji: string,
-  replyTo: InboxEvent
+  reaction: OutgoingReaction
 ) {
   const channel = yield* Channel;
-
-  if (replyTo._tag !== "OwnerMessage") {
-    return yield* recordReactionFailure(event, noReactionTargetReason);
-  }
-  return yield* recordSend(
-    event,
-    channel.react({
-      conversationId: replyTo.conversationId,
-      channelMessageId: replyTo.channelMessageId,
-      emoji,
-    })
-  );
+  return yield* recordSend(event, channel.react(reaction));
 });
 
 const settledReaction = (event: InboxEvent, delivery: ReactionDelivery) =>
@@ -53,10 +44,9 @@ const settledReaction = (event: InboxEvent, delivery: ReactionDelivery) =>
 
 export const sendReaction = Effect.fnUntraced(function* sendReaction(
   event: InboxEvent,
-  emoji: string,
-  replyTo: InboxEvent = event
+  reaction: OutgoingReaction
 ) {
-  const delivery = yield* attemptReaction(event, emoji, replyTo);
+  const delivery = yield* attemptReaction(event, reaction);
   return yield* settledReaction(event, delivery);
 });
 
@@ -67,15 +57,23 @@ export const react = Effect.fnUntraced(function* react(
 ) {
   const journal = yield* Journal;
 
+  if (replyTo._tag !== "OwnerMessage") {
+    return yield* recordReactionFailure(event, noReactionTargetReason);
+  }
+  const reaction = {
+    conversationId: replyTo.conversationId,
+    channelMessageId: replyTo.channelMessageId,
+    emoji,
+  };
   yield* journal.append({
     _tag: "ReactionPlanned",
     eventId: event.eventId,
-    emoji,
+    ...reaction,
   });
-  const first = yield* attemptReaction(event, emoji, replyTo);
+  const first = yield* attemptReaction(event, reaction);
   const delivery =
     first._tag === "Unconfirmed"
-      ? yield* attemptReaction(event, emoji, replyTo)
+      ? yield* attemptReaction(event, reaction)
       : first;
   return yield* settledReaction(event, delivery);
 });

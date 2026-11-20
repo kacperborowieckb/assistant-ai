@@ -118,11 +118,7 @@ const settleState = Effect.fnUntraced(function* settleState<
       return "settled" as const;
     }
     case "ReactionUnconfirmed": {
-      const delivery = yield* sendReaction(
-        event,
-        state.emoji,
-        recovery.replyTo
-      );
+      const delivery = yield* sendReaction(event, state.reaction);
       yield* delivery._tag === "Failed"
         ? fail(event, delivery.reason)
         : inbox.markDone([event]);

@@ -134,6 +134,8 @@ describe("the Delivery state of an Event", () => {
       _tag: "ReactionPlanned",
       eventId,
       emoji: "✍",
+      conversationId: "6100",
+      channelMessageId: "91",
     };
 
     expect(stateAfter(reaction, planned, started)).toEqual({
@@ -148,7 +150,7 @@ describe("the Delivery state of an Event", () => {
     });
     expect(stateAfter(planned, reaction, started)).toEqual({
       _tag: "ReactionUnconfirmed",
-      emoji: "✍",
+      reaction,
     });
     expect(stateAfter(planned, reaction, started, sent)).toEqual({
       _tag: "Sent",

@@ -143,6 +143,18 @@ const storeOwnerMessages = ({
     })
   );
 
+const plannedReaction = (
+  eventId: string,
+  telegramUserId: number,
+  channelMessageId = "91"
+): JournalRecord => ({
+  _tag: "ReactionPlanned",
+  eventId,
+  emoji: "✍",
+  conversationId: String(telegramUserId),
+  channelMessageId,
+});
+
 const runTurn = async (ownerId: string) =>
   runInDurableObject(await agentOf(ownerId), (instance) => instance.runTurn());
 
@@ -282,7 +294,7 @@ describe("One outcome for each Event: a reaction", () => {
       telegramUserId: 6206,
       texts: ["buy milk"],
       records: ([eventId = ""]) => [
-        { _tag: "ReactionPlanned", eventId, emoji: "✍" },
+        plannedReaction(eventId, 6206),
         { _tag: "SendStarted", eventId },
       ],
     });
@@ -308,6 +320,25 @@ describe("One outcome for each Event: a reaction", () => {
     expect(fakeTelegram.reactions).toHaveLength(1);
   });
 
+  it("sends an unconfirmed reaction again on its planned message after a reset, even when a newer Owner message is pending", async () => {
+    const ownerId = await addOwner(6218);
+    await storeOwnerMessages({
+      ownerId,
+      telegramUserId: 6218,
+      texts: ["buy milk", "and eggs"],
+      records: ([eventId = ""]) => [
+        plannedReaction(eventId, 6218),
+        { _tag: "SendStarted", eventId },
+      ],
+    });
+
+    await runTurn(ownerId);
+
+    expect(fakeTelegram.reactions).toMatchObject([
+      { chatId: 6218, messageId: 91, emoji: "✍" },
+    ]);
+  });
+
   it("marks the Event failed when the reaction sent again after a reset is refused", async () => {
     const ownerId = await addOwner(6207);
     await storeOwnerMessages({
@@ -315,7 +346,7 @@ describe("One outcome for each Event: a reaction", () => {
       telegramUserId: 6207,
       texts: ["buy milk"],
       records: ([eventId = ""]) => [
-        { _tag: "ReactionPlanned", eventId, emoji: "✍" },
+        plannedReaction(eventId, 6207),
         { _tag: "SendStarted", eventId },
       ],
     });
@@ -368,7 +399,7 @@ describe("One outcome for each Event: a reaction", () => {
       telegramUserId: 6217,
       texts: ["buy milk"],
       records: ([eventId = ""]) => [
-        { _tag: "ReactionPlanned", eventId, emoji: "✍" },
+        plannedReaction(eventId, 6217),
         { _tag: "SendStarted", eventId },
       ],
     });
