@@ -1,11 +1,11 @@
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { noTools } from "../model-gateway/agent-tool.ts";
 import type { AgentTools } from "../model-gateway/agent-tool.ts";
 import type { OwnerId } from "../owner-id.ts";
-import type { ProactiveMessages } from "../proactive/proactive-messages.ts";
-import type { OperatorMetrics } from "../tracing/operator-metrics.ts";
+import { ProactiveMessages } from "../proactive/proactive-messages.ts";
+import type { RecordedOutcome } from "../proactive/proactive-outcomes.ts";
 import { whileAcknowledging } from "./acknowledge.ts";
 import { agentToolServices } from "./agent-tool-services.ts";
 import {
@@ -24,6 +24,7 @@ import { handleFiredSchedule } from "./fired-schedule.ts";
 import { Inbox } from "./inbox.ts";
 import { runModelTurn } from "./model-turn.ts";
 import {
+  recordOutcomeMetric,
   recordOutcomeOfConnectedTurn,
   recordOutcomesOfFinishedTurns,
 } from "./outcome-records.ts";
@@ -37,12 +38,18 @@ interface TurnSettings {
   readonly tools: AgentTools;
 }
 
-const settleSilentBurst = (ownerId: OwnerId, burst: Burst) =>
+const settleSilentBurst = (burst: Burst, recorded: RecordedOutcome[]) =>
   Effect.gen(function* settleSilentBurstEffect() {
     const inbox = yield* Inbox;
+    const proactiveMessages = yield* ProactiveMessages;
     yield* inbox.markDone(burst.slice(1));
     for (const event of burst) {
-      yield* recordOutcomeOfConnectedTurn(ownerId, event.eventId);
+      const outcome = yield* proactiveMessages.recordOutcomeOfConnectedTurn(
+        event.eventId
+      );
+      if (Option.isSome(outcome)) {
+        recorded.push(outcome.value);
+      }
     }
   });
 
@@ -55,9 +62,8 @@ const answer = (
   const replyTo = newestEventOf(burst);
   return Effect.gen(function* answerEffect() {
     const toolServices = yield* agentToolServices;
-    const silenceServices = yield* Effect.context<
-      Inbox | ProactiveMessages | OperatorMetrics
-    >();
+    const silenceServices = yield* Effect.context<Inbox | ProactiveMessages>();
+    const settledBySilence: RecordedOutcome[] = [];
     const preparation = yield* connectedProactivePreparation(behavior, burst);
     const ownerTools = ownerMessageTools(burst, { ...toolServices, behavior });
 
@@ -79,12 +85,15 @@ const answer = (
           ],
         }),
         traceOf: (model) => traceOf({ event, ...model }),
-        whenSilent: settleSilentBurst(ownerId, burst).pipe(
+        whenSilent: settleSilentBurst(burst, settledBySilence).pipe(
           Effect.provideContext(silenceServices)
         ),
         whenFailed: (reason) => failWithNotice(event, reason, replyTo),
       },
     });
+    for (const recorded of settledBySilence) {
+      yield* recordOutcomeMetric(ownerId, recorded);
+    }
   }).pipe(
     whileAcknowledging(replyTo.conversationId, behavior.typingRepeatMillis)
   );
