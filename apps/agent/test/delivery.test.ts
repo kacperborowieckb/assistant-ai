@@ -156,6 +156,9 @@ const testChannel = Layer.succeed(Channel, {
     sentTexts.push(message.text);
     return answer.next === "never" ? Effect.never : Effect.succeed(answer.next);
   },
+  react: () =>
+    answer.next === "never" ? Effect.never : Effect.succeed(answer.next),
+  allowedReaction: (emoji) => emoji,
   showTyping: () => Effect.void,
 });
 

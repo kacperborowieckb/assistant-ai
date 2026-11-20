@@ -36,7 +36,7 @@ export const turnResults = [
   "proactive_message_skipped",
 ] as const;
 
-export const outcomeKinds = ["reply", "silent"] as const;
+export const outcomeKinds = ["reply", "reaction", "silent"] as const;
 
 export type OutcomeKind = (typeof outcomeKinds)[number];
 

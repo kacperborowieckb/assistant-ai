@@ -1,6 +1,7 @@
 import type { JSONValue, ModelMessage } from "ai";
 import { Effect } from "effect";
 
+import { Channel } from "../channels/channel.ts";
 import type { AgentTools } from "../model-gateway/agent-tool.ts";
 import { ModelGateway } from "../model-gateway/model-gateway.ts";
 import type { ModelRequest } from "../model-gateway/model-gateway.ts";
@@ -11,16 +12,25 @@ import type {
 import { ModelUnavailable } from "../model-gateway/model-unavailable.ts";
 import { StepLimitReached } from "../model-gateway/step-limit-reached.ts";
 import { sumUsage } from "../model-gateway/usage-ledger.ts";
+import { refusalOfOutcomeTool } from "./outcome-refusal.ts";
 import {
-  refusalOfOutcomeTool,
-  silenceAcceptedOutput,
-} from "./stay-silent-tool.ts";
+  reactToolName,
+  reactionAcceptedOutput,
+  reactionFor,
+  requestedEmojiOf,
+} from "./react-tool.ts";
+import { silenceAcceptedOutput } from "./stay-silent-tool.ts";
 import type { OutcomeKind } from "./storage-values.ts";
-import type { ModelFailure, ModelOutcome } from "./turn-record.ts";
+import type {
+  ModelFailure,
+  ModelOutcome,
+  ReactionOutcome,
+} from "./turn-record.ts";
 
 export interface DecidedOutcome {
   readonly outcome: ModelOutcome;
   readonly kind: OutcomeKind | undefined;
+  readonly reaction?: ReactionOutcome;
   readonly refusedOutcomeTools: readonly string[];
 }
 
@@ -103,6 +113,7 @@ interface OutcomeGeneration {
   readonly earlierMessages: readonly ModelMessage[];
   readonly request: ModelRequest;
   readonly tools: AgentTools;
+  readonly defaultReaction: string;
 }
 
 export const generateWithOutcomeTools = Effect.fnUntraced(
@@ -111,8 +122,10 @@ export const generateWithOutcomeTools = Effect.fnUntraced(
     earlierMessages,
     request,
     tools,
+    defaultReaction,
   }: OutcomeGeneration) {
     const modelGateway = yield* ModelGateway;
+    const channel = yield* Channel;
     let earlier: readonly ModelStep[] = [];
     const refused: string[] = [];
 
@@ -150,7 +163,8 @@ export const generateWithOutcomeTools = Effect.fnUntraced(
       const steps = [...earlier, ...reply.steps];
       const replied = (
         finalSteps: readonly ModelStep[],
-        kind: OutcomeKind
+        kind: OutcomeKind,
+        reaction?: ReactionOutcome
       ): DecidedOutcome => ({
         outcome: {
           _tag: "Replied",
@@ -161,11 +175,23 @@ export const generateWithOutcomeTools = Effect.fnUntraced(
           },
         },
         kind,
+        ...(reaction === undefined ? {} : { reaction }),
         refusedOutcomeTools: refused,
       });
       const calls = reply.endedWith;
       if (calls.length === 0) {
-        return replied(steps, "reply");
+        const reactionAllowed =
+          reply.text.trim().length === 0 &&
+          (yield* refusalOfOutcomeTool({
+            eventId,
+            name: reactToolName,
+            steps,
+            earlierMessages,
+            tools,
+          })) === undefined;
+        return reactionAllowed
+          ? replied(steps, "reaction", { emoji: defaultReaction })
+          : replied(steps, "reply");
       }
       const refusals: readonly (string | undefined)[] = yield* Effect.all(
         calls.map((call) =>
@@ -180,13 +206,30 @@ export const generateWithOutcomeTools = Effect.fnUntraced(
       );
       const refusal = refusals.find((found) => found !== undefined);
       if (refusal === undefined) {
+        const requested = requestedEmojiOf(calls);
+        if (requested === undefined) {
+          return replied(
+            closeLastStep(steps, {
+              calls,
+              output: silenceAcceptedOutput,
+              refused: false,
+            }),
+            "silent"
+          );
+        }
+        const reaction = reactionFor(
+          requested,
+          channel.allowedReaction,
+          defaultReaction
+        );
         return replied(
           closeLastStep(steps, {
             calls,
-            output: silenceAcceptedOutput,
+            output: reactionAcceptedOutput(reaction.emoji),
             refused: false,
           }),
-          "silent"
+          "reaction",
+          reaction
         );
       }
       refused.push(...calls.map((call) => call.name));

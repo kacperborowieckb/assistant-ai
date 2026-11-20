@@ -297,6 +297,7 @@ describe("a Brief that fires", () => {
     expect((call.tools ?? []).map((tool) => tool.name)).not.toContain(
       "stay_silent"
     );
+    expect((call.tools ?? []).map((tool) => tool.name)).not.toContain("react");
   });
 
   it("records the Proactive Message, the Trace, the Usage, the metric, and moves the Brief to the next day", async () => {

@@ -5,10 +5,10 @@ import { Journal } from "../journal/journal.ts";
 import type { JournalEntry } from "../journal/journal.ts";
 import { OperatorMetrics } from "../tracing/operator-metrics.ts";
 import type { OperatorMetric } from "../tracing/operator-metrics.ts";
-import { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
 import type { TurnTrace } from "../tracing/turn-trace.ts";
 import { Conversation } from "./conversation.ts";
+import { recordSend } from "./delivery-send.ts";
 import { Inbox } from "./inbox.ts";
 import type { InboxEvent } from "./inbox.ts";
 import { OwnerChannelConversation } from "./owner-channel-conversation.ts";
@@ -28,6 +28,7 @@ export type DeliveryState =
   | {
       readonly _tag: "Sent";
       readonly text: string | undefined;
+      readonly reaction: string | undefined;
       readonly channelMessageId: string;
     }
   | {
@@ -36,6 +37,7 @@ export type DeliveryState =
       readonly reason: string;
     }
   | { readonly _tag: "Unconfirmed"; readonly text: string | undefined }
+  | { readonly _tag: "ReactionUnconfirmed"; readonly emoji: string }
   | {
       readonly _tag: "SendFailureRecorded";
       readonly text: string | undefined;
@@ -72,7 +74,9 @@ const failedStateOf = (entries: readonly JournalEntry[]): DeliveryState => {
   const sendFailed = lastOf(entries, "ReplyFailed");
   const turnFailed = lastOf(entries, "TurnFailed");
   const firstPlanned = entries.find(
-    (entry) => entry.record._tag === "ReplyPlanned"
+    (entry) =>
+      entry.record._tag === "ReplyPlanned" ||
+      entry.record._tag === "ReactionPlanned"
   );
   const lastTurnFailed = entries.findLast(
     (entry) => entry.record._tag === "TurnFailed"
@@ -104,6 +108,7 @@ export const deliveryStateOfEntries = (
   const hasTag = (tag: JournalEntry["record"]["_tag"]) =>
     entries.some((entry) => entry.record._tag === tag);
   const planned = lastOf(entries, "ReplyPlanned");
+  const reaction = lastOf(entries, "ReactionPlanned");
   const sent = lastOf(entries, "ReplySent");
   const sendFailed = lastOf(entries, "ReplyFailed");
 
@@ -117,6 +122,7 @@ export const deliveryStateOfEntries = (
     return {
       _tag: "Sent",
       text: planned?.text,
+      reaction: reaction?.emoji,
       channelMessageId: sent.channelMessageId,
     };
   }
@@ -127,9 +133,12 @@ export const deliveryStateOfEntries = (
       reason: sendFailed.reason,
     };
   }
-  return hasTag("SendStarted")
+  if (!hasTag("SendStarted")) {
+    return { _tag: "Unsent" };
+  }
+  return reaction === undefined
     ? { _tag: "Unconfirmed", text: planned?.text }
-    : { _tag: "Unsent" };
+    : { _tag: "ReactionUnconfirmed", emoji: reaction.emoji };
 };
 
 export const deliveryStateOf = (eventId: string) =>
@@ -161,7 +170,6 @@ export const send = Effect.fnUntraced(function* send(
 ) {
   const journal = yield* Journal;
   const channel = yield* Channel;
-  const redactor = yield* Redactor;
 
   yield* journal.append({
     _tag: "ReplyPlanned",
@@ -177,24 +185,7 @@ export const send = Effect.fnUntraced(function* send(
     });
     return { _tag: "Failed", reason: noOwnerConversationReason } as const;
   }
-  yield* journal.append({ _tag: "SendStarted", eventId: event.eventId });
-  const delivery = yield* channel.send({ ...destination, text });
-
-  if (delivery._tag === "Failed") {
-    const reason = redactor.redact(delivery.reason);
-    yield* journal.append({
-      _tag: "ReplyFailed",
-      eventId: event.eventId,
-      reason,
-    });
-    return { _tag: "Failed", reason } as const;
-  }
-  yield* journal.append({
-    _tag: "ReplySent",
-    eventId: event.eventId,
-    channelMessageId: delivery.channelMessageId,
-  });
-  return delivery;
+  return yield* recordSend(event, channel.send({ ...destination, text }));
 });
 
 const appendEntry = (record: JournalEntry["record"]) =>

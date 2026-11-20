@@ -7,6 +7,7 @@ import type { OutcomeKind } from "../personal-agent/storage-values.ts";
 
 export const turnMetricResults = [
   "replied",
+  "reacted",
   "silent",
   "model_failed",
   "send_failed",

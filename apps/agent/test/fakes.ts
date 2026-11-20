@@ -14,6 +14,13 @@ export interface SentTelegramMessage {
   };
 }
 
+export interface TelegramReaction {
+  readonly chatId: number;
+  readonly messageId: number;
+  readonly emoji: string;
+  readonly chatActionsBefore: number;
+}
+
 export type TelegramAnswer = "confirm" | "refuse" | "lose-confirmation";
 
 export interface TelegramChatAction {
@@ -26,6 +33,7 @@ export type ChatActionAnswer = "confirm" | "refuse" | "hang" | "hang-first";
 
 const fakeTelegramState = {
   sent: [] as SentTelegramMessage[],
+  reactions: [] as TelegramReaction[],
   answer: "confirm" as TelegramAnswer,
   chatActions: [] as TelegramChatAction[],
   chatActionAnswer: "confirm" as ChatActionAnswer,
@@ -56,9 +64,39 @@ const answerChatAction = async (request: Request) => {
   return Response.json({ ok: true, result: true });
 };
 
+const answerReaction = async (request: Request) => {
+  const body = await request.json<{
+    chat_id: number;
+    message_id: number;
+    reaction: readonly { readonly emoji: string }[];
+  }>();
+  fakeTelegramState.reactions.push({
+    chatId: body.chat_id,
+    messageId: body.message_id,
+    emoji: body.reaction.map((reaction) => reaction.emoji).join(""),
+    chatActionsBefore: fakeTelegramState.chatActions.length,
+  });
+  if (fakeTelegramState.sendDelayMillis > 0) {
+    await scheduler.wait(fakeTelegramState.sendDelayMillis);
+  }
+  if (fakeTelegramState.answer === "lose-confirmation") {
+    throw new TypeError("The connection dropped before Telegram answered");
+  }
+  if (fakeTelegramState.answer === "refuse") {
+    return Response.json(
+      { ok: false, description: "Bad Request: REACTION_INVALID" },
+      { status: 400 }
+    );
+  }
+  return Response.json({ ok: true, result: true });
+};
+
 export const fakeTelegram = {
   get sent(): readonly SentTelegramMessage[] {
     return fakeTelegramState.sent;
+  },
+  get reactions(): readonly TelegramReaction[] {
+    return fakeTelegramState.reactions;
   },
   get chatActions(): readonly TelegramChatAction[] {
     return fakeTelegramState.chatActions;
@@ -82,6 +120,9 @@ export const fakeTelegram = {
     const request = new Request(input, init);
     if (request.url.endsWith("/sendChatAction")) {
       return answerChatAction(request);
+    }
+    if (request.url.endsWith("/setMessageReaction")) {
+      return answerReaction(request);
     }
     fakeTelegramState.chatActionsAtSends.push(
       fakeTelegramState.chatActions.length
@@ -277,6 +318,7 @@ export const resetFakes = () => {
   recordedDataPoints.length = 0;
   metricsState.failing = false;
   fakeTelegramState.sent = [];
+  fakeTelegramState.reactions = [];
   fakeTelegramState.answer = "confirm";
   fakeTelegramState.chatActions = [];
   fakeTelegramState.chatActionAnswer = "confirm";

@@ -1,6 +1,7 @@
 import { Data, Effect, Option } from "effect";
 
 import type { FakeTelegramChatAction } from "./fake-chat-actions.ts";
+import type { FakeTelegramReaction } from "./fake-reaction.ts";
 import { startLocalFakes } from "./local-fakes.ts";
 import type { FakeModelCall, FakeTelegramMessage } from "./local-fakes.ts";
 import { startLocalWorker, temporarySecrets } from "./local-worker.ts";
@@ -55,6 +56,51 @@ const stayedSilentOn = (
   modelCalls
     .findLast((call) => call.lastUserMessage === message)
     ?.toolCalls.includes(staySilentToolName) === true;
+
+const reactionOn = (
+  reactions: readonly FakeTelegramReaction[],
+  messageId: number
+) => reactions.findLast((reaction) => reaction.messageId === messageId);
+
+interface AnswerWithoutText {
+  readonly calls: readonly FakeModelCall[];
+  readonly message: string;
+  readonly reactions: readonly FakeTelegramReaction[];
+  readonly messageId: number;
+}
+
+const answeredWithoutText = ({
+  calls,
+  message,
+  reactions,
+  messageId,
+}: AnswerWithoutText) =>
+  stayedSilentOn(calls, message) ||
+  reactionOn(reactions, messageId) !== undefined;
+
+const renderAnswerWithoutText = ({
+  calls,
+  message,
+  reactions,
+  messageId,
+  chatActions,
+}: AnswerWithoutText & {
+  readonly chatActions: readonly FakeTelegramChatAction[];
+}) => {
+  const reaction = reactionOn(reactions, messageId);
+  if (reaction !== undefined) {
+    return [
+      renderChatActions(chatActions, "the reaction"),
+      `Telegram setMessageReaction on message ${reaction.messageId} in chat ${reaction.chatId}: "${reaction.emoji}"`,
+    ];
+  }
+  return stayedSilentOn(calls, message)
+    ? [
+        renderChatActions(chatActions, "the silence"),
+        `No Telegram send for the message "${message}": the agent stayed silent (${staySilentToolName})`,
+      ]
+    : undefined;
+};
 
 export const requestReply = ({
   messages,
@@ -111,24 +157,30 @@ export const requestReply = ({
           fakes.nextTelegramMessage.pipe(Effect.timeoutOption(timeout)),
         firstReplyTimeout: replyTimeout,
         nextPartTimeout,
-        stayedSilent: Effect.sync(() =>
-          stayedSilentOn(callsForMessage(), message)
+        answeredWithoutText: Effect.sync(() =>
+          answeredWithoutText({
+            calls: callsForMessage(),
+            message,
+            reactions: fakes.reactions(),
+            messageId: sampleMessageId + index + 1,
+          })
         ),
       });
       unprompted.push(...selection.unprompted);
       const [sent] = selection.replyParts;
       if (sent === undefined) {
-        if (!stayedSilentOn(callsForMessage(), message)) {
+        const withoutText = renderAnswerWithoutText({
+          calls: callsForMessage(),
+          message,
+          reactions: fakes.reactions(),
+          messageId: sampleMessageId + index + 1,
+          chatActions: fakes.chatActions().slice(chatActionsBefore),
+        });
+        if (withoutText === undefined) {
           return yield* new ReplyMissing({ contains, reply: "" });
         }
         replyParts = [];
-        lines.push(
-          renderChatActions(
-            fakes.chatActions().slice(chatActionsBefore),
-            "the silence"
-          ),
-          `No Telegram send for the message "${message}": the agent stayed silent (${staySilentToolName})`
-        );
+        lines.push(...withoutText);
         continue;
       }
       replyParts = selection.replyParts.map((part) => part.text);
@@ -146,7 +198,8 @@ export const requestReply = ({
         );
       }
       lines.push(
-        `Telegram sendMessage calls in total: ${fakes.sentTelegramMessages().length}`
+        `Telegram sendMessage calls in total: ${fakes.sentTelegramMessages().length}`,
+        `Telegram setMessageReaction calls in total: ${fakes.reactions().length}`
       );
       return lines.join("\n");
     }

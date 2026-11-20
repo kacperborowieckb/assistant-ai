@@ -38,6 +38,11 @@ export const modelFailureReason = (
       : `The model failed ${modelAttempts} times: ${String(error.cause)}`
   );
 
+export interface ReactionOutcome {
+  readonly emoji: string;
+  readonly requestedEmoji?: string;
+}
+
 export type ModelOutcome =
   | { readonly _tag: "Replied"; readonly reply: ModelReply }
   | { readonly _tag: "ModelFailed"; readonly error: ModelFailure };
@@ -91,8 +96,21 @@ export interface ModelTraceInput {
   readonly redactor: Redactor["Service"];
   readonly delivered?: boolean;
   readonly outcomeKind?: OutcomeKind | undefined;
+  readonly reaction?: ReactionOutcome | undefined;
   readonly refusedOutcomeTools?: readonly string[];
 }
+
+const traceOutcomeOf = (
+  outcomeKind: OutcomeKind | undefined,
+  reaction: ReactionOutcome | undefined
+): ReplyTurnTrace["outcome"] => {
+  if (outcomeKind === undefined) {
+    return null;
+  }
+  return outcomeKind === "reaction" && reaction !== undefined
+    ? { kind: outcomeKind, ...reaction }
+    : { kind: outcomeKind };
+};
 
 const modelTraceOf = ({
   system,
@@ -101,6 +119,7 @@ const modelTraceOf = ({
   modelLatencyMillis,
   redactor,
   outcomeKind,
+  reaction,
   refusedOutcomeTools = [],
 }: ModelTraceInput) => {
   const reasoningEffort =
@@ -117,7 +136,7 @@ const modelTraceOf = ({
     messages: messages.map((message) => redactor.redactMessage(message)),
     steps: traceStepsOf(outcome, redactor),
     modelLatencyMillis,
-    outcome: outcomeKind === undefined ? null : { kind: outcomeKind },
+    outcome: traceOutcomeOf(outcomeKind, reaction),
     refusedOutcomeTools: [...refusedOutcomeTools],
   } as const;
   if (outcome._tag === "Replied") {

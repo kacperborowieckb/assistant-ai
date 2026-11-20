@@ -16,13 +16,13 @@ export const selectReplyTo = Effect.fnUntraced(function* selectReplyTo({
   take,
   firstReplyTimeout,
   nextPartTimeout,
-  stayedSilent = Effect.succeed(false),
+  answeredWithoutText = Effect.succeed(false),
 }: {
   readonly inputMessageId: number;
   readonly take: TakeTelegramMessage;
   readonly firstReplyTimeout: Duration.Input;
   readonly nextPartTimeout: Duration.Input;
-  readonly stayedSilent?: Effect.Effect<boolean>;
+  readonly answeredWithoutText?: Effect.Effect<boolean>;
 }) {
   const replyParts: FakeTelegramMessage[] = [];
   const unprompted: FakeTelegramMessage[] = [];
@@ -31,14 +31,18 @@ export const selectReplyTo = Effect.fnUntraced(function* selectReplyTo({
   let waitedMillis = 0;
   for (;;) {
     const waitingForFirst = replyParts.length === 0;
-    const silentBefore = waitingForFirst && (yield* stayedSilent);
+    const answeredBefore = waitingForFirst && (yield* answeredWithoutText);
     const timeout = waitingForFirst
       ? Math.min(chunkMillis, firstReplyMillis - waitedMillis)
       : chunkMillis;
     const next = yield* take(Duration.millis(timeout));
     if (Option.isNone(next)) {
       waitedMillis += timeout;
-      if (waitingForFirst && !silentBefore && waitedMillis < firstReplyMillis) {
+      if (
+        waitingForFirst &&
+        !answeredBefore &&
+        waitedMillis < firstReplyMillis
+      ) {
         continue;
       }
       return { replyParts, unprompted } satisfies ReplySelection;

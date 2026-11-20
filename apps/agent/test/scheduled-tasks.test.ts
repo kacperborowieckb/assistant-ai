@@ -184,6 +184,7 @@ describe("the tools of a Scheduled Task Turn", () => {
       "search_notes",
     ]);
     expect(names).not.toContain("stay_silent");
+    expect(names).not.toContain("react");
   });
 
   it("creates no Schedule when the model asks for set_schedule", async () => {

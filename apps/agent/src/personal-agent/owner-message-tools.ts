@@ -49,6 +49,7 @@ import {
 import { ownerTimeZone } from "../time/owner-current-time.ts";
 import { trustLevelOfBurst, turnEventOf } from "./burst.ts";
 import type { Burst } from "./burst.ts";
+import { reactTool, reactToolName } from "./react-tool.ts";
 import { staySilentTool, staySilentToolName } from "./stay-silent-tool.ts";
 
 export interface OwnerMessageToolServices extends Omit<
@@ -184,6 +185,7 @@ export const ownerMessageTools = (
             eventId
           ),
           [staySilentToolName]: staySilentTool,
+          [reactToolName]: reactTool,
         }
       : {}),
   };

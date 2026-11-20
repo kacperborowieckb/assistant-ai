@@ -20,6 +20,7 @@ export const JournalRecordSchema = Schema.TaggedUnion({
   AnsweredByTurn: { eventId: Schema.String, turnEventId: Schema.String },
   TurnFailed: { eventId: Schema.String, reason: Schema.String },
   ReplyPlanned: { eventId: Schema.String, text: Schema.String },
+  ReactionPlanned: { eventId: Schema.String, emoji: Schema.String },
   SendStarted: { eventId: Schema.String },
   ReplySent: { eventId: Schema.String, channelMessageId: Schema.String },
   ReplyFailed: { eventId: Schema.String, reason: Schema.String },

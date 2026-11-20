@@ -7,6 +7,11 @@ import {
   telegramParts,
   telegramTextLimit,
 } from "../src/channels/telegram/telegram-channel.ts";
+import {
+  telegramCloseMatches,
+  telegramReactionFor,
+  telegramReactions,
+} from "../src/channels/telegram/telegram-reactions.ts";
 
 const fakeTelegramApi = (refuseFrom = Number.POSITIVE_INFINITY) => {
   const texts: string[] = [];
@@ -214,5 +219,98 @@ describe("Telegram typing signal", () => {
       _tag: "TypingNotShown",
       reason: "Telegram could not be reached",
     });
+  });
+});
+
+const reactWith = (
+  fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+) =>
+  Effect.runPromise(
+    Channel.pipe(
+      Effect.flatMap((channel) =>
+        channel.react({
+          conversationId: "1",
+          channelMessageId: "42",
+          emoji: "🔥",
+        })
+      ),
+      Effect.provide(
+        telegramChannel({
+          apiUrl: "https://telegram.fake",
+          botToken: "token",
+          fetch,
+        })
+      )
+    )
+  );
+
+describe("Telegram reaction", () => {
+  it("sets the emoji reaction on the message with setMessageReaction", async () => {
+    const requests: { url: string; body: unknown }[] = [];
+
+    const delivery = await reactWith(async (input, init) => {
+      const request = new Request(input, init);
+      requests.push({ url: request.url, body: await request.json() });
+      return Response.json({ ok: true, result: true });
+    });
+
+    expect(delivery).toEqual({ _tag: "Confirmed", channelMessageId: "42" });
+    expect(requests).toEqual([
+      {
+        url: "https://telegram.fake/bottoken/setMessageReaction",
+        body: {
+          chat_id: 1,
+          message_id: 42,
+          reaction: [{ type: "emoji", emoji: "🔥" }],
+        },
+      },
+    ]);
+  });
+
+  it("fails with the reason when Telegram refuses or cannot be reached", async () => {
+    const refused = await reactWith(() =>
+      Promise.resolve(
+        Response.json(
+          { ok: false, description: "Bad Request: REACTION_INVALID" },
+          { status: 400 }
+        )
+      )
+    );
+    const unreachable = await reactWith(() =>
+      Promise.reject(new TypeError("offline"))
+    );
+
+    expect(refused).toEqual({
+      _tag: "Failed",
+      reason:
+        "Telegram refused the reaction (400): Bad Request: REACTION_INVALID",
+    });
+    expect(unreachable).toEqual({
+      _tag: "Failed",
+      reason: "Telegram could not be reached",
+    });
+  });
+});
+
+describe("Telegram reaction list", () => {
+  it("keeps an allowed emoji and drops variation selectors and skin tones", () => {
+    expect(telegramReactionFor("🔥")).toBe("🔥");
+    expect(telegramReactionFor("✍️")).toBe("✍");
+    expect(telegramReactionFor("❤️")).toBe("❤");
+    expect(telegramReactionFor("👍🏽")).toBe("👍");
+  });
+
+  it("replaces an emoji that is not allowed with a close match, or gives nothing", () => {
+    expect(telegramReactionFor("✅")).toBe("👌");
+    expect(telegramReactionFor("😂")).toBe("🤣");
+    expect(telegramReactionFor("🦖")).toBeUndefined();
+    expect(telegramReactionFor("not an emoji")).toBeUndefined();
+  });
+
+  it("maps every close match to an allowed reaction", () => {
+    for (const [emoji, match] of telegramCloseMatches) {
+      expect(telegramReactions.has(emoji)).toBe(false);
+      expect(telegramReactions.has(match)).toBe(true);
+    }
   });
 });

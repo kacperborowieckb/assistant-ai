@@ -7,6 +7,7 @@ import { Redactor } from "../tracing/redactor.ts";
 import { burstInputs, newestEventOf } from "./burst.ts";
 import type { Burst } from "./burst.ts";
 import { Conversation } from "./conversation.ts";
+import { sendReaction } from "./delivery-reaction.ts";
 import {
   deliveryStateOfEntries,
   fail,
@@ -36,7 +37,11 @@ const recordConversation = Effect.fnUntraced(function* recordConversation(
       ? [{ role: "assistant", content: state.text } as const]
       : [];
 
-  if (state._tag === "Silent" || earlier.length + reply.length > 0) {
+  const endedWithoutText =
+    state._tag === "Silent" ||
+    state._tag === "ReactionUnconfirmed" ||
+    (state._tag === "Sent" && state.reaction !== undefined);
+  if (endedWithoutText || earlier.length + reply.length > 0) {
     yield* conversation.append(event.eventId, [
       ...(inputs ?? [yield* inputMessageOf(event)]).map((input) =>
         redactor.redactMessage(input)
@@ -110,6 +115,17 @@ const settleState = Effect.fnUntraced(function* settleState<
     }
     case "SendFailed": {
       yield* fail(event, state.reason);
+      return "settled" as const;
+    }
+    case "ReactionUnconfirmed": {
+      const delivery = yield* sendReaction(
+        event,
+        state.emoji,
+        recovery.replyTo
+      );
+      yield* delivery._tag === "Failed"
+        ? fail(event, delivery.reason)
+        : inbox.markDone([event]);
       return "settled" as const;
     }
     case "Unconfirmed": {
