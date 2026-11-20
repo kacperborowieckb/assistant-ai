@@ -320,7 +320,7 @@ describe("One outcome for each Event: a reaction", () => {
     expect(fakeTelegram.reactions).toHaveLength(1);
   });
 
-  it("sends an unconfirmed reaction again on its planned message after a reset, even when a newer Owner message is pending", async () => {
+  it("sends an unconfirmed reaction again on its planned message after a reset, and answers a newer Owner message in its own Turn", async () => {
     const ownerId = await addOwner(6218);
     await storeOwnerMessages({
       ownerId,
@@ -331,12 +331,16 @@ describe("One outcome for each Event: a reaction", () => {
         { _tag: "SendStarted", eventId },
       ],
     });
+    scriptModel([reactWith("👌")]);
 
     await runTurn(ownerId);
 
     expect(fakeTelegram.reactions).toMatchObject([
       { chatId: 6218, messageId: 91, emoji: "✍" },
+      { chatId: 6218, messageId: 92, emoji: "👌" },
     ]);
+    expect(fakeModel.doGenerateCalls).toHaveLength(1);
+    expect(await eventStates(ownerId)).toEqual(["done", "done"]);
   });
 
   it("marks the Event failed when the reaction sent again after a reset is refused", async () => {
