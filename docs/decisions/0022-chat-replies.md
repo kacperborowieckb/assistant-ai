@@ -13,7 +13,7 @@ Spec #119 (Chat replies), ticket #123. Builds on [0009](0009-agent-loop-and-clie
 - **Maximum wait.** The Turn starts no later than `burstMaxWaitMillis` after the first message of the Burst, so a steady stream of messages cannot delay the answer without end.
 - **One alarm.** The Personal Agent has one alarm. The Schedules store arms it at the earliest of the Schedule instants and the instant when the pending Burst is due. A Schedule that is due during the gap fires on time, while the Burst keeps waiting.
 - **Readiness from storage.** Whether a Burst is due comes from the stored `receivedAt` of the pending Owner messages and the Behavior Config. Nothing lives only in memory, so a Durable Object reset during the gap gives one outcome for the Burst when the alarm runs.
-- **Messages during a Turn.** A Turn that ends while Owner messages that arrived during it are due queues the next Turn at once. Option A (a later ticket) changes the case where they arrive before the send.
+- **Messages during a Turn.** A Turn that ends while a Burst it did not take is due (its messages arrived during the Turn, or were still in their Quiet Gap when the Turn started) queues the next Turn at once. Option A (a later ticket) changes the case where they arrive before the send.
 - **Backstop.** Once the Burst is due, the alarm is armed again one minute ahead until its Events leave the Inbox, so a Turn that stopped is tried again and the alarm never loops on it.
 - **Later value wins.** The system prompt says that a later message that changes a value replaces the earlier value ("actually Thursday, not Friday").
 - **Owner messages first.** Owner messages that are due still come before `ScheduleFired` Events in a Turn.

@@ -78,7 +78,7 @@ beforeEach(() => {
 });
 
 describe(
-  "A burst of Owner messages waits for a quiet gap",
+  "A Burst of Owner messages waits for its Quiet Gap",
   { timeout: 20_000 },
   () => {
     it("gives three messages within the gap one model call and one outcome on the newest, and a later message a second Turn", async () => {
@@ -194,7 +194,7 @@ describe(
       expect(fakeTelegram.chatActionsAtModelCalls[0]).toBeGreaterThanOrEqual(3);
     });
 
-    it("answers a message that arrived during a Turn once its quiet gap has passed, not a minute later", async () => {
+    it("answers a message that arrived during a Turn once its Quiet Gap has passed, not a minute later", async () => {
       const ownerId = await addOwner(13_107);
       waitBurst(300);
       const releaseModel = holdModel();
@@ -219,6 +219,49 @@ describe(
         )
       ).toEqual([97, 98]);
       expect(await eventStates(ownerId)).toEqual(["done", "done"]);
+    });
+
+    it("answers a Burst that became due while a Scheduled Task Turn ran, not a minute later", async () => {
+      const ownerId = await addOwner(13_108);
+      waitBurst(2500);
+      const releaseModel = holdModel();
+
+      await send(13_108, "hello", 99);
+      await runInDurableObject(await agentOf(ownerId), (instance) =>
+        instance.runtime.runPromise(
+          Effect.gen(function* setTask() {
+            const schedules = yield* Schedules;
+            const now = yield* DateTime.now;
+            yield* schedules.set({
+              action: { _tag: "RunPrompt", prompt: "List my tasks" },
+              setBy: "owner",
+              dueAt: DateTime.add(now, { milliseconds: 200 }),
+              sourceEventId: "seed-burst-task",
+            });
+          })
+        )
+      );
+      await vi.waitFor(
+        () => expect(fakeModel.doGenerateCalls).toHaveLength(1),
+        { timeout: 3000 }
+      );
+      await pause(3000);
+      const releasedAt = Date.now();
+      releaseModel();
+
+      await vi.waitFor(
+        () =>
+          expect(
+            fakeTelegram.sent.map(
+              (message) => message.body.reply_parameters?.message_id
+            )
+          ).toContain(99),
+        { timeout: 10_000 }
+      );
+      expect(Date.now() - releasedAt).toBeLessThan(5000);
+      expect(ownerTextsOf(fakeModel.doGenerateCalls[0]?.prompt ?? [])).toEqual([
+        "List my tasks",
+      ]);
     });
 
     it("saves the later value when a later message of the burst corrects an earlier one", async () => {
@@ -251,7 +294,7 @@ describe(
       expect(await noteTexts(ownerId)).toEqual(["dentist on Thursday"]);
     });
 
-    it("gives one outcome for the burst after a Durable Object reset during the quiet gap", async () => {
+    it("gives one outcome for the Burst after a Durable Object reset during the Quiet Gap", async () => {
       const ownerId = await addOwner(13_105);
       waitBurst(1500);
 
@@ -275,7 +318,7 @@ describe(
       });
     });
 
-    it("still fires a Schedule that is due during the quiet gap on time", async () => {
+    it("still fires a Schedule that is due during the Quiet Gap on time", async () => {
       const ownerId = await addOwner(13_106);
       waitBurst(4000);
 

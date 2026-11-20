@@ -157,6 +157,6 @@ export const takeTurn = (
       }
     }
     yield* schedules.rearm;
-    const grew = yield* inbox.burstGrewSince(startedAt);
-    return { nextBurstIsDue: grew && (yield* inbox.burstIsDue(wait)) };
+    const untaken = !newBurstIsDue || (yield* inbox.burstGrewSince(startedAt));
+    return { nextBurstIsDue: untaken && (yield* inbox.burstIsDue(wait)) };
   });
