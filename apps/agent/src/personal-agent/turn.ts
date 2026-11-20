@@ -1,4 +1,4 @@
-import { Effect, Option } from "effect";
+import { DateTime, Effect, Option } from "effect";
 
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { noTools } from "../model-gateway/agent-tool.ts";
@@ -130,8 +130,10 @@ export const takeTurn = (
   Effect.gen(function* takeTurnEffect() {
     const inbox = yield* Inbox;
     const schedules = yield* Schedules;
+    const startedAt = yield* DateTime.now;
+    const wait = burstWaitOf(behavior);
     yield* recordOutcomesOfFinishedTurns(ownerId);
-    const newBurstIsDue = yield* inbox.burstIsDue(burstWaitOf(behavior));
+    const newBurstIsDue = yield* inbox.burstIsDue(wait);
     const events = yield* inbox.pending;
     const ownerMessages = events.filter(
       (event) => event._tag === "OwnerMessage"
@@ -155,4 +157,6 @@ export const takeTurn = (
       }
     }
     yield* schedules.rearm;
+    const grew = yield* inbox.burstGrewSince(startedAt);
+    return { nextBurstIsDue: grew && (yield* inbox.burstIsDue(wait)) };
   });

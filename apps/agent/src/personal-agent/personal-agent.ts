@@ -105,11 +105,13 @@ export class PersonalAgent extends Agent<Env> {
     }
     const { burstIsDue } = await this.queueTurnWhenDue();
     if (event._tag === "OwnerMessage" && !burstIsDue) {
-      await this.runtime.runPromise(
-        showTypingOnce(
-          event.conversationId,
-          this.behavior.typingRepeatMillis
-        ).pipe(Effect.provide(this.turnServices(this.env, this.ownerId)))
+      this.ctx.waitUntil(
+        this.runtime.runPromise(
+          showTypingOnce(
+            event.conversationId,
+            this.behavior.typingRepeatMillis
+          ).pipe(Effect.provide(this.turnServices(this.env, this.ownerId)))
+        )
       );
     }
     return "stored";
@@ -174,19 +176,26 @@ export class PersonalAgent extends Agent<Env> {
       )
     );
     if (burstIsDue || otherEventIsPending) {
-      await this.schedule(0, "runTurn", undefined, {
-        retry: { maxAttempts: 1 },
-      });
+      await this.queueTurn();
     }
     return { burstIsDue };
   }
 
+  private async queueTurn(): Promise<void> {
+    await this.schedule(0, "runTurn", undefined, {
+      retry: { maxAttempts: 1 },
+    });
+  }
+
   async runTurn(): Promise<void> {
-    await this.runtime.runPromise(
+    const { nextBurstIsDue } = await this.runtime.runPromise(
       takeTurn(this.ownerId, this.behavior, { tools: this.turnTools }).pipe(
         Effect.provide(this.turnServices(this.env, this.ownerId))
       )
     );
+    if (nextBurstIsDue) {
+      await this.queueTurn();
+    }
   }
 }
 

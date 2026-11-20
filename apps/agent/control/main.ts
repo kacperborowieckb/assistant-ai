@@ -105,7 +105,7 @@ const request = Command.make(
     ),
     burst: Flag.Boolean("burst").pipe(
       Flag.withDescription(
-        "Send every message at once, within the quiet gap, and wait for the one outcome of the burst on the newest message."
+        "Send every message at once, within the Quiet Gap, and wait for the one outcome of the Burst on the newest message."
       ),
       Flag.withDefault(false)
     ),

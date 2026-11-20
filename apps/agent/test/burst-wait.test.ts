@@ -16,6 +16,7 @@ import {
   fakeModel,
   fakeReplyPrefix,
   fakeTelegram,
+  holdModel,
   resetFakes,
   scriptModel,
 } from "./fakes.ts";
@@ -175,13 +176,14 @@ describe(
 
       const sentAt = Date.now();
       await send(13_103, "one", 71);
+      await vi.waitFor(() => expect(fakeTelegram.chatActions).toHaveLength(1));
       const [first] = fakeTelegram.chatActions;
       expect(first).toMatchObject({ chatId: 13_103, action: "typing" });
       expect((first?.at ?? Number.POSITIVE_INFINITY) - sentAt).toBeLessThan(
         1000
       );
       await send(13_103, "two", 72);
-      expect(fakeTelegram.chatActions).toHaveLength(2);
+      await vi.waitFor(() => expect(fakeTelegram.chatActions).toHaveLength(2));
       expect(fakeModel.doGenerateCalls).toEqual([]);
 
       await pause(1600);
@@ -190,6 +192,33 @@ describe(
         timeout: 5000,
       });
       expect(fakeTelegram.chatActionsAtModelCalls[0]).toBeGreaterThanOrEqual(3);
+    });
+
+    it("answers a message that arrived during a Turn once its quiet gap has passed, not a minute later", async () => {
+      const ownerId = await addOwner(13_107);
+      waitBurst(300);
+      const releaseModel = holdModel();
+
+      await send(13_107, "first", 97);
+      await vi.waitFor(
+        () => expect(fakeModel.doGenerateCalls).toHaveLength(1),
+        { timeout: 5000 }
+      );
+      await send(13_107, "second", 98);
+      await pause(1000);
+      const releasedAt = Date.now();
+      releaseModel();
+
+      await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2), {
+        timeout: 10_000,
+      });
+      expect(Date.now() - releasedAt).toBeLessThan(5000);
+      expect(
+        fakeTelegram.sent.map(
+          (message) => message.body.reply_parameters?.message_id
+        )
+      ).toEqual([97, 98]);
+      expect(await eventStates(ownerId)).toEqual(["done", "done"]);
     });
 
     it("saves the later value when a later message of the burst corrects an earlier one", async () => {

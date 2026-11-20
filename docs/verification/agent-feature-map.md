@@ -15,9 +15,9 @@ Generated from `apps/agent/src/edge/routes.ts` by `pnpm control map`. Do not edi
 
 `pnpm control request --contains <text>` runs steps 1 to 3 with temporary storage and checks the reply. It prints the fake `sendChatAction` calls that each message got before its reply. Without `--contains`, it shows what the agent sent, including no send.
 
-## One answer per burst
+## One answer per Burst
 
-Several Owner messages sent close together get one answer. An Owner message does not start a Turn at once: the Personal Agent stores it, shows typing, and waits until no new message came for `burstQuietMillis` (2.5 seconds), or until `burstMaxWaitMillis` (10 seconds) after the first message. Then one Turn takes every pending Owner message in arrival order and delivers one outcome in reply to the newest message. A later value replaces an earlier one. A Schedule that is due during the wait still fires on time. Example: `pnpm control request --burst --message "todo: buy milk" --message "ok"` sends both messages at once and shows the typing signal and one outcome for the burst (silence, because the fake model answers the newest message).
+Several Owner messages sent close together get one answer. An Owner message does not start a Turn at once: the Personal Agent stores it, shows typing, and waits until no new message came for `burstQuietMillis` (2.5 seconds), or until `burstMaxWaitMillis` (10 seconds) after the first message. Then one Turn takes every pending Owner message in arrival order and delivers one outcome in reply to the newest message. A later value replaces an earlier one. A Schedule that is due during the wait still fires on time. Example: `pnpm control request --burst --message "todo: buy milk" --message "ok"` sends both messages at once and shows the typing signal and one outcome for the Burst (silence, because the fake model answers the newest message).
 
 ## Silence for small talk
 

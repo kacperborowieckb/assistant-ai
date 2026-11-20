@@ -17,48 +17,60 @@ export const burstWaitOf = (behavior: BehaviorConfig): BurstWait => ({
 
 const burstRecheckMillis = 60_000;
 
-const answerAtOf = (
-  firstReceivedAt: string,
-  newestReceivedAt: string,
-  wait: BurstWait
-) =>
+interface PendingSpan {
+  readonly first: DateTime.Utc;
+  readonly newest: DateTime.Utc;
+}
+
+const answerAtOf = ({ first, newest }: PendingSpan, wait: BurstWait) =>
   DateTime.min(
-    DateTime.add(DateTime.makeUnsafe(newestReceivedAt), {
-      milliseconds: wait.quietMillis,
-    }),
-    DateTime.add(DateTime.makeUnsafe(firstReceivedAt), {
-      milliseconds: wait.maxWaitMillis,
-    })
+    DateTime.add(newest, { milliseconds: wait.quietMillis }),
+    DateTime.add(first, { milliseconds: wait.maxWaitMillis })
   );
 
 export const makeBurstWaitQueries = (
   database: AgentStorage["Service"]["database"]
 ) => {
-  const burstAnswerAt = (wait: BurstWait) =>
-    database
-      .select({
-        first: min(inboxEvents.receivedAt),
-        newest: max(inboxEvents.receivedAt),
-      })
-      .from(inboxEvents)
-      .where(
-        and(
-          eq(inboxEvents.state, "pending"),
-          eq(inboxEvents.kind, "OwnerMessage")
+  const pendingSpan = database
+    .select({
+      first: min(inboxEvents.receivedAt),
+      newest: max(inboxEvents.receivedAt),
+    })
+    .from(inboxEvents)
+    .where(
+      and(
+        eq(inboxEvents.state, "pending"),
+        eq(inboxEvents.kind, "OwnerMessage")
+      )
+    )
+    .pipe(
+      Effect.map(([row]) =>
+        Option.all({
+          first: Option.fromNullishOr(row?.first),
+          newest: Option.fromNullishOr(row?.newest),
+        }).pipe(
+          Option.map(({ first, newest }): PendingSpan => ({
+            first: DateTime.makeUnsafe(first),
+            newest: DateTime.makeUnsafe(newest),
+          }))
         )
       )
-      .pipe(
-        Effect.map(([row]) =>
-          row?.first === null || row?.first === undefined || row.newest === null
-            ? Option.none<DateTime.Utc>()
-            : Option.some(answerAtOf(row.first, row.newest, wait))
-        )
-      );
+    );
+
+  const burstAnswerAt = (wait: BurstWait) =>
+    pendingSpan.pipe(Effect.map(Option.map((span) => answerAtOf(span, wait))));
 
   const burstIsDue = (wait: BurstWait) =>
     Effect.all([burstAnswerAt(wait), DateTime.now]).pipe(
       Effect.map(([answerAt, now]) =>
         Option.exists(answerAt, (at) => DateTime.isLessThanOrEqualTo(at, now))
+      )
+    );
+
+  const burstGrewSince = (instant: DateTime.Utc) =>
+    pendingSpan.pipe(
+      Effect.map(
+        Option.exists(({ newest }) => DateTime.isGreaterThan(newest, instant))
       )
     );
 
@@ -75,5 +87,5 @@ export const makeBurstWaitQueries = (
       )
     );
 
-  return { burstIsDue, burstAlarmAt };
+  return { burstIsDue, burstGrewSince, burstAlarmAt };
 };

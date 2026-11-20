@@ -138,13 +138,14 @@ const makeInbox = Effect.gen(function* makeInboxEffect() {
         { discard: true }
       );
 
-  const { burstIsDue } = makeBurstWaitQueries(database);
+  const { burstIsDue, burstGrewSince } = makeBurstWaitQueries(database);
 
   return {
     store,
     storeEvent,
     pending,
     burstIsDue,
+    burstGrewSince,
     markDone: settle("done"),
     markFailed: settle("failed"),
   };
