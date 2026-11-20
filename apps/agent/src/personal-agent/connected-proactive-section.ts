@@ -7,8 +7,8 @@ import type { OwnerTimeZone } from "../notes/recalled-note.ts";
 import { ProactiveMessages } from "../proactive/proactive-messages.ts";
 import { ownerTimeZone } from "../time/owner-current-time.ts";
 import { agentToolServices } from "./agent-tool-services.ts";
+import type { Burst } from "./burst.ts";
 import { deliveryStateOf } from "./delivery.ts";
-import type { OwnerMessageEvent } from "./inbox.ts";
 import type { TurnPreparation } from "./model-turn.ts";
 
 const openLoopLine = (note: Note, timeZone: OwnerTimeZone) => {
@@ -19,11 +19,16 @@ const openLoopLine = (note: Note, timeZone: OwnerTimeZone) => {
 export const connectedProactivePreparation = Effect.fnUntraced(
   function* connectedProactivePreparation(
     behavior: BehaviorConfig,
-    event: OwnerMessageEvent
+    burst: Burst
   ) {
     const proactiveMessages = yield* ProactiveMessages;
     const { notes } = yield* agentToolServices;
-    const connected = yield* proactiveMessages.connectedTo(event.eventId);
+    const connections = yield* Effect.all(
+      burst.map((event) => proactiveMessages.connectedTo(event.eventId))
+    );
+    const connected = connections.find(
+      (connection) => connection !== undefined
+    );
     if (connected === undefined) {
       return {
         situation: [],
