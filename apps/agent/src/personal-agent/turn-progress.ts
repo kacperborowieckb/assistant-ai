@@ -88,31 +88,34 @@ const makeTurnProgress = Effect.gen(function* makeTurnProgressEffect() {
       }
     });
 
+  /** Runs after the work transaction rolled back, so it does not nest. */
   const recordFailedToolCall = (call: ToolCallProgress, message: string) =>
-    record(call, [
-      {
-        role: "assistant",
-        content: [
-          {
-            type: "tool-call",
-            toolCallId: call.toolCallId,
-            toolName: call.toolName,
-            input: call.input,
-          },
-        ],
-      },
-      {
-        role: "tool",
-        content: [
-          {
-            type: "tool-result",
-            toolCallId: call.toolCallId,
-            toolName: call.toolName,
-            output: { type: "error-text", value: message },
-          },
-        ],
-      },
-    ]);
+    database.transaction(() =>
+      record(call, [
+        {
+          role: "assistant",
+          content: [
+            {
+              type: "tool-call",
+              toolCallId: call.toolCallId,
+              toolName: call.toolName,
+              input: call.input,
+            },
+          ],
+        },
+        {
+          role: "tool",
+          content: [
+            {
+              type: "tool-result",
+              toolCallId: call.toolCallId,
+              toolName: call.toolName,
+              output: { type: "error-text", value: message },
+            },
+          ],
+        },
+      ])
+    );
 
   const recordingToolCall = <Output extends JSONValue, Failure, Needs>(
     call: ToolCallProgress,
