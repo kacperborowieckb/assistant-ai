@@ -1,10 +1,15 @@
 import {
+  forwardedEventsOf,
   noteSourceOfBurst,
   trustLevelOfBurst,
   turnEventOf,
 } from "../personal-agent/burst.ts";
 import type { Burst } from "../personal-agent/burst.ts";
-import { captureNoteTool, captureNoteToolName } from "./capture-note-tool.ts";
+import {
+  captureNoteTool,
+  captureNoteToolName,
+  severalForwardedMessagesMessage,
+} from "./capture-note-tool.ts";
 import {
   closeOpenLoopTool,
   closeOpenLoopToolName,
@@ -24,7 +29,13 @@ import { updateNoteTool, updateNoteToolName } from "./update-note-tool.ts";
 export const noteToolsFor = (services: NoteToolServices, burst: Burst) => {
   const { eventId } = turnEventOf(burst);
   return {
-    [captureNoteToolName]: captureNoteTool(services, noteSourceOfBurst(burst)),
+    [captureNoteToolName]: captureNoteTool(
+      services,
+      noteSourceOfBurst(burst),
+      forwardedEventsOf(burst).length > 1
+        ? severalForwardedMessagesMessage
+        : undefined
+    ),
     ...(trustLevelOfBurst(burst) === "owner"
       ? {
           [updateNoteToolName]: updateNoteTool(services, eventId),

@@ -169,7 +169,8 @@ export const ownerMessageTools = (
               progress,
               redactor,
             },
-            eventId
+            eventId,
+            burst.map((event) => event.eventId)
           ),
           [setScheduleToolName]: setScheduleTool(scheduleServices, eventId),
           [listSchedulesToolName]: listSchedulesTool(scheduleServices, eventId),

@@ -1,5 +1,6 @@
 import { Effect, Schema } from "effect";
 
+import { ToolFailed } from "../model-gateway/agent-tool.ts";
 import { recordedTool } from "../personal-agent/recorded-tool.ts";
 import { noteIdListSchema } from "./note-id-list-schema.ts";
 import { noteToolFailureMessage } from "./note-tool-failure-message.ts";
@@ -12,6 +13,9 @@ export const captureNoteToolName = "capture_note";
 
 export const noteNotKeptMessage =
   "The Note was not kept. Tell the Owner that you could not keep it.";
+
+export const severalForwardedMessagesMessage =
+  "These Owner messages hold more than one forwarded message, so a Note cannot keep the right forwarded text with its own source. Nothing was kept. Tell the Owner, and ask them to forward the message to keep on its own.";
 
 const CaptureNoteInput = Schema.Struct({
   text: Schema.String.pipe(
@@ -42,7 +46,8 @@ const keptTextOf = (source: NoteSource, text: string) =>
 
 export const captureNoteTool = (
   { notes, ownerTimeZone, progress, redactor }: NoteToolServices,
-  source: NoteSource
+  source: NoteSource,
+  refusal?: string
 ) =>
   recordedTool(
     { eventId: source.eventId, progress, redactor },
@@ -80,6 +85,9 @@ export const captureNoteTool = (
         linkedNoteIds,
         openLoop,
       }) {
+        if (refusal !== undefined) {
+          return yield* new ToolFailed({ message: refusal });
+        }
         const openLoopRequest = yield* openLoopRequestOf(
           openLoop,
           ownerTimeZone,

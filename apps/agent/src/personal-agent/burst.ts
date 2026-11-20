@@ -36,6 +36,15 @@ export const trustLevelOfBurst = (burst: Burst): TrustLevel =>
     ? "untrusted"
     : "owner";
 
+export const forwardedEventsOf = (burst: Burst) =>
+  burst.filter((event) => event.forwardOrigin !== undefined);
+
+/**
+ * The source of a Note that the Turn of a Burst captures. A capture keeps the
+ * text of a forwarded message, so a Burst with one forwarded message keeps
+ * that message as the source; a Burst with more than one cannot tell which,
+ * and its capture tool refuses (see noteToolsFor).
+ */
 export const noteSourceOfBurst = (burst: Burst): NoteSource => {
   const turnEvent = turnEventOf(burst);
   const sourceEvent =
