@@ -1,7 +1,7 @@
 import { Data, Effect, Option } from "effect";
 
 import { startLocalFakes } from "./local-fakes.ts";
-import type { FakeTelegramMessage } from "./local-fakes.ts";
+import type { FakeModelCall, FakeTelegramMessage } from "./local-fakes.ts";
 import { startLocalWorker, temporarySecrets } from "./local-worker.ts";
 import { addOwner, renderAddedOwner } from "./operator.ts";
 import { selectReplyTo } from "./reply-selection.ts";
@@ -33,7 +33,16 @@ export class ReplyMissing extends Data.TaggedError("ReplyMissing")<{
   }
 }
 
+// The control project cannot import the Worker module that defines the name.
 const staySilentToolName = "stay_silent";
+
+const stayedSilentOn = (
+  modelCalls: readonly FakeModelCall[],
+  message: string
+) =>
+  modelCalls
+    .findLast((call) => call.lastUserMessage === message)
+    ?.toolCalls.includes(staySilentToolName) === true;
 
 export const requestReply = ({
   messages,
@@ -88,22 +97,13 @@ export const requestReply = ({
         firstReplyTimeout: replyTimeout,
         nextPartTimeout,
         stayedSilent: Effect.sync(() =>
-          (
-            fakes
-              .modelCalls()
-              .findLast((call) => call.lastUserMessage === message)
-              ?.toolCalls ?? []
-          ).includes(staySilentToolName)
+          stayedSilentOn(fakes.modelCalls(), message)
         ),
       });
       unprompted.push(...selection.unprompted);
       const [sent] = selection.replyParts;
       if (sent === undefined) {
-        const silent = fakes
-          .modelCalls()
-          .findLast((call) => call.lastUserMessage === message)
-          ?.toolCalls.includes(staySilentToolName);
-        if (silent !== true) {
+        if (!stayedSilentOn(fakes.modelCalls(), message)) {
           return yield* new ReplyMissing({ contains, reply: "" });
         }
         replyParts = [];

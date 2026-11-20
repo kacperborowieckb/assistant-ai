@@ -21,7 +21,7 @@ import type {
   ScheduledTaskTurnTrace,
 } from "../tracing/turn-trace.ts";
 import type { InboxEvent, ScheduleFiredEvent } from "./inbox.ts";
-import type { OutcomeKind } from "./outcome-tools.ts";
+import type { OutcomeKind } from "./storage-values.ts";
 
 export type ModelFailure = ModelUnavailable | StepLimitReached;
 

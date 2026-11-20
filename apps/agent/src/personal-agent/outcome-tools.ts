@@ -18,8 +18,6 @@ import {
 import type { OutcomeKind } from "./storage-values.ts";
 import type { ModelFailure, ModelOutcome } from "./turn-record.ts";
 
-export type { OutcomeKind } from "./storage-values.ts";
-
 export interface DecidedOutcome {
   readonly outcome: ModelOutcome;
   readonly kind: OutcomeKind | undefined;
@@ -44,16 +42,16 @@ const toolResultMessage = (
   ],
 });
 
-/**
- * Gives the pending outcome tool call of the last step its result, so the
- * steps are complete for the Trace and the Conversation.
- */
 interface OutcomeToolResult {
   readonly call: PendingToolCall;
   readonly output: JSONValue;
   readonly refused: boolean;
 }
 
+/**
+ * Gives the pending outcome tool call of the last step its result, so the
+ * steps are complete for the Trace and the Conversation.
+ */
 const closeLastStep = (
   steps: readonly ModelStep[],
   { call, output, refused }: OutcomeToolResult

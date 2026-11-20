@@ -32,7 +32,7 @@ const recordConversation = Effect.fnUntraced(function* recordConversation(
       ? [{ role: "assistant", content: state.text } as const]
       : [];
 
-  if (earlier.length + reply.length > 0) {
+  if (state._tag === "Silent" || earlier.length + reply.length > 0) {
     yield* conversation.append(event.eventId, [
       redactor.redactMessage(yield* inputMessageOf(event)),
       ...earlier,

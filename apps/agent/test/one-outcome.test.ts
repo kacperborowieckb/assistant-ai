@@ -12,6 +12,7 @@ import { Journal } from "../src/journal/journal.ts";
 import { captureNoteToolName } from "../src/notes/capture-note-tool.ts";
 import { searchNotesToolName } from "../src/notes/search-notes-tool.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
+import { Conversation } from "../src/personal-agent/conversation.ts";
 import {
   honestFailureText,
   unconfirmedSendReason,
@@ -39,7 +40,7 @@ import { addOwner, telegramWebhook, textUpdate } from "./telegram-requests.ts";
 
 const inPersonalAgent = async <A, E>(
   ownerId: string,
-  effect: Effect.Effect<A, E, Inbox | Journal | TurnTraces>
+  effect: Effect.Effect<A, E, Conversation | Inbox | Journal | TurnTraces>
 ) =>
   runInDurableObject(
     await personalAgentFor(env.PERSONAL_AGENT, OwnerIdSchema.make(ownerId)),
@@ -383,6 +384,11 @@ describe("One outcome for each Event: silence", () => {
     expect(fakeTelegram.sent).toEqual([]);
     expect(fakeModel.doGenerateCalls).toEqual([]);
     expect(await stateOfOnlyEvent(ownerId)).toBe("done");
+    const history = await inPersonalAgent(
+      ownerId,
+      Conversation.pipe(Effect.flatMap((conversation) => conversation.recent))
+    );
+    expect(JSON.stringify(history)).toContain("interrupted");
   });
 
   it("refuses silence after a write tool changed Owner data, and the model answers with text", async () => {
