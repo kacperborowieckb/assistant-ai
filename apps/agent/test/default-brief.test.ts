@@ -14,6 +14,7 @@ import { storeDueScheduleEvents } from "../src/personal-agent/due-schedule-event
 import { Inbox } from "../src/personal-agent/inbox.ts";
 import type { OwnerChannelConversation } from "../src/personal-agent/owner-channel-conversation.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
+import type { OwnerPreferences } from "../src/preferences/owner-preferences.ts";
 import { setTimeZoneToolName } from "../src/preferences/set-time-zone-tool.ts";
 import { ProactiveMessages } from "../src/proactive/proactive-messages.ts";
 import { briefPrompt } from "../src/schedule/brief-prompt.ts";
@@ -28,6 +29,7 @@ import {
   resetFakes,
   scriptModel,
 } from "./fakes.ts";
+import { quietHoursLaterToday } from "./quiet-hours-setup.ts";
 import { addOwner, telegramWebhook, textUpdate } from "./telegram-requests.ts";
 
 interface ScheduleRow extends Record<string, SqlStorageValue> {
@@ -60,6 +62,7 @@ const inAgent = async <A, E>(
     | Journal
     | Notes
     | OwnerChannelConversation
+    | OwnerPreferences
     | ProactiveMessages
     | Schedules
     | TurnTraces
@@ -133,6 +136,7 @@ const makeBriefDue = async (ownerId: string) =>
 const ownerWithBrief = async (telegramUserId: number) => {
   const ownerId = await addOwner(telegramUserId);
   await ownerSetsTimeZone(telegramUserId, "Europe/Warsaw", 0);
+  await inAgent(ownerId, quietHoursLaterToday("Europe/Warsaw"));
   return ownerId;
 };
 
