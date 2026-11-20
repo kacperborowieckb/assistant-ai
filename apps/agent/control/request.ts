@@ -1,5 +1,7 @@
-import { Data, Effect, Option } from "effect";
+import { Clock, Data, Effect, Option } from "effect";
 
+import { defaultBehaviorConfig } from "../src/behavior/behavior-config.ts";
+import { BurstSplit } from "./burst-split.ts";
 import type { FakeTelegramChatAction } from "./fake-chat-actions.ts";
 import { startLocalFakes } from "./local-fakes.ts";
 import type { FakeModelCall, FakeTelegramMessage } from "./local-fakes.ts";
@@ -77,6 +79,7 @@ const sendMessages = Effect.fnUntraced(function* sendMessages(
   messages: readonly NumberedMessage[]
 ) {
   const lines: string[] = [];
+  const startedAt = yield* Clock.currentTimeMillis;
   for (const sent of messages) {
     const webhook = yield* sendTelegramUpdate({
       workerUrl,
@@ -91,6 +94,13 @@ const sendMessages = Effect.fnUntraced(function* sendMessages(
     lines.push(
       `Webhook answered ${webhook.status} for the message "${sent.text}"`
     );
+  }
+  const sendMillis = (yield* Clock.currentTimeMillis) - startedAt;
+  if (
+    messages.length > 1 &&
+    sendMillis >= defaultBehaviorConfig.burstQuietMillis
+  ) {
+    return yield* new BurstSplit({ sendMillis });
   }
   return lines;
 });

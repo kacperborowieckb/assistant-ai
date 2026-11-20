@@ -156,7 +156,7 @@ export const takeTurn = (
         yield* handleFiredSchedule(ownerId, behavior, event);
       }
     }
-    yield* schedules.rearm;
+    yield* schedules.rearmWithoutFailing;
     const untaken = !newBurstIsDue || (yield* inbox.burstGrewSince(startedAt));
     return { nextBurstIsDue: untaken && (yield* inbox.burstIsDue(wait)) };
   });

@@ -195,7 +195,8 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
     });
 
   return {
-    rearm: rearmWithoutFailing,
+    rearm,
+    rearmWithoutFailing,
     listActive: queries.listActive,
     byId: queries.byId,
     activeAgentDueBy: queries.activeAgentDueBy,
