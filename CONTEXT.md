@@ -56,7 +56,7 @@ Use these terms with these meanings in code, docs, issues, and prompts. Use the 
 - **Mute**: the Owner Preference from a "less of this" reply: the Open Loops of a Proactive Message, or their kind. A muted Open Loop gets no follow-up of its own and appears only in the Brief. "Less" means less often, not never; "stop" closes the Open Loop or cancels the Schedule. The Owner can undo it in the chat.
 - **Quiet Hours**: the local time range when the agent sends no Proactive Messages (default 22:00 to 08:00). Code holds a Proactive Message that is due in Quiet Hours and moves it to the end of Quiet Hours. The Owner changes them in the chat, and the stored value records its source. Reminders and Scheduled Tasks that the Owner set still arrive.
 - **Budget**: the limit on Proactive Messages per local day (sends, not items) and on tokens for background work, for each Owner. The Owner can change the send Budget in the chat. A follow-up over the Budget folds into the next Brief, and the Brief always runs.
-- **Acknowledge**: the instant receipt signal (a reaction or "typing") that the Channel shows before the model runs. Telegram shows "typing" (`sendChatAction`) from the start of the Turn of an Owner message until its outcome is delivered. It is best-effort and is not a Delivery.
+- **Acknowledge**: the instant receipt signal (a reaction or "typing") that the Channel shows before the model runs. Telegram shows "typing" (`sendChatAction`) from the start of the Turn of an Owner message until its outcome is sent. It is best-effort and is not a Delivery.
 
 ## Safety and quality
 

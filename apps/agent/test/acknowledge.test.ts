@@ -10,6 +10,7 @@ import { setTimeZoneToolName } from "../src/preferences/set-time-zone-tool.ts";
 import { briefPrompt } from "../src/schedule/brief-prompt.ts";
 import { Schedules } from "../src/schedule/schedules.ts";
 import {
+  failModel,
   fakeReplyPrefix,
   fakeTelegram,
   holdModel,
@@ -115,6 +116,49 @@ describe("Acknowledge: typing while the agent works", () => {
     ).toEqual(new Set(["12102:typing"]));
     expect(fakeTelegram.sent).toHaveLength(1);
   });
+
+  it("sends no typing after the reply starts to send, also while Telegram is slow to confirm", async () => {
+    const ownerId = await addOwner(12_106);
+    const releaseModel = holdModel();
+    fakeTelegram.delaySendsBy(testTypingRepeatMillis * 4);
+
+    await telegramWebhook(textUpdate({ fromUserId: 12_106, text: "stop me" }));
+    await vi.waitFor(() =>
+      expect(fakeTelegram.chatActions.length).toBeGreaterThanOrEqual(3)
+    );
+    releaseModel();
+    await vi.waitFor(async () =>
+      expect(await journalTagsOf(ownerId)).toContain("ReplySent")
+    );
+    await pause(testTypingRepeatMillis * 5);
+
+    expect(fakeTelegram.chatActionsAtSends).toHaveLength(1);
+    expect(fakeTelegram.chatActions).toHaveLength(
+      fakeTelegram.chatActionsAtSends[0] ?? -1
+    );
+  });
+
+  it("covers the honest failure notice and sends no typing after it", async () => {
+    const ownerId = await addOwner(12_107);
+    const releaseModel = holdModel();
+    failModel(3);
+
+    await telegramWebhook(textUpdate({ fromUserId: 12_107, text: "fail me" }));
+    await vi.waitFor(() =>
+      expect(fakeTelegram.chatActions.length).toBeGreaterThanOrEqual(3)
+    );
+    releaseModel();
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(1), {
+      timeout: 10_000,
+    });
+    expect(await journalTagsOf(ownerId)).toContain("TurnFailed");
+    await pause(testTypingRepeatMillis * 5);
+
+    expect(fakeTelegram.chatActionsAtSends).toHaveLength(1);
+    expect(fakeTelegram.chatActions).toHaveLength(
+      fakeTelegram.chatActionsAtSends[0] ?? -1
+    );
+  }, 20_000);
 
   it("keeps the Turn's outcome when Telegram refuses the typing signal", async () => {
     const ownerId = await addOwner(12_103);

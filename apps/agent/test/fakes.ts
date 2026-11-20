@@ -30,6 +30,8 @@ const fakeTelegramState = {
   chatActions: [] as TelegramChatAction[],
   chatActionAnswer: "confirm" as ChatActionAnswer,
   chatActionsAtModelCalls: [] as number[],
+  chatActionsAtSends: [] as number[],
+  sendDelayMillis: 0,
 };
 
 const answerChatAction = async (request: Request) => {
@@ -60,8 +62,14 @@ export const fakeTelegram = {
   get chatActionsAtModelCalls(): readonly number[] {
     return fakeTelegramState.chatActionsAtModelCalls;
   },
+  get chatActionsAtSends(): readonly number[] {
+    return fakeTelegramState.chatActionsAtSends;
+  },
   answerWith: (answer: TelegramAnswer) => {
     fakeTelegramState.answer = answer;
+  },
+  delaySendsBy: (millis: number) => {
+    fakeTelegramState.sendDelayMillis = millis;
   },
   answerChatActionsWith: (answer: ChatActionAnswer) => {
     fakeTelegramState.chatActionAnswer = answer;
@@ -71,10 +79,16 @@ export const fakeTelegram = {
     if (request.url.endsWith("/sendChatAction")) {
       return answerChatAction(request);
     }
+    fakeTelegramState.chatActionsAtSends.push(
+      fakeTelegramState.chatActions.length
+    );
     fakeTelegramState.sent.push({
       url: request.url,
       body: await request.json(),
     });
+    if (fakeTelegramState.sendDelayMillis > 0) {
+      await scheduler.wait(fakeTelegramState.sendDelayMillis);
+    }
     if (fakeTelegramState.answer === "lose-confirmation") {
       throw new TypeError("The connection dropped before Telegram answered");
     }
@@ -259,6 +273,8 @@ export const resetFakes = () => {
   fakeTelegramState.chatActions = [];
   fakeTelegramState.chatActionAnswer = "confirm";
   fakeTelegramState.chatActionsAtModelCalls = [];
+  fakeTelegramState.chatActionsAtSends = [];
+  fakeTelegramState.sendDelayMillis = 0;
   fakeModel.doGenerateCalls.length = 0;
   releaseModel = Promise.resolve();
   callsBeforeHold = 0;

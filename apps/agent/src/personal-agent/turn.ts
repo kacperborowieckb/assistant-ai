@@ -4,7 +4,7 @@ import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { noTools } from "../model-gateway/agent-tool.ts";
 import type { AgentTools } from "../model-gateway/agent-tool.ts";
 import type { OwnerId } from "../owner-id.ts";
-import { startAcknowledging } from "./acknowledge.ts";
+import { whileAcknowledging } from "./acknowledge.ts";
 import { agentToolServices } from "./agent-tool-services.ts";
 import { connectedProactivePreparation } from "./connected-proactive-section.ts";
 import { failWithNotice } from "./delivery.ts";
@@ -32,10 +32,6 @@ const answer = (
   event: OwnerMessageEvent
 ) =>
   Effect.gen(function* answerEffect() {
-    const acknowledge = yield* startAcknowledging(
-      event.conversationId,
-      behavior.typingRepeatMillis
-    );
     const toolServices = yield* agentToolServices;
     const preparation = yield* connectedProactivePreparation(behavior, event);
 
@@ -52,13 +48,12 @@ const answer = (
         },
         prepare: Effect.succeed(preparation),
         traceOf: (model) => traceOf({ event, ...model }),
-        whenSent: acknowledge.stop,
-        whenSendFailed: acknowledge.stop,
-        whenFailed: (reason) =>
-          failWithNotice(event, reason).pipe(Effect.ensuring(acknowledge.stop)),
+        whenFailed: (reason) => failWithNotice(event, reason),
       },
     });
-  }).pipe(Effect.scoped);
+  }).pipe(
+    whileAcknowledging(event.conversationId, behavior.typingRepeatMillis)
+  );
 
 export const takeTurn = (
   ownerId: OwnerId,

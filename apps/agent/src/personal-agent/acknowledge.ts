@@ -21,18 +21,35 @@ const showTypingOnce = Effect.fnUntraced(function* showTypingOnce(
 });
 
 /**
- * Acknowledge: shows "typing" in the Owner's conversation at once and then
- * every `repeatMillis`, until `stop` runs or the scope closes. It is
- * best-effort: a failed signal is logged and never fails or delays the Turn.
+ * Acknowledge: shows "typing" in the Owner's conversation while the effect
+ * runs, at once and then every `repeatMillis`. Typing stops as soon as the
+ * effect starts a Channel send (the reply or the honest failure notice), so
+ * no signal follows the outcome, and the scope stops it as a backstop. It is
+ * best-effort: a failed signal is logged and never fails or delays the effect.
  */
-export const startAcknowledging = Effect.fnUntraced(
-  function* startAcknowledging(conversationId: string, repeatMillis: number) {
-    const typing = yield* Effect.forkScoped(
-      showTypingOnce(conversationId).pipe(
-        Effect.repeat(Schedule.spaced(repeatMillis))
-      ),
-      { startImmediately: true }
+export const whileAcknowledging =
+  (conversationId: string, repeatMillis: number) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    Effect.scoped(
+      Effect.gen(function* whileAcknowledgingEffect() {
+        const channel = yield* Channel;
+        const typing = yield* Effect.forkScoped(
+          showTypingOnce(conversationId).pipe(
+            Effect.repeat(Schedule.spaced(repeatMillis))
+          ),
+          { startImmediately: true }
+        );
+        return yield* effect.pipe(
+          Effect.provideService(
+            Channel,
+            Channel.of({
+              ...channel,
+              send: (message) =>
+                Fiber.interrupt(typing).pipe(
+                  Effect.andThen(channel.send(message))
+                ),
+            })
+          )
+        );
+      })
     );
-    return { stop: Fiber.interrupt(typing) };
-  }
-);
