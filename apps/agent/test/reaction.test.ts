@@ -148,11 +148,14 @@ const plannedReaction = (
   telegramUserId: number,
   channelMessageId = "91"
 ): JournalRecord => ({
-  _tag: "ReactionPlanned",
+  _tag: "ReplyPlanned",
   eventId,
-  emoji: "✍",
-  conversationId: String(telegramUserId),
-  channelMessageId,
+  text: "",
+  reaction: {
+    conversationId: String(telegramUserId),
+    channelMessageId,
+    emoji: "✍",
+  },
 });
 
 const runTurn = async (ownerId: string) =>
@@ -186,7 +189,7 @@ describe("One outcome for each Event: a reaction", () => {
     expect(await journalTags(ownerId)).toEqual([
       "EventReceived",
       "NoteCaptured",
-      "ReactionPlanned",
+      "ReplyPlanned",
       "SendStarted",
       "ReplySent",
     ]);
@@ -308,7 +311,7 @@ describe("One outcome for each Event: a reaction", () => {
     ]);
     expect(await journalTags(ownerId)).toEqual([
       "EventReceived",
-      "ReactionPlanned",
+      "ReplyPlanned",
       "SendStarted",
       "SendStarted",
       "ReplySent",
