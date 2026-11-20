@@ -2,6 +2,8 @@ import { MockLanguageModelV4 } from "ai/test";
 
 export const fakeTelegramApiUrl = "https://telegram.fake";
 
+export const testTypingRepeatMillis = 100;
+
 export interface SentTelegramMessage {
   readonly url: string;
   readonly body: {
@@ -14,20 +16,61 @@ export interface SentTelegramMessage {
 
 export type TelegramAnswer = "confirm" | "refuse" | "lose-confirmation";
 
+export interface TelegramChatAction {
+  readonly chatId: number;
+  readonly action: string;
+  readonly at: number;
+}
+
+export type ChatActionAnswer = "confirm" | "refuse" | "hang";
+
 const fakeTelegramState = {
   sent: [] as SentTelegramMessage[],
   answer: "confirm" as TelegramAnswer,
+  chatActions: [] as TelegramChatAction[],
+  chatActionAnswer: "confirm" as ChatActionAnswer,
+  chatActionsAtModelCalls: [] as number[],
+};
+
+const answerChatAction = async (request: Request) => {
+  const recorded = { chatId: 0, action: "", at: Date.now() };
+  fakeTelegramState.chatActions.push(recorded);
+  const body = await request.json<{ chat_id: number; action: string }>();
+  recorded.chatId = body.chat_id;
+  recorded.action = body.action;
+  if (fakeTelegramState.chatActionAnswer === "hang") {
+    return Promise.withResolvers<Response>().promise;
+  }
+  if (fakeTelegramState.chatActionAnswer === "refuse") {
+    return Response.json(
+      { ok: false, description: "Forbidden: bot was blocked by the user" },
+      { status: 403 }
+    );
+  }
+  return Response.json({ ok: true, result: true });
 };
 
 export const fakeTelegram = {
   get sent(): readonly SentTelegramMessage[] {
     return fakeTelegramState.sent;
   },
+  get chatActions(): readonly TelegramChatAction[] {
+    return fakeTelegramState.chatActions;
+  },
+  get chatActionsAtModelCalls(): readonly number[] {
+    return fakeTelegramState.chatActionsAtModelCalls;
+  },
   answerWith: (answer: TelegramAnswer) => {
     fakeTelegramState.answer = answer;
   },
+  answerChatActionsWith: (answer: ChatActionAnswer) => {
+    fakeTelegramState.chatActionAnswer = answer;
+  },
   fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = new Request(input, init);
+    if (request.url.endsWith("/sendChatAction")) {
+      return answerChatAction(request);
+    }
     fakeTelegramState.sent.push({
       url: request.url,
       body: await request.json(),
@@ -145,6 +188,9 @@ export const fakeModel = new MockLanguageModelV4({
   provider: "fake",
   modelId: "fake-reply-model",
   doGenerate: async (options) => {
+    fakeTelegramState.chatActionsAtModelCalls.push(
+      fakeTelegramState.chatActions.length
+    );
     if (fakeModel.doGenerateCalls.length > callsBeforeHold) {
       await releaseModel;
     }
@@ -210,6 +256,9 @@ export const resetFakes = () => {
   metricsState.failing = false;
   fakeTelegramState.sent = [];
   fakeTelegramState.answer = "confirm";
+  fakeTelegramState.chatActions = [];
+  fakeTelegramState.chatActionAnswer = "confirm";
+  fakeTelegramState.chatActionsAtModelCalls = [];
   fakeModel.doGenerateCalls.length = 0;
   releaseModel = Promise.resolve();
   callsBeforeHold = 0;

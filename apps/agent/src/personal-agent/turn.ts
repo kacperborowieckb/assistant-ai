@@ -19,6 +19,7 @@ import {
 import { ownerMessageTools } from "./owner-message-tools.ts";
 import { traceOf } from "./turn-record.ts";
 import { ownerMessageRecovery, settleFromJournal } from "./turn-recovery.ts";
+import { whileTyping } from "./typing.ts";
 
 interface TurnSettings {
   readonly behavior: BehaviorConfig;
@@ -50,7 +51,7 @@ const answer = (
         whenFailed: (reason) => failWithNotice(event, reason),
       },
     });
-  });
+  }).pipe(whileTyping(event, behavior.typingRepeatMillis));
 
 export const takeTurn = (
   ownerId: OwnerId,
