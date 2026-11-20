@@ -1,0 +1,13 @@
+{
+  "name": "@repo/mascot",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./mascot.json",
+    "./assets/*.png": "./assets/*.png",
+    "./web.css": "./web.css"
+  },
+  "scripts": {
+    "verify": "node --test verify.test.mjs"
+  }
+}

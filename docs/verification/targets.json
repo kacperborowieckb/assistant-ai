@@ -3,6 +3,10 @@
     {
       "workspace": "apps/agent",
       "guide": "docs/verification/agent.md"
+    },
+    {
+      "workspace": "packages/mascot",
+      "guide": "docs/verification/mascot.md"
     }
   ]
 }

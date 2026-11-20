@@ -1,0 +1,49 @@
+.mascot {
+  display: inline-grid;
+  inline-size: var(--mascot-size, 2rem);
+  block-size: var(--mascot-size, 2rem);
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  vertical-align: middle;
+  transform-origin: 50% 88%;
+}
+
+.mascot > img {
+  grid-area: 1 / 1;
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+}
+
+.mascot > img[hidden] {
+  display: none;
+}
+
+.mascot--portrait {
+  overflow: hidden;
+  border-radius: 50%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .mascot--greet {
+    animation: mascot-greet 500ms steps(1, end);
+  }
+}
+
+@keyframes mascot-greet {
+  20% {
+    transform: scale(1.035, 0.965);
+  }
+
+  40% {
+    transform: translateY(-5%) scale(0.99, 1.025);
+  }
+
+  60% {
+    transform: translateY(-3%);
+  }
+
+  80% {
+    transform: scale(1.02, 0.98);
+  }
+}

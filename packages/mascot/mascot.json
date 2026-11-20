@@ -1,0 +1,33 @@
+{
+  "name": "Billy the Beaver",
+  "canvas": 256,
+  "base": "base.png",
+  "portrait": "portrait.png",
+  "slots": [
+    {
+      "id": "neck",
+      "layers": {
+        "forest": "neckerchief.png",
+        "office": "tie.png"
+      }
+    },
+    {
+      "id": "head",
+      "layers": {
+        "sports": "headband.png"
+      }
+    }
+  ],
+  "icon": {
+    "canvas": 1024,
+    "foreground": "icon-foreground.png",
+    "light": {
+      "background": "icon-background-light.png",
+      "flat": "icon-light.png"
+    },
+    "dark": {
+      "background": "icon-background-dark.png",
+      "flat": "icon-dark.png"
+    }
+  }
+}

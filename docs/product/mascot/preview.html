@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Billy the Beaver</title>
+    <link href="../../../packages/mascot/web.css" rel="stylesheet" />
+    <style>
+      body {
+        margin: 0;
+        color: var(--foreground, #241b18);
+        font-family: var(--font-sans, system-ui, sans-serif);
+      }
+
+      .sheet {
+        display: grid;
+        gap: 14px;
+        padding-block: 4px;
+      }
+
+      .previews {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .panel {
+        position: relative;
+        min-width: 0;
+        margin: 0;
+        overflow: hidden;
+        border: 1px solid var(--border, #ddcdbb);
+        border-radius: var(--radius, 18px);
+      }
+
+      .launch {
+        display: grid;
+        min-height: 350px;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+        isolation: isolate;
+        background: #f5dfc9;
+        color: #33231c;
+        text-align: center;
+      }
+
+      .plate {
+        position: absolute;
+        z-index: -1;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .launch-copy {
+        align-self: start;
+        padding: 32px 12px 0;
+      }
+
+      .launch h2 {
+        margin: 0;
+        font-family: Georgia, serif;
+        font-size: clamp(33px, 5vw, 44px);
+        font-weight: 500;
+        letter-spacing: -0.06em;
+        line-height: 0.98;
+      }
+
+      .launch p {
+        margin: 10px 0 0;
+        font-size: 13px;
+        font-weight: 550;
+      }
+
+      .hero-icon {
+        align-self: center;
+        justify-self: center;
+        width: 43%;
+        max-width: 156px;
+        height: auto;
+        margin-bottom: 7px;
+        border-radius: 24%;
+        box-shadow:
+          0 24px 28px -18px #612d22b3,
+          0 3px 6px #612d2233;
+      }
+
+      .home {
+        display: grid;
+        min-height: 350px;
+        grid-template-rows: auto 1fr;
+        justify-items: center;
+        background: #dce8df;
+        color: #21342d;
+      }
+
+      .home h2 {
+        margin: 26px 12px 13px;
+        font-size: 17px;
+        letter-spacing: -0.03em;
+      }
+
+      .home-stage {
+        display: flex;
+        align-items: end;
+        justify-content: center;
+        gap: clamp(9px, 4vw, 24px);
+        width: 100%;
+        padding: 0 8px;
+        box-sizing: border-box;
+      }
+
+      .handset {
+        flex: 0 1 160px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 106px;
+        height: 268px;
+        box-sizing: border-box;
+        border: 6px solid #26352e;
+        border-bottom: 0;
+        border-radius: 27px 27px 0 0;
+        background:
+          radial-gradient(ellipse at 82% 15%, #eee2c7 0%, transparent 44%),
+          radial-gradient(ellipse at 15% 74%, #abc2a3 10%, transparent 63%),
+          linear-gradient(145deg, #628d82, #32594d);
+        box-shadow: 0 14px 34px #294e414f;
+      }
+
+      .camera {
+        width: 40px;
+        height: 11px;
+        margin-top: 9px;
+        border-radius: 99px;
+        background: #192721;
+      }
+
+      .home-icon {
+        width: 56px;
+        height: 56px;
+        margin-top: 45px;
+        border-radius: 24%;
+        box-shadow: 0 5px 10px #223e3e4d;
+      }
+
+      .home-label {
+        padding: 5px 2px;
+        color: #fff;
+        font-size: 10px;
+        font-weight: 650;
+        text-shadow: 0 1px 5px #142d22;
+      }
+
+      .appearances {
+        display: grid;
+        gap: 14px;
+        align-self: center;
+      }
+
+      .appearance {
+        display: grid;
+        justify-items: center;
+        gap: 4px;
+        font-size: 11px;
+        font-weight: 650;
+      }
+
+      .appearance img {
+        width: 45px;
+        height: 45px;
+        border-radius: 24%;
+        box-shadow: 0 3px 8px #26473c28;
+      }
+
+      .chat {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 22px;
+        align-items: center;
+        padding: 18px;
+        background: var(--card, #faf5ec);
+      }
+
+      .chat h2 {
+        margin: 0 0 12px;
+        font-size: 18px;
+        letter-spacing: -0.03em;
+      }
+
+      form {
+        display: grid;
+        gap: 12px;
+      }
+
+      fieldset {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+        border: 0;
+      }
+
+      legend {
+        padding: 0;
+        margin-bottom: 5px;
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      fieldset label,
+      button {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 8px;
+        border: 1px solid var(--border, #c9b8a3);
+        border-radius: 7px;
+        font: inherit;
+        font-size: 12px;
+        cursor: pointer;
+      }
+
+      fieldset label:has(:checked) {
+        background: #f3dcb5;
+        border-color: #cba775;
+        color: #422c1e;
+      }
+
+      fieldset input {
+        margin: 0;
+        accent-color: #80512e;
+      }
+
+      button {
+        width: fit-content;
+        background: #31594b;
+        color: #fff;
+        font-weight: 650;
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+
+      .chat-preview {
+        display: grid;
+        justify-items: center;
+        gap: 10px;
+        padding: 12px 9px;
+        border-radius: 12px;
+        background: #f3e4d0;
+        color: #33231c;
+      }
+
+      .stage {
+        --mascot-size: 130px;
+      }
+
+      .chat-message {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: fit-content;
+        padding: 5px 12px 5px 6px;
+        border-radius: 999px;
+        background: #fff8ec;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .chat-message .mascot {
+        flex-shrink: 0;
+        background: #ead9c2;
+      }
+
+      @media (max-width: 560px) {
+        .previews,
+        .chat {
+          grid-template-columns: 1fr;
+        }
+
+        .launch {
+          min-height: 320px;
+        }
+
+        .chat-preview {
+          grid-row: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="sheet">
+      <div class="previews">
+        <section class="panel launch" aria-labelledby="launch-title">
+          <img class="plate" src="studio.jpg" alt="" />
+          <div class="launch-copy">
+            <h2 id="launch-title">Meet Billy<br />the Beaver.</h2>
+            <p>Notes, reminders, and follow-ups in one chat.</p>
+          </div>
+          <img
+            class="hero-icon"
+            src="../../../packages/mascot/assets/icon-light.png"
+            alt="Billy the Beaver app icon"
+          />
+        </section>
+        <section class="panel home" aria-labelledby="home-title">
+          <h2 id="home-title">iOS app icon concept</h2>
+          <div class="home-stage">
+            <div class="handset">
+              <span class="camera" aria-hidden="true"></span>
+              <img
+                class="home-icon"
+                src="../../../packages/mascot/assets/icon-light.png"
+                alt=""
+              />
+              <span class="home-label">Billy</span>
+            </div>
+            <div class="appearances">
+              <div class="appearance">
+                <img
+                  src="../../../packages/mascot/assets/icon-light.png"
+                  alt=""
+                />
+                <span>Light</span>
+              </div>
+              <div class="appearance">
+                <img
+                  src="../../../packages/mascot/assets/icon-dark.png"
+                  alt=""
+                />
+                <span>Dark</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+      <section class="panel chat" aria-labelledby="chat-title">
+        <div>
+          <h2 id="chat-title">Billy's wardrobe</h2>
+          <form id="wardrobe">
+            <fieldset>
+              <legend>Neck</legend>
+              <label
+                ><input type="radio" name="neck" value="plain" checked />
+                Plain</label
+              >
+              <label
+                ><input type="radio" name="neck" value="forest" /> Forest</label
+              >
+              <label
+                ><input type="radio" name="neck" value="office" /> Office</label
+              >
+            </fieldset>
+            <fieldset>
+              <legend>Head</legend>
+              <label
+                ><input type="checkbox" name="head" value="sports" />
+                Headband</label
+              >
+            </fieldset>
+            <button type="button" id="greet">Play greeting</button>
+          </form>
+        </div>
+        <div class="chat-preview">
+          <span class="mascot stage" data-greet>
+            <img
+              src="../../../packages/mascot/assets/base.png"
+              alt="Billy the Beaver"
+              width="256"
+              height="256"
+            />
+            <img
+              src="../../../packages/mascot/assets/neckerchief.png"
+              alt=""
+              width="256"
+              height="256"
+              data-accessory="forest"
+              hidden
+            />
+            <img
+              src="../../../packages/mascot/assets/tie.png"
+              alt=""
+              width="256"
+              height="256"
+              data-accessory="office"
+              hidden
+            />
+            <img
+              src="../../../packages/mascot/assets/headband.png"
+              alt=""
+              width="256"
+              height="256"
+              data-accessory="sports"
+              hidden
+            />
+          </span>
+          <div class="chat-message">
+            <span class="mascot mascot--portrait" data-greet aria-hidden="true">
+              <img
+                src="../../../packages/mascot/assets/portrait.png"
+                alt=""
+                width="256"
+                height="256"
+              />
+            </span>
+            Your morning Brief is ready.
+          </div>
+        </div>
+      </section>
+    </main>
+    <script>
+      const wardrobe = document.querySelector("#wardrobe");
+      const accessories = document.querySelectorAll("[data-accessory]");
+      const avatars = document.querySelectorAll("[data-greet]");
+      const greet = document.querySelector("#greet");
+      const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+      const greeting = "mascot--greet";
+
+      function showAccessories() {
+        const choices = new FormData(wardrobe);
+        for (const accessory of accessories) {
+          const id = accessory.dataset.accessory;
+          accessory.hidden =
+            choices.get("neck") !== id && choices.get("head") !== id;
+        }
+      }
+
+      function updateMotionPreference() {
+        greet.disabled = reducedMotion.matches;
+        greet.textContent = reducedMotion.matches
+          ? "Reduced motion is on"
+          : "Play greeting";
+      }
+
+      wardrobe.addEventListener("change", showAccessories);
+      reducedMotion.addEventListener("change", updateMotionPreference);
+
+      greet.addEventListener("click", () => {
+        for (const avatar of avatars) {
+          if (!avatar.classList.contains(greeting)) {
+            avatar.classList.add(greeting);
+          }
+        }
+      });
+
+      for (const avatar of avatars) {
+        avatar.addEventListener("animationend", () =>
+          avatar.classList.remove(greeting)
+        );
+        avatar.addEventListener("animationcancel", () =>
+          avatar.classList.remove(greeting)
+        );
+      }
+
+      showAccessories();
+      updateMotionPreference();
+    </script>
+  </body>
+</html>

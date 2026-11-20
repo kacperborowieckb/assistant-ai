@@ -17,7 +17,7 @@ Keep only skills that support current tooling or agreed upcoming work. Remove se
 This layout is a direction, not a fixed or complete plan. Follow it by default. When real work shows a better shape, change the layout and update this record in the same change.
 
 - `apps/` holds deployable units. Each app has its own deploy config.
-- `packages/` holds code that at least two workspaces need. Do not create a package for one consumer.
+- `packages/` holds code that at least two workspaces need. Shared mascot assets can ship before the mobile and marketing apps so both can use the same artwork.
 - `plugins/` holds parts that a fork can add or remove, such as Channels. The agent works with any subset of them.
 - The agent core stays in `apps/agent`, because only the agent runs it. There is no `packages/core`.
 - Code that only the hosted product needs goes in `apps/platform`. Self-hosters never deploy it.
@@ -30,6 +30,7 @@ apps/
   platform/           Hosted only: accounts, billing, Registration, managed keys      Hosted phase
 packages/
   create-assistant/   One-command installer: resources, config, secrets               MVP
+  mascot/             Shared sprite layers and icon assets                             Design
   contracts/          Shared schemas: mobile Channel protocol, Owner ids, platform API Mobile phase
   plugin-sdk/         Channel and Skill interfaces for plugins                        Second Channel
   tsconfig/           Shared TypeScript config                                        Second TypeScript app
