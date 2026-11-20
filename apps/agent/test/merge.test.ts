@@ -16,7 +16,13 @@ import { OwnerPreferences } from "../src/preferences/owner-preferences.ts";
 import { setTimeZoneToolName } from "../src/preferences/set-time-zone-tool.ts";
 import { Schedules } from "../src/schedule/schedules.ts";
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
-import { fakeModel, fakeTelegram, resetFakes, scriptModel } from "./fakes.ts";
+import {
+  failModel,
+  fakeModel,
+  fakeTelegram,
+  resetFakes,
+  scriptModel,
+} from "./fakes.ts";
 import { addOwner, telegramWebhook, textUpdate } from "./telegram-requests.ts";
 
 const zone = DateTime.zoneMakeNamedUnsafe("Europe/Warsaw");
@@ -494,5 +500,75 @@ describe("a merge that repeats", () => {
           record._tag === "ScheduleCompleted" && record.eventId === eventId
       )
     ).toHaveLength(2);
+  });
+});
+
+describe("a merge whose model call fails", () => {
+  it("sends nothing and completes the lead and the merged Schedule", async () => {
+    const ownerId = await ownerWithBrief(9940);
+    await addFollowUp(ownerId, { name: "fail-a", dueInMinutes: 0 });
+    await addFollowUp(ownerId, { name: "fail-b", dueInMinutes: 5 });
+    failModel(10);
+
+    await makeDue(ownerId, "fail-a");
+    await fireAlarm(ownerId);
+
+    await vi.waitFor(
+      async () => expect(await stateOf(ownerId, "fail-b")).toBe("done"),
+      { timeout: 10_000 }
+    );
+    expect(await stateOf(ownerId, "fail-a")).toBe("done");
+    expect(fakeTelegram.sent).toHaveLength(1);
+  });
+});
+
+describe("a recorded merge whose Schedule was cancelled", () => {
+  it("leaves that Schedule out of the message", async () => {
+    const ownerId = await ownerWithBrief(9941);
+    await addFollowUp(ownerId, { name: "keep-a", dueInMinutes: 0 });
+    await addFollowUp(ownerId, { name: "keep-b", dueInMinutes: 5 });
+    await makeDue(ownerId, "keep-a");
+    await inAgent(
+      ownerId,
+      Effect.gen(function* seedEffect() {
+        const inbox = yield* Inbox;
+        const journal = yield* Journal;
+        const schedules = yield* Schedules;
+        yield* storeDueScheduleEvents;
+        const [event] = yield* inbox.pending;
+        const due = yield* schedules.activeAgentDueBy(
+          DateTime.add(DateTime.nowUnsafe(), { minutes: 30 })
+        );
+        yield* journal.append({
+          _tag: "ProactiveMessageMerged",
+          eventId: event?.eventId ?? "",
+          merged: due
+            .filter(
+              ({ action }) =>
+                action._tag === "RunPrompt" &&
+                action.prompt === `${followUpPrefix} keep-b`
+            )
+            .map(({ scheduleId, nextDueAt }) => ({
+              scheduleId,
+              dueAt: DateTime.formatIso(nextDueAt),
+            })),
+        });
+      })
+    );
+    await sqlIn(
+      ownerId,
+      "UPDATE schedules SET state = 'cancelled' WHERE text = ?",
+      `${followUpPrefix} keep-b`
+    );
+    scriptModel([{ say: "Only the first" }]);
+
+    await runInDurableObject(await agentOf(ownerId), (instance) =>
+      instance.runTurn()
+    );
+
+    expect(fakeTelegram.sent).toHaveLength(2);
+    const prompt = JSON.stringify(fakeModel.doGenerateCalls.at(-1)?.prompt);
+    expect(prompt).toContain(`${followUpPrefix} keep-a`);
+    expect(prompt).not.toContain(`${followUpPrefix} keep-b`);
   });
 });

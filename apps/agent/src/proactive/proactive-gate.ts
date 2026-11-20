@@ -15,6 +15,7 @@ import { Schedules } from "../schedule/schedules.ts";
 import { ownerTimeZone } from "../time/owner-current-time.ts";
 import { endOfQuietHours } from "../time/quiet-hours.ts";
 import { startOfLocalDay } from "../time/start-of-local-day.ts";
+import { agentSchedulesDueWithinMergeWindow } from "./merge-window.ts";
 import { openLoopsWithMutes } from "./muted-open-loops.ts";
 import { ProactiveMessages } from "./proactive-messages.ts";
 
@@ -104,11 +105,7 @@ const isBriefDueWithinMergeWindow = Effect.fnUntraced(
     if (Option.isNone(briefId)) {
       return false;
     }
-    const schedules = yield* Schedules;
-    const until = DateTime.add(yield* DateTime.now, {
-      milliseconds: behavior.proactiveMergeWindowMillis,
-    });
-    const due = yield* schedules.activeAgentDueBy(until);
+    const due = yield* agentSchedulesDueWithinMergeWindow(behavior);
     return due.some(({ scheduleId }) => scheduleId === briefId.value);
   }
 );
@@ -138,12 +135,8 @@ const budgetFold = Effect.fnUntraced(function* budgetFold(
   if (exceeded === undefined) {
     return Option.none<ProactiveGateDecision>();
   }
-  const openLoops = yield* openLoopsToFold(schedule);
-  return Option.some({
-    _tag: "FoldIntoBrief",
-    openLoopIds: openLoops.map(({ noteId }) => noteId),
-    ...exceeded,
-  } satisfies ProactiveGateDecision);
+  const fold = yield* foldIntoBriefDecision(schedule, exceeded.reason);
+  return Option.some({ ...fold, ...exceeded });
 });
 
 export const decideProactiveMessage = Effect.fnUntraced(
@@ -187,7 +180,10 @@ export const decideProactiveMessage = Effect.fnUntraced(
     if (Option.contains(briefId, schedule.scheduleId)) {
       return { _tag: "Send" } satisfies ProactiveGateDecision;
     }
-    if (yield* isBriefDueWithinMergeWindow(behavior, briefId)) {
+    if (
+      schedule.openLoopIds.length > 0 &&
+      (yield* isBriefDueWithinMergeWindow(behavior, briefId))
+    ) {
       return yield* foldIntoBriefDecision(schedule, "brief_soon");
     }
     const fold = yield* budgetFold(behavior, schedule, timeZone);

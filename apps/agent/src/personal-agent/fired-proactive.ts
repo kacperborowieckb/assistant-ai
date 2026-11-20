@@ -92,7 +92,7 @@ const mergedPromptOf = (
   merged.length === 0
     ? leadPrompt
     : [
-        "These follow-ups are due together. Write one message that covers all of them.",
+        "These prompts are due together. Write one message that covers all of them.",
         ...[
           leadPrompt,
           ...merged.map(({ schedule }) => promptOf(schedule)),

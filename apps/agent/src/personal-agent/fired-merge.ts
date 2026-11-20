@@ -4,6 +4,7 @@ import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { Journal } from "../journal/journal.ts";
 import { Notes } from "../notes/notes.ts";
 import { OwnerPreferences } from "../preferences/owner-preferences.ts";
+import { agentSchedulesDueWithinMergeWindow } from "../proactive/merge-window.ts";
 import { openLoopsWithMutes } from "../proactive/muted-open-loops.ts";
 import { briefScheduleIdOf } from "../schedule/brief.ts";
 import type { Schedule } from "../schedule/schedule.ts";
@@ -32,15 +33,11 @@ const candidatesFor = Effect.fnUntraced(function* candidatesFor(
   behavior: Pick<BehaviorConfig, "proactiveMergeWindowMillis">,
   lead: Schedule
 ) {
-  const schedules = yield* Schedules;
   const briefId = yield* briefScheduleIdOf({
-    schedules,
+    schedules: yield* Schedules,
     journal: yield* Journal,
   });
-  const until = DateTime.add(yield* DateTime.now, {
-    milliseconds: behavior.proactiveMergeWindowMillis,
-  });
-  const due = yield* schedules.activeAgentDueBy(until);
+  const due = yield* agentSchedulesDueWithinMergeWindow(behavior);
   const others = due.filter(
     ({ scheduleId }) =>
       scheduleId !== lead.scheduleId && !Option.contains(briefId, scheduleId)
@@ -72,6 +69,10 @@ const recordedMerge = Effect.fnUntraced(function* recordedMerge(
   };
 });
 
+const isStillDue = ({ schedule, dueAt }: MergedSchedule) =>
+  schedule.state === "active" &&
+  DateTime.formatIso(schedule.nextDueAt) === dueAt;
+
 const loadRecorded = Effect.fnUntraced(function* loadRecorded(
   recorded: readonly { readonly scheduleId: string; readonly dueAt: string }[]
 ) {
@@ -88,7 +89,7 @@ const loadRecorded = Effect.fnUntraced(function* loadRecorded(
     )
   );
   return loaded.flatMap((merged) =>
-    Option.isSome(merged) ? [merged.value] : []
+    Option.isSome(merged) && isStillDue(merged.value) ? [merged.value] : []
   );
 });
 
