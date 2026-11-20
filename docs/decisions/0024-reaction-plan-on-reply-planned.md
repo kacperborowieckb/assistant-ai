@@ -10,7 +10,7 @@ Spec #119 (Chat replies), ticket #124. Builds on [0023](0023-reaction-outcome.md
 
 - **Plan Entry.** A reaction plan is a `ReplyPlanned` Entry with an empty `text` and a `reaction` field that holds the emoji and its target (the conversation and the message). There is no `ReactionPlanned` Entry. A `ReplyPlanned` with a `reaction` is a reaction plan; one without it is a text plan.
 - **Reading plans.** The newest `ReplyPlanned` decides the Delivery state, as 0023 says for the newest plan. The failure notice text comes from the newest text plan only.
-- **Rollback.** A version without reactions reads a reaction plan as an empty text plan, because a schema ignores a field that it does not know. After a rollback it settles a sent reaction as done and an unconfirmed one as failed, and it never stops on an Entry that it cannot read.
+- **Rollback.** A version without reactions reads a reaction plan as an empty text plan, because a schema ignores a field that it does not know. After a rollback it settles a sent reaction as done and an unconfirmed one as failed, and it answers a plan with no `SendStarted` again in a new Turn, as for any unsent plan. It never stops on an Entry that it cannot read.
 
 ## Why
 
