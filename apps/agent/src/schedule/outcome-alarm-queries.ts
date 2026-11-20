@@ -1,9 +1,11 @@
-import { and, eq, isNotNull, isNull, min, ne } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, min } from "drizzle-orm";
 import { DateTime, Effect, Option } from "effect";
 
 import type { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { inboxEvents } from "../personal-agent/storage-schema.ts";
 import { proactiveMessages } from "../proactive/proactive-schema.ts";
+
+const pendingTurnRecheckMillis = 60_000;
 
 export const earlierOf = (
   first: Option.Option<DateTime.Utc>,
@@ -43,28 +45,35 @@ export const makeOutcomeAlarmQueries = (
       )
     );
 
-  const finishedTurnAwaitingOutcome = database
-    .select({ eventId: inboxEvents.eventId })
+  const connectedTurnAwaitingOutcome = database
+    .select({ state: inboxEvents.state })
     .from(proactiveMessages)
     .innerJoin(
       inboxEvents,
       eq(inboxEvents.eventId, proactiveMessages.connectedEventId)
     )
-    .where(
-      and(isNull(proactiveMessages.outcome), ne(inboxEvents.state, "pending"))
-    )
-    .limit(1)
+    .where(isNull(proactiveMessages.outcome))
     .pipe(
-      Effect.flatMap((rows) =>
-        rows.length === 0
-          ? Effect.succeed(Option.none<DateTime.Utc>())
-          : DateTime.now.pipe(Effect.map((now) => Option.some(now)))
-      )
+      Effect.flatMap((rows) => {
+        if (rows.length === 0) {
+          return Effect.succeed(Option.none<DateTime.Utc>());
+        }
+        const hasFinished = rows.some(({ state }) => state !== "pending");
+        return DateTime.now.pipe(
+          Effect.map((now) =>
+            Option.some(
+              hasFinished
+                ? now
+                : DateTime.add(now, { milliseconds: pendingTurnRecheckMillis })
+            )
+          )
+        );
+      })
     );
 
   const earliestOutcomeAlarmAt = Effect.all([
     earliestWindowEnd,
-    finishedTurnAwaitingOutcome,
+    connectedTurnAwaitingOutcome,
   ]).pipe(Effect.map(([windowEnd, now]) => earlierOf(windowEnd, now)));
 
   return { earliestOutcomeAlarmAt };

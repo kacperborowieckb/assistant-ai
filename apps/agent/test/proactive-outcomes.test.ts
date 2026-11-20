@@ -668,7 +668,7 @@ describe("the alarm of the Schedules store", () => {
     );
   });
 
-  it("is not armed for a message that a Turn is answering", async () => {
+  it("is armed a minute ahead while a Turn is answering a connected message", async () => {
     const armed: Option.Option<DateTime.Utc>[] = [];
     const alarmClock: AlarmClock = {
       setAt: (dueAt) => {
@@ -688,7 +688,9 @@ describe("the alarm of the Schedules store", () => {
       })
     );
 
-    expect(armed.at(-1)).toEqual(Option.none());
+    expect(armed.at(-1)).toEqual(
+      Option.some(DateTime.makeUnsafe(startOfTime + 120_000))
+    );
   });
 });
 
@@ -711,14 +713,16 @@ describe("the alarm after a connected Turn left the Inbox", () => {
         const messages = yield* ProactiveMessages;
         yield* sendProactiveMessage({ eventId: "pm-1", sentAt: startOfTime });
         yield* ownerMessageArrives(startOfTime + 60_000, "u-1");
-        yield* schedules.rearm;
+        yield* schedules.complete("none", "none", "pm-1");
         const armedWhilePending = armed.at(-1);
         yield* inbox.markDone(yield* inbox.pending);
-        yield* schedules.rearm;
+        yield* schedules.complete("none", "none", "pm-1");
         const armedWhileOpen = armed.at(-1);
         yield* messages.settleFinishedTurns();
-        yield* schedules.rearm;
-        expect(armedWhilePending).toEqual(Option.none());
+        yield* schedules.complete("none", "none", "pm-1");
+        expect(armedWhilePending).toEqual(
+          Option.some(DateTime.makeUnsafe(startOfTime + 120_000))
+        );
         expect(armedWhileOpen).toEqual(
           Option.some(DateTime.makeUnsafe(startOfTime + 60_000))
         );
