@@ -18,6 +18,7 @@ import m0016 from "./20261116183440_scheduled_task/migration.sql";
 import m0017 from "./20261117074548_scheduled_task_skipped/migration.sql";
 import m0018 from "./20261117090612_model_usage_budget_index/migration.sql";
 import m0019 from "./20261119122949_open_loops/migration.sql";
+import m0020 from "./20261119211439_proactive_messages/migration.sql";
 
 export default {
   migrations: {
@@ -41,5 +42,6 @@ export default {
     "20261117074548_scheduled_task_skipped": m0017,
     "20261117090612_model_usage_budget_index": m0018,
     "20261119122949_open_loops": m0019,
+    "20261119211439_proactive_messages": m0020,
   },
 };

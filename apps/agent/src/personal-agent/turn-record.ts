@@ -16,6 +16,7 @@ import { OperatorMetrics } from "../tracing/operator-metrics.ts";
 import type { OperatorMetric } from "../tracing/operator-metrics.ts";
 import type { Redactor } from "../tracing/redactor.ts";
 import type {
+  ProactiveTurnTrace,
   ReplyTurnTrace,
   ScheduledTaskTurnTrace,
 } from "../tracing/turn-trace.ts";
@@ -87,6 +88,7 @@ export interface ModelTraceInput {
   readonly outcome: ModelOutcome;
   readonly modelLatencyMillis: number;
   readonly redactor: Redactor["Service"];
+  readonly delivered?: boolean;
 }
 
 const modelTraceOf = ({
@@ -157,6 +159,32 @@ export const scheduledTaskTraceOf = ({
     input.outcome._tag === "Replied"
       ? "scheduled_task_replied"
       : "scheduled_task_failed",
+});
+
+interface ProactiveTraceInput extends ModelTraceInput {
+  readonly event: ScheduleFiredEvent;
+  readonly dailyTokenBudget: number;
+  readonly tokensSpentBefore: number;
+}
+
+export const proactiveTraceOf = ({
+  event,
+  dailyTokenBudget,
+  tokensSpentBefore,
+  delivered = false,
+  ...input
+}: ProactiveTraceInput): ProactiveTurnTrace => ({
+  ...modelTraceOf(input),
+  eventId: event.eventId,
+  task: "proactive",
+  scheduleId: event.scheduleId,
+  dueAt: event.dueAt,
+  dailyTokenBudget,
+  tokensSpentBefore,
+  result:
+    input.outcome._tag === "Replied" && delivered
+      ? "proactive_message_sent"
+      : "proactive_message_failed",
 });
 
 interface TurnMetricInput {

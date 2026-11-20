@@ -38,7 +38,7 @@ const unpreparedTurn: TurnPreparation = {
 };
 
 export interface ModelTurnKind<Failure, Requirements> {
-  readonly task: "reply" | "scheduled_task";
+  readonly task: "reply" | "scheduled_task" | "proactive";
   readonly event: InboxEvent;
   readonly input: ModelMessage;
   readonly tools: AgentTools;
@@ -47,7 +47,9 @@ export interface ModelTurnKind<Failure, Requirements> {
     startedAt: number
   ) => Effect.Effect<BeforeFirstStep, Failure, Requirements>;
   readonly prepare?: Effect.Effect<TurnPreparation, Failure, Requirements>;
+  readonly tracesSendFailure?: boolean;
   readonly whenSent?: Effect.Effect<void, Failure, Requirements>;
+  readonly whenSendFailed?: Effect.Effect<void, Failure, Requirements>;
   readonly whenFailed: (
     reason: string
   ) => Effect.Effect<void, Failure, Requirements>;
@@ -118,9 +120,18 @@ export const runModelTurn = <Failure, Requirements>({
         })
       );
     const modelLatencyMillis = (yield* Clock.currentTimeMillis) - startedAt;
-    yield* traces.record(
-      kind.traceOf({ system, messages, outcome, modelLatencyMillis, redactor })
-    );
+    const recordTrace = (delivered: boolean) =>
+      traces.record(
+        kind.traceOf({
+          system,
+          messages,
+          outcome,
+          modelLatencyMillis,
+          redactor,
+          delivered,
+        })
+      );
+    yield* recordTrace(true);
 
     const remember = rememberCompletedSteps({
       eventId: event.eventId,
@@ -144,6 +155,12 @@ export const runModelTurn = <Failure, Requirements>({
     const delivery = yield* send(event, preparation.lateText(replyText));
     if (delivery._tag === "Failed") {
       yield* remember;
+      if (kind.tracesSendFailure === true) {
+        yield* recordTrace(false);
+      }
+      if (kind.whenSendFailed !== undefined) {
+        yield* kind.whenSendFailed;
+      }
       yield* fail(event, delivery.reason);
       yield* recordTurnMetric({
         ownerId,

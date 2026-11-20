@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
+import type { Journal } from "../journal/journal.ts";
 import type { NoteToolServices } from "../notes/note-tool-services.ts";
 import { noteToolsFor } from "../notes/note-tools.ts";
 import { OwnerPreferences } from "../preferences/owner-preferences.ts";
@@ -39,6 +40,7 @@ export interface OwnerMessageToolServices extends Omit<
   NoteToolServices,
   "ownerTimeZone"
 > {
+  readonly journal: Journal["Service"];
   readonly profile: Profile["Service"];
   readonly preferences: OwnerPreferences["Service"];
   readonly schedules: Schedules["Service"];
@@ -68,6 +70,7 @@ export const scheduleToolServicesOf = ({
 export const ownerMessageTools = (
   event: OwnerMessageEvent,
   {
+    journal,
     profile,
     preferences,
     schedules,
@@ -100,7 +103,14 @@ export const ownerMessageTools = (
             event.eventId
           ),
           [setTimeZoneToolName]: setTimeZoneTool(
-            { preferences, schedules, progress, redactor },
+            {
+              preferences,
+              schedules,
+              journal,
+              progress,
+              redactor,
+              briefLocalTime: behavior.quietHours.end,
+            },
             event.eventId
           ),
           [setScheduleToolName]: setScheduleTool(

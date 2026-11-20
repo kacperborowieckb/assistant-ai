@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 
+import { Journal } from "../journal/journal.ts";
 import { Notes } from "../notes/notes.ts";
 import { OwnerPreferences } from "../preferences/owner-preferences.ts";
 import { Profile } from "../profile/profile.ts";
@@ -10,6 +11,7 @@ import { TurnProgress } from "./turn-progress.ts";
 export const agentToolServices = Effect.gen(
   function* agentToolServicesEffect() {
     return {
+      journal: yield* Journal,
       notes: yield* Notes,
       profile: yield* Profile,
       preferences: yield* OwnerPreferences,

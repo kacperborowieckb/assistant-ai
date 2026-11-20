@@ -68,6 +68,7 @@ export const JournalRecordSchema = Schema.TaggedUnion({
     dailyTokenBudget: Schema.Number,
     tokensSpent: Schema.Number,
   },
+  BriefCreated: { eventId: Schema.String, scheduleId: Schema.String },
   ScheduleCompleted: { eventId: Schema.String, scheduleId: Schema.String },
   ScheduleRescheduled: {
     eventId: Schema.String,
@@ -133,7 +134,15 @@ const makeJournal = (ownerId: OwnerId) =>
         .orderBy(asc(journalEntries.sequence))
         .pipe(Effect.map((rows) => rows.map(toJournalEntry)));
 
-    return { append, read, readForEvent };
+    const hasEntryOfKind = (kind: JournalRecord["_tag"]) =>
+      database
+        .select({ sequence: journalEntries.sequence })
+        .from(journalEntries)
+        .where(eq(journalEntries.kind, kind))
+        .limit(1)
+        .pipe(Effect.map((rows) => rows.length > 0));
+
+    return { append, read, readForEvent, hasEntryOfKind };
   });
 
 export class Journal extends Context.Service<

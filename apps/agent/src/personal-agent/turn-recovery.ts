@@ -51,7 +51,7 @@ export interface Recovery<UnsentRequirements, NoticeRequirements> {
     skipped: SkippedScheduledTask | undefined
   ) => Effect.Effect<"settled" | "unanswered", unknown, UnsentRequirements>;
   readonly failureNoticeText: Effect.Effect<
-    string,
+    string | undefined,
     unknown,
     NoticeRequirements
   >;
@@ -107,7 +107,10 @@ const settleState = Effect.fnUntraced(function* settleState<
       return "settled" as const;
     }
     case "FailedNoticePending": {
-      yield* sendFailureNotice(event, yield* recovery.failureNoticeText);
+      const noticeText = yield* recovery.failureNoticeText;
+      yield* noticeText === undefined
+        ? inbox.markFailed([event])
+        : sendFailureNotice(event, noticeText);
       return "settled" as const;
     }
     case "FailedNoticeSent": {

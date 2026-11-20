@@ -38,7 +38,7 @@ const currentLocalTime =
 
 const twoDigits = (value: number) => String(value).padStart(2, "0");
 
-const nextLocalMinute = (systemText: string) =>
+export const nextLocalMinute = (systemText: string) =>
   Option.fromNullishOr(currentLocalTime.exec(systemText)?.groups).pipe(
     Option.map(({ year, month, day, hour, minute }) => {
       const next = DateTime.toParts(

@@ -22,6 +22,8 @@ export const turnResults = [
   "scheduled_task_replied",
   "scheduled_task_failed",
   "scheduled_task_skipped",
+  "proactive_message_sent",
+  "proactive_message_failed",
 ] as const;
 
 export const scheduleActions = ["send_text", "run_prompt"] as const;
@@ -30,4 +32,16 @@ export const scheduleSetBy = ["owner", "agent"] as const;
 
 export const scheduleStates = ["active", "done", "cancelled"] as const;
 
-export const modelTasks = ["reply", "scheduled_task", "eval_judge"] as const;
+export const modelTasks = [
+  "reply",
+  "scheduled_task",
+  "proactive",
+  "eval_judge",
+] as const;
+
+export const proactiveOutcomes = [
+  "acted",
+  "replied",
+  "muted",
+  "ignored",
+] as const;

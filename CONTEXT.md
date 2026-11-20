@@ -31,7 +31,7 @@ Use these terms with these meanings in code, docs, issues, and prompts. Use the 
 - **Schedule**: a wake-up time with one Action.
 - **Action**: what a Schedule does when it fires: `SendText` or `RunPrompt`.
 - **Reminder**: a Schedule that the Owner asks for, with the `SendText` Action.
-- **Scheduled Task**: a Schedule with the `RunPrompt` Action. The Owner sets it, or (later) the agent sets it for itself.
+- **Scheduled Task**: a Schedule with the `RunPrompt` Action. The Owner sets it, or the agent sets it for itself (`setBy: agent`); a Schedule that the agent set is a Proactive Message when it fires.
 - **Document**: something the agent writes, for itself or for the Owner. A Note is the main kind.
 - **Note**: a small, linked unit of memory with metadata: source, trust level, and the date it was last checked.
 - **Open Loop**: something that the Owner or the agent expects to come back to. Optional metadata on a Note: a kind (free text, for example task), a state (`open`, or `closed` with the reason `done`, `dropped`, or `replaced`), an optional due date, and (later) the Schedules that check on it. A fact has no Open Loop.
@@ -46,9 +46,10 @@ Use these terms with these meanings in code, docs, issues, and prompts. Use the 
 - **Capture**: the Owner sends something to keep (a note, task, link, or Reminder). The agent files it as Notes and links it.
 - **Recall**: the Owner asks, and the agent answers from its Notes and Journal, and names the source.
 - **Forget**: the Owner asks to delete something. The content is deleted for good, and the Journal keeps a Tombstone.
-- **Brief**: the proactive daily message about what matters today.
-- **Proactive Message**: a message the agent starts without a request. Every Proactive Message records an Outcome.
-- **Outcome**: what the Owner did with a Proactive Message: acted, ignored, or muted.
+- **Brief**: the daily Proactive Message about what matters today. It is a `RunPrompt` Schedule with `setBy: agent`, that code creates when the Owner's time zone becomes known.
+- **Proactive Message**: a message from a Schedule that the agent set (`setBy: agent`). Owner-set Reminders and Scheduled Tasks are not Proactive Messages. Every Proactive Message records an Outcome.
+- **Follow-up**: a Proactive Message about one or more Open Loops, from a Schedule that the agent set.
+- **Outcome**: what the Owner did with a Proactive Message: `acted`, `replied`, `muted`, or `ignored`.
 - **Behavior Config**: the typed defaults for each Instance (texting style, quiet hours, budgets, proactivity limits).
 - **Owner Preferences**: values in the Personal Agent that override the Behavior Config for one Owner, for example quiet hours or a "less of this" reply.
 - **Quiet Hours**: the time when the agent sends no Proactive Messages.

@@ -71,6 +71,10 @@ export const liveModelGateway = (config: TurnEnv, ownerId: OwnerId) =>
               model: config.REPLY_MODEL,
               reasoningEffort: config.REPLY_REASONING_EFFORT,
             },
+            proactive: {
+              model: config.REPLY_MODEL,
+              reasoningEffort: config.REPLY_REASONING_EFFORT,
+            },
             eval_judge: {
               model: config.EVAL_JUDGE_MODEL,
               reasoningEffort: config.EVAL_JUDGE_REASONING_EFFORT,

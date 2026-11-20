@@ -13,6 +13,8 @@ export const reminderMetricResults = ["delivered", "delivery_failed"] as const;
 
 export const skipMetricResults = ["daily_token_budget_spent"] as const;
 
+export const proactiveMetricResults = ["sent"] as const;
+
 export const refusalReasons = [
   "bad_secret_token",
   "unknown_sender",
@@ -43,6 +45,13 @@ export type OperatorMetric =
       readonly ownerId: OwnerId;
       readonly eventId: string;
       readonly result: (typeof skipMetricResults)[number];
+      readonly latencyMillis: number;
+    }
+  | {
+      readonly kind: "proactive_message";
+      readonly ownerId: OwnerId;
+      readonly eventId: string;
+      readonly result: (typeof proactiveMetricResults)[number];
       readonly latencyMillis: number;
     }
   | {

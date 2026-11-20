@@ -4,7 +4,13 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { Effect, Queue, Schema } from "effect";
 
+import { proactiveMarker } from "../src/personal-agent/proactive-marker.ts";
 import { scheduledTaskMarker } from "../src/personal-agent/scheduled-task-section.ts";
+import {
+  fakeBriefMessage,
+  fakeBriefMoveMessage,
+  isFakeBriefMove,
+} from "./fake-brief.ts";
 import { fakeJudgeMessage, fakeJudgeModel } from "./fake-judge.ts";
 import type { FakeJudgeVerdict } from "./fake-judge.ts";
 import { fakeKeepMessage, fakeKeepPrefix } from "./fake-keep.ts";
@@ -104,8 +110,14 @@ const fakeAssistantMessage = (
   toolResult: string | undefined,
   systemText: string
 ) => {
+  if (systemText.includes(proactiveMarker)) {
+    return fakeBriefMessage(systemText);
+  }
   if (systemText.includes(scheduledTaskMarker)) {
     return fakeScheduledTaskMessage(ownerText);
+  }
+  if (isFakeBriefMove(ownerText)) {
+    return fakeBriefMoveMessage(toolResult, systemText);
   }
   if (isFakeTimeZoneMessage(ownerText)) {
     return fakeTimeZoneMessage(ownerText, toolResult, systemText);
