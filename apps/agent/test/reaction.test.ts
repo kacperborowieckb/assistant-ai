@@ -17,6 +17,7 @@ import {
   silenceAfterChangeMessage,
   staySilentToolName,
 } from "../src/personal-agent/stay-silent-tool.ts";
+import { redactedMark } from "../src/tracing/redactor.ts";
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
 import {
   fakeBursts,
@@ -231,6 +232,19 @@ describe("One outcome for each Event: a reaction", () => {
       kind: "reaction",
       emoji: "👍",
       requestedEmoji: "🦖",
+    });
+  });
+
+  it("redacts a secret in a requested emoji before the Trace stores it", async () => {
+    scriptModel([reactWith(`🦖 ${env.TELEGRAM_WEBHOOK_SECRET}`)]);
+
+    const ownerId = await ownerSays(6213, "dinosaurs");
+
+    const trace = await replyTraceOf(ownerId);
+    expect(trace?.outcome).toEqual({
+      kind: "reaction",
+      emoji: "👍",
+      requestedEmoji: `🦖 ${redactedMark}`,
     });
   });
 

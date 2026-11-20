@@ -102,14 +102,22 @@ export interface ModelTraceInput {
 
 const traceOutcomeOf = (
   outcomeKind: OutcomeKind | undefined,
-  reaction: ReactionOutcome | undefined
+  reaction: ReactionOutcome | undefined,
+  redactor: Redactor["Service"]
 ): ReplyTurnTrace["outcome"] => {
   if (outcomeKind === undefined) {
     return null;
   }
-  return outcomeKind === "reaction" && reaction !== undefined
-    ? { kind: outcomeKind, ...reaction }
-    : { kind: outcomeKind };
+  if (outcomeKind !== "reaction" || reaction === undefined) {
+    return { kind: outcomeKind };
+  }
+  return {
+    kind: outcomeKind,
+    emoji: reaction.emoji,
+    ...(reaction.requestedEmoji === undefined
+      ? {}
+      : { requestedEmoji: redactor.redact(reaction.requestedEmoji) }),
+  };
 };
 
 const modelTraceOf = ({
@@ -136,7 +144,7 @@ const modelTraceOf = ({
     messages: messages.map((message) => redactor.redactMessage(message)),
     steps: traceStepsOf(outcome, redactor),
     modelLatencyMillis,
-    outcome: traceOutcomeOf(outcomeKind, reaction),
+    outcome: traceOutcomeOf(outcomeKind, reaction, redactor),
     refusedOutcomeTools: [...refusedOutcomeTools],
   } as const;
   if (outcome._tag === "Replied") {

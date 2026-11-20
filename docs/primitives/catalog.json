@@ -65,7 +65,8 @@
       "adrs": [
         "docs/decisions/0004-owners-and-channels.md",
         "docs/decisions/0007-typed-queries-and-migrations.md",
-        "docs/decisions/0019-proactivity.md"
+        "docs/decisions/0019-proactivity.md",
+        "docs/decisions/0022-reaction-outcome.md"
       ]
     },
     {
@@ -148,7 +149,8 @@
         "docs/decisions/0004-owners-and-channels.md",
         "docs/decisions/0007-typed-queries-and-migrations.md",
         "docs/decisions/0017-scheduled-task-limits.md",
-        "docs/decisions/0019-proactivity.md"
+        "docs/decisions/0019-proactivity.md",
+        "docs/decisions/0022-reaction-outcome.md"
       ]
     },
     {
@@ -167,7 +169,8 @@
       "roots": ["apps/agent/src/behavior"],
       "adrs": [
         "docs/decisions/0013-schedules-and-time.md",
-        "docs/decisions/0019-proactivity.md"
+        "docs/decisions/0019-proactivity.md",
+        "docs/decisions/0022-reaction-outcome.md"
       ]
     },
     {
