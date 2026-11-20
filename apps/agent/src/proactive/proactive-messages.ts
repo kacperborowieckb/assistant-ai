@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
+import { and, eq, gte, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
 import { Journal } from "../journal/journal.ts";
@@ -106,8 +106,24 @@ const makeProactiveMessages = Effect.gen(
         );
     });
 
+    const sentSince = Effect.fnUntraced(function* sentSince(
+      since: DateTime.Utc
+    ) {
+      const [row] = yield* database
+        .select({ sent: sql<number>`count(*)` })
+        .from(proactiveMessages)
+        .where(
+          and(
+            isNotNull(proactiveMessages.sentAt),
+            gte(proactiveMessages.sentAt, DateTime.formatIso(since))
+          )
+        );
+      return row?.sent ?? 0;
+    });
+
     return {
       plan,
+      sentSince,
       plannedOpenLoops,
       recordSent,
       forEvent,

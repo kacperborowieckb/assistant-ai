@@ -1,5 +1,7 @@
 import { Schema } from "effect";
 
+import type { proactiveMuteChanges } from "../personal-agent/storage-values.ts";
+
 export const ProactiveMutesSchema = Schema.Struct({
   openLoopIds: Schema.Array(Schema.String),
   kinds: Schema.Array(Schema.String),
@@ -49,3 +51,13 @@ export const sameMutes = (left: ProactiveMutes, right: ProactiveMutes) =>
   left.kinds.length === right.kinds.length &&
   left.openLoopIds.every((id) => right.openLoopIds.includes(id)) &&
   left.kinds.every((kind) => right.kinds.includes(kind));
+
+export interface ProactiveMutesChange {
+  readonly mutes: ProactiveMutes;
+  readonly changed: boolean;
+}
+
+export interface ProactiveMuteChange {
+  readonly change: (typeof proactiveMuteChanges)[number];
+  readonly targets: ProactiveMutes;
+}

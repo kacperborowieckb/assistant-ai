@@ -14,7 +14,7 @@ export const reminderMetricResults = ["delivered", "delivery_failed"] as const;
 
 export const skipMetricResults = ["daily_token_budget_spent"] as const;
 
-export const proactiveMetricResults = ["sent"] as const;
+export const proactiveMetricResults = ["sent", "folded", "skipped"] as const;
 
 export const outcomeMetricResults = proactiveOutcomes;
 

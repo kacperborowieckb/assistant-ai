@@ -41,6 +41,10 @@ When the Owner says "less of this" right after a Proactive Message, the agent ca
 
 In a proactive Turn, the agent sets its own next follow-up with `set_schedule`: a `RunPrompt` Schedule with `openLoopIds`. Code sets `setBy: agent` because the Owner did not ask for a Schedule in that Turn, or in an owner message Turn when a call has `openLoopIds` and no `ownerAskedForSchedule`; the model never sets `setBy`. At most `maxActiveAgentSchedules` (20) agent Schedules are active, and Scheduled Tasks that the Owner set are not counted. `list_schedules` shows `setBy` and `openLoopIds`. A Turn for an untrusted Event has no `set_schedule`. The local fake model does not set follow-ups; the Worker tests in `apps/agent/test/follow-ups.test.ts` prove them.
 
+## The send Budget
+
+The agent sends at most a set number of Proactive Messages per local day of the Owner (default 3). The Owner reads and changes the Budget in the chat with the tool `proactive_message_budget`, and the stored value has the source `owner`. When the Budget or `proactiveDailyTokenBudget` is used up, a follow-up that the agent set makes no model call and folds into the next Brief, and the Brief names its Open Loops. The Brief itself always runs. With no active Brief, the follow-up is skipped and recorded. The local fake model has no message for the Budget; the Worker tests in `test/send-budget.test.ts` prove the fold.
+
 ## Scheduled Tasks in the chat
 
 A Scheduled Task is a Schedule with the `RunPrompt` Action. At the due time, the agent runs a Turn with the stored prompt and sends the result.

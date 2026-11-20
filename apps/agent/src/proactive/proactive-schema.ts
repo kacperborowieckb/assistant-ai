@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { check, index, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 import { valueIn } from "../check-values.ts";
 import { proactiveOutcomes } from "../personal-agent/storage-values.ts";
@@ -25,5 +25,6 @@ export const proactiveMessages = sqliteTable(
       "proactive_messages_outcome_sent_check",
       sql`${table.outcome} IS NULL OR (${table.sentMessageId} IS NOT NULL AND ${table.windowEndsAt} IS NOT NULL)`
     ),
+    index("proactive_messages_sent_at").on(table.sentAt),
   ]
 );
