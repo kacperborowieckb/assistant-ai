@@ -103,11 +103,18 @@ const request = Command.make(
       ),
       Flag.withDefault(false)
     ),
+    burst: Flag.Boolean("burst").pipe(
+      Flag.withDescription(
+        "Send every message at once, within the Quiet Gap, and wait for the one outcome of the Burst on the newest message."
+      ),
+      Flag.withDefault(false)
+    ),
   },
-  ({ contains, message, waitForLaterMessage }) =>
+  ({ contains, message, waitForLaterMessage, burst }) =>
     requestReply({
       contains: Option.getOrUndefined(contains),
       waitForLaterMessage,
+      burst,
       messages: message.length === 0 ? ["Hello agent"] : message,
     }).pipe(Effect.flatMap(Console.log))
 ).pipe(

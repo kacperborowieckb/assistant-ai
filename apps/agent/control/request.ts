@@ -1,9 +1,13 @@
-import { Data, Effect, Option } from "effect";
+import { Clock, Data, Effect, Option } from "effect";
 
-import type { FakeTelegramChatAction } from "./fake-chat-actions.ts";
-import type { FakeTelegramReaction } from "./fake-reaction.ts";
+import {
+  answeredWithoutText,
+  renderAnswerWithoutText,
+  renderChatActions,
+} from "./answer-without-text.ts";
+import { checkBurstSend } from "./burst-split.ts";
 import { startLocalFakes } from "./local-fakes.ts";
-import type { FakeModelCall, FakeTelegramMessage } from "./local-fakes.ts";
+import type { FakeTelegramMessage } from "./local-fakes.ts";
 import { startLocalWorker, temporarySecrets } from "./local-worker.ts";
 import { addOwner, renderAddedOwner } from "./operator.ts";
 import { selectReplyTo } from "./reply-selection.ts";
@@ -24,18 +28,6 @@ const replyPartsContain = (parts: readonly string[], contains: string) => {
   );
 };
 
-const renderChatActions = (
-  chatActions: readonly FakeTelegramChatAction[],
-  outcome = "the reply"
-) =>
-  chatActions.length === 0
-    ? `Telegram sendChatAction: none before ${outcome}`
-    : `Telegram sendChatAction before ${outcome}: ${chatActions
-        .map(
-          (chatAction) => `"${chatAction.action}" to chat ${chatAction.chatId}`
-        )
-        .join(", ")}`;
-
 export class ReplyMissing extends Data.TaggedError("ReplyMissing")<{
   readonly contains: string | undefined;
   readonly reply: string;
@@ -47,69 +39,60 @@ export class ReplyMissing extends Data.TaggedError("ReplyMissing")<{
   }
 }
 
-const staySilentToolName = "stay_silent";
-
-const stayedSilentOn = (
-  modelCalls: readonly FakeModelCall[],
-  message: string
-) =>
-  modelCalls
-    .findLast((call) => call.lastUserMessage === message)
-    ?.toolCalls.includes(staySilentToolName) === true;
-
-const reactionOn = (
-  reactions: readonly FakeTelegramReaction[],
-  messageId: number
-) => reactions.findLast((reaction) => reaction.messageId === messageId);
-
-interface AnswerWithoutText {
-  readonly calls: readonly FakeModelCall[];
-  readonly message: string;
-  readonly reactions: readonly FakeTelegramReaction[];
+interface NumberedMessage {
+  readonly text: string;
+  readonly updateId: number;
   readonly messageId: number;
 }
 
-const answeredWithoutText = ({
-  calls,
-  message,
-  reactions,
-  messageId,
-}: AnswerWithoutText) =>
-  stayedSilentOn(calls, message) ||
-  reactionOn(reactions, messageId) !== undefined;
-
-const renderAnswerWithoutText = ({
-  calls,
-  message,
-  reactions,
-  messageId,
-  chatActions,
-}: AnswerWithoutText & {
-  readonly chatActions: readonly FakeTelegramChatAction[];
-}) => {
-  const reaction = reactionOn(reactions, messageId);
-  if (reaction !== undefined) {
-    return [
-      renderChatActions(chatActions, "the reaction"),
-      `Telegram setMessageReaction on message ${reaction.messageId} in chat ${reaction.chatId}: "${reaction.emoji}"`,
-    ];
-  }
-  return stayedSilentOn(calls, message)
-    ? [
-        renderChatActions(chatActions, "the silence"),
-        `No Telegram send for the message "${message}": the agent stayed silent (${staySilentToolName})`,
-      ]
-    : undefined;
+const messageGroups = (messages: readonly string[], burst: boolean) => {
+  const numbered = messages.map((text, index): NumberedMessage => ({
+    text,
+    updateId: index + 1,
+    messageId: sampleMessageId + index + 1,
+  }));
+  return burst ? [numbered] : numbered.map((sent) => [sent]);
 };
+
+const sendMessages = Effect.fnUntraced(function* sendMessages(
+  workerUrl: URL,
+  webhookSecret: string,
+  messages: readonly NumberedMessage[]
+) {
+  const lines: string[] = [];
+  const startedAt = yield* Clock.currentTimeMillis;
+  for (const sent of messages) {
+    const webhook = yield* sendTelegramUpdate({
+      workerUrl,
+      webhookSecret,
+      update: {
+        updateId: sent.updateId,
+        messageId: sent.messageId,
+        userId: sampleTelegramUserId,
+        text: sent.text,
+      },
+    });
+    lines.push(
+      `Webhook answered ${webhook.status} for the message "${sent.text}"`
+    );
+  }
+  yield* checkBurstSend({
+    messageCount: messages.length,
+    sendMillis: (yield* Clock.currentTimeMillis) - startedAt,
+  });
+  return lines;
+});
 
 export const requestReply = ({
   messages,
   contains,
   waitForLaterMessage,
+  burst = false,
 }: {
   readonly messages: readonly string[];
   readonly contains: string | undefined;
   readonly waitForLaterMessage: boolean;
+  readonly burst?: boolean;
 }) =>
   Effect.gen(function* requestReplyEffect() {
     const fakes = yield* startLocalFakes();
@@ -134,25 +117,20 @@ export const requestReply = ({
 
     let replyParts: readonly string[] = [];
     const unprompted: FakeTelegramMessage[] = [];
-    for (const [index, message] of messages.entries()) {
+    for (const group of messageGroups(messages, burst)) {
       const callsBefore = fakes.modelCalls().length;
       const callsForMessage = () => fakes.modelCalls().slice(callsBefore);
       const chatActionsBefore = fakes.chatActions().length;
-      const webhook = yield* sendTelegramUpdate({
-        workerUrl: url,
-        webhookSecret: secrets.TELEGRAM_WEBHOOK_SECRET,
-        update: {
-          updateId: index + 1,
-          messageId: sampleMessageId + index + 1,
-          userId: sampleTelegramUserId,
-          text: message,
-        },
-      });
       lines.push(
-        `Webhook answered ${webhook.status} for the message "${message}"`
+        ...(yield* sendMessages(url, secrets.TELEGRAM_WEBHOOK_SECRET, group))
       );
+      const newest = group.at(-1);
+      if (newest === undefined) {
+        continue;
+      }
+      const message = newest.text;
       const selection = yield* selectReplyTo({
-        inputMessageId: sampleMessageId + index + 1,
+        inputMessageId: newest.messageId,
         take: (timeout) =>
           fakes.nextTelegramMessage.pipe(Effect.timeoutOption(timeout)),
         firstReplyTimeout: replyTimeout,
@@ -162,7 +140,7 @@ export const requestReply = ({
             calls: callsForMessage(),
             message,
             reactions: fakes.reactions(),
-            messageId: sampleMessageId + index + 1,
+            messageId: newest.messageId,
           })
         ),
       });
@@ -173,7 +151,7 @@ export const requestReply = ({
           calls: callsForMessage(),
           message,
           reactions: fakes.reactions(),
-          messageId: sampleMessageId + index + 1,
+          messageId: newest.messageId,
           chatActions: fakes.chatActions().slice(chatActionsBefore),
         });
         if (withoutText === undefined) {

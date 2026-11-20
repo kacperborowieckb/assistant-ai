@@ -1,10 +1,10 @@
-# 0022: Reaction outcome
+# 0023: Reaction outcome
 
 Status: accepted
 
 Date: 2026-11-20
 
-Spec #119 (Chat replies), ticket #124. Builds on [0021](0021-outcome-tools.md): `react` is a second outcome tool, decided by code after the tool loop. It supersedes none of 0021.
+Spec #119 (Chat replies), ticket #124. Builds on [0021](0021-outcome-tools.md) and [0022](0022-chat-replies.md): `react` is a second outcome tool, decided by code after the tool loop. It supersedes none of 0021.
 
 ## Decision
 

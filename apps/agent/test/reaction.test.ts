@@ -20,7 +20,6 @@ import {
 import { redactedMark } from "../src/tracing/redactor.ts";
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
 import {
-  fakeBursts,
   fakeMetrics,
   fakeModel,
   fakeTelegram,
@@ -265,7 +264,6 @@ describe("One outcome for each Event: a reaction", () => {
       telegramUserId: 6205,
       texts: ["buy milk", "and eggs", "and bread"],
     });
-    fakeBursts.allPendingTogether = true;
     scriptModel([reactWith("✍")]);
 
     await runTurn(ownerId);
