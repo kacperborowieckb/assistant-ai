@@ -156,6 +156,7 @@ const testChannel = Layer.succeed(Channel, {
     sentTexts.push(message.text);
     return answer.next === "never" ? Effect.never : Effect.succeed(answer.next);
   },
+  showTyping: () => Effect.void,
 });
 
 const testServices = Layer.mergeAll(

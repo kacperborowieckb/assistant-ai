@@ -2,6 +2,7 @@ import { Agent, getAgentByName } from "agents";
 import { DateTime, Effect, Layer, ManagedRuntime, Option } from "effect";
 
 import { defaultBehaviorConfig } from "../behavior/behavior-config.ts";
+import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import type { Channel } from "../channels/channel.ts";
 import type { Event } from "../event.ts";
 import { Journal } from "../journal/journal.ts";
@@ -73,6 +74,8 @@ export class PersonalAgent extends Agent<Env> {
   ) => TurnServices = liveTurnServices;
 
   protected readonly turnTools: AgentTools = noTools;
+
+  protected readonly behavior: BehaviorConfig = defaultBehaviorConfig;
 
   protected readonly alarmClock: AlarmClock = {
     setAt: (dueAt) => this.setAlarmAt(dueAt),
@@ -147,7 +150,7 @@ export class PersonalAgent extends Agent<Env> {
 
   async runTurn(): Promise<void> {
     await this.runtime.runPromise(
-      takeTurn(this.ownerId, defaultBehaviorConfig, this.turnTools).pipe(
+      takeTurn(this.ownerId, this.behavior, this.turnTools).pipe(
         Effect.provide(this.turnServices(this.env, this.ownerId))
       )
     );

@@ -2,6 +2,7 @@ import { Effect, Layer, Schema } from "effect";
 
 import { Channel } from "../channel.ts";
 import type { Delivery, OutgoingMessage } from "../channel.ts";
+import { TypingNotShown } from "../typing-not-shown.ts";
 
 export interface TelegramConfig {
   readonly apiUrl: string;
@@ -14,6 +15,14 @@ const SendMessageResponseSchema = Schema.Union([
     ok: Schema.Literal(true),
     result: Schema.Struct({ message_id: Schema.Int }),
   }),
+  Schema.Struct({
+    ok: Schema.Literal(false),
+    description: Schema.optionalKey(Schema.String),
+  }),
+]);
+
+const ChatActionResponseSchema = Schema.Union([
+  Schema.Struct({ ok: Schema.Literal(true) }),
   Schema.Struct({
     ok: Schema.Literal(false),
     description: Schema.optionalKey(Schema.String),
@@ -117,5 +126,46 @@ const send = (config: TelegramConfig) => (message: OutgoingMessage) =>
     return delivery;
   });
 
+const sendChatActionRequest = (
+  config: TelegramConfig,
+  conversationId: string
+) =>
+  new Request(`${config.apiUrl}/bot${config.botToken}/sendChatAction`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: Number(conversationId), action: "typing" }),
+  });
+
+const notShown = (reason: string) => new TypingNotShown({ reason });
+
+const typingAnswerOf = (response: Response) =>
+  Effect.tryPromise(() => response.json()).pipe(
+    Effect.flatMap(Schema.decodeUnknownEffect(ChatActionResponseSchema)),
+    Effect.mapError(() =>
+      notShown(`Telegram answered ${response.status} without a result`)
+    ),
+    Effect.flatMap((answer) =>
+      answer.ok
+        ? Effect.void
+        : Effect.fail(
+            notShown(
+              `Telegram refused the chat action (${response.status}): ${answer.description ?? "no description"}`
+            )
+          )
+    )
+  );
+
+const showTyping = (config: TelegramConfig) => (conversationId: string) =>
+  Effect.tryPromise({
+    try: (signal) =>
+      (config.fetch ?? fetch)(
+        new Request(sendChatActionRequest(config, conversationId), { signal })
+      ),
+    catch: () => notShown("Telegram could not be reached"),
+  }).pipe(Effect.flatMap(typingAnswerOf));
+
 export const telegramChannel = (config: TelegramConfig) =>
-  Layer.succeed(Channel, { send: send(config) });
+  Layer.succeed(Channel, {
+    send: send(config),
+    showTyping: showTyping(config),
+  });

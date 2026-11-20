@@ -1,6 +1,8 @@
 import { Context } from "effect";
 import type { Effect } from "effect";
 
+import type { TypingNotShown } from "./typing-not-shown.ts";
+
 export interface OutgoingMessage {
   readonly conversationId: string;
   readonly inReplyTo?: string;
@@ -13,5 +15,10 @@ export type Delivery =
 
 export class Channel extends Context.Service<
   Channel,
-  { readonly send: (message: OutgoingMessage) => Effect.Effect<Delivery> }
+  {
+    readonly send: (message: OutgoingMessage) => Effect.Effect<Delivery>;
+    readonly showTyping: (
+      conversationId: string
+    ) => Effect.Effect<void, TypingNotShown>;
+  }
 >()("Channel") {}

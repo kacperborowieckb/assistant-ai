@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { Effect, Layer } from "effect";
 import { z } from "zod";
 
+import { defaultBehaviorConfig } from "../src/behavior/behavior-config.ts";
 import { telegramChannel } from "../src/channels/telegram/telegram-channel.ts";
 import { agentTool, ToolFailed } from "../src/model-gateway/agent-tool.ts";
 import type { AgentTools } from "../src/model-gateway/agent-tool.ts";
@@ -17,6 +18,7 @@ import {
   fakeTelegram,
   fakeTelegramApiUrl,
   fakeTool,
+  testTypingRepeatMillis,
 } from "./fakes.ts";
 
 export { default } from "../src/index.ts";
@@ -62,4 +64,8 @@ const useFakeTurnServices = () => fakeTurnServices;
 export class PersonalAgent extends LivePersonalAgent {
   protected override readonly turnServices = useFakeTurnServices;
   protected override readonly turnTools = fakeTools;
+  protected override readonly behavior = {
+    ...defaultBehaviorConfig,
+    typingRepeatMillis: testTypingRepeatMillis,
+  };
 }

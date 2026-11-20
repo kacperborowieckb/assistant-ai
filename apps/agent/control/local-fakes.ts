@@ -11,9 +11,12 @@ import {
   fakeBriefMoveMessage,
   isFakeBriefMove,
 } from "./fake-brief.ts";
+import { fakeChatActions, isSendChatAction } from "./fake-chat-actions.ts";
 import { fakeJudgeMessage, fakeJudgeModel } from "./fake-judge.ts";
 import type { FakeJudgeVerdict } from "./fake-judge.ts";
 import { fakeKeepMessage, fakeKeepPrefix } from "./fake-keep.ts";
+import { toolCallNamesOf } from "./fake-model-call.ts";
+import type { FakeModelCall } from "./fake-model-call.ts";
 import { fakeNoteEditMessage, isFakeNoteEdit } from "./fake-note-edits.ts";
 import {
   fakeOpenLoopMessage,
@@ -35,21 +38,15 @@ import {
   isFakeTimeZoneMessage,
 } from "./fake-time-zone.ts";
 
+export type { FakeModelCall } from "./fake-model-call.ts";
+
 export const fakeReplyPrefix = "You said: ";
 
 export interface FakeTelegramMessage {
   readonly chatId: number;
   readonly text: string;
   readonly replyToMessageId: number | undefined;
-}
-
-export interface FakeModelCall {
-  readonly model: string;
-  readonly gatewayId: string | undefined;
-  readonly metadata: string | undefined;
-  readonly collectLogPayload: string | undefined;
-  readonly lastUserMessage: string;
-  readonly toolCalls: readonly string[];
+  readonly chatActionsBefore?: number;
 }
 
 const SendMessageBodySchema = Schema.Struct({
@@ -164,6 +161,7 @@ export const startLocalFakes = Effect.fnUntraced(function* startLocalFakes({
 }: LocalFakesOptions = {}) {
   const telegramMessages = yield* Queue.unbounded<FakeTelegramMessage>();
   const sentTelegramMessages: FakeTelegramMessage[] = [];
+  const chatActions = fakeChatActions();
   const modelCalls: FakeModelCall[] = [];
   const pendingJudgeVerdicts = [...judgeVerdicts];
   let nextMessageId = 1;
@@ -174,6 +172,7 @@ export const startLocalFakes = Effect.fnUntraced(function* startLocalFakes({
       chatId: message.chat_id,
       text: message.text,
       replyToMessageId: message.reply_parameters?.message_id,
+      chatActionsBefore: chatActions.list().length,
     };
     sentTelegramMessages.push(sent);
     Queue.offerUnsafe(telegramMessages, sent);
@@ -204,12 +203,7 @@ export const startLocalFakes = Effect.fnUntraced(function* startLocalFakes({
       metadata: headerValue(request, "cf-aig-metadata"),
       collectLogPayload: headerValue(request, "cf-aig-collect-log-payload"),
       lastUserMessage: lastOwnerText(completion.messages),
-      toolCalls:
-        "tool_calls" in message && Array.isArray(message.tool_calls)
-          ? message.tool_calls.map(
-              (call: { function: { name: string } }) => call.function.name
-            )
-          : [],
+      toolCalls: toolCallNamesOf(message),
     });
     sendJson(response, 200, {
       id: `fake-completion-${modelCalls.length}`,
@@ -232,6 +226,10 @@ export const startLocalFakes = Effect.fnUntraced(function* startLocalFakes({
       const body = await readBody(request);
       if (sendMessagePath.test(request.url ?? "")) {
         answerSendMessage(body, response);
+        return;
+      }
+      if (isSendChatAction(request.url)) {
+        sendJson(response, 200, chatActions.record(body));
         return;
       }
       if (request.url === chatCompletionsPath) {
@@ -267,6 +265,7 @@ export const startLocalFakes = Effect.fnUntraced(function* startLocalFakes({
     aiGatewayUrl: `${origin}/ai-gateway`,
     nextTelegramMessage: Queue.take(telegramMessages),
     sentTelegramMessages: () => [...sentTelegramMessages],
+    chatActions: chatActions.list,
     modelCalls: () => [...modelCalls],
   };
 });

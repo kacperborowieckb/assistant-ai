@@ -152,3 +152,67 @@ describe("Telegram send", () => {
     });
   });
 });
+
+const showTypingWith = (
+  fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+) =>
+  Effect.runPromise(
+    Channel.pipe(
+      Effect.flatMap((channel) => channel.showTyping("1")),
+      Effect.match({
+        onFailure: (error) => ({ _tag: error._tag, reason: error.reason }),
+        onSuccess: () => ({ _tag: "Shown" }),
+      }),
+      Effect.provide(
+        telegramChannel({
+          apiUrl: "https://telegram.fake",
+          botToken: "token",
+          fetch,
+        })
+      )
+    )
+  );
+
+describe("Telegram typing signal", () => {
+  it("sends sendChatAction with typing to the chat", async () => {
+    const requests: { url: string; body: unknown }[] = [];
+
+    const result = await showTypingWith(async (input, init) => {
+      const request = new Request(input, init);
+      requests.push({ url: request.url, body: await request.json() });
+      return Response.json({ ok: true, result: true });
+    });
+
+    expect(result).toEqual({ _tag: "Shown" });
+    expect(requests).toEqual([
+      {
+        url: "https://telegram.fake/bottoken/sendChatAction",
+        body: { chat_id: 1, action: "typing" },
+      },
+    ]);
+  });
+
+  it("fails with the reason when Telegram refuses or cannot be reached", async () => {
+    const refused = await showTypingWith(() =>
+      Promise.resolve(
+        Response.json(
+          { ok: false, description: "Forbidden: bot was blocked by the user" },
+          { status: 403 }
+        )
+      )
+    );
+    const unreachable = await showTypingWith(() =>
+      Promise.reject(new TypeError("offline"))
+    );
+
+    expect(refused).toEqual({
+      _tag: "TypingNotShown",
+      reason:
+        "Telegram refused the chat action (403): Forbidden: bot was blocked by the user",
+    });
+    expect(unreachable).toEqual({
+      _tag: "TypingNotShown",
+      reason: "Telegram could not be reached",
+    });
+  });
+});
