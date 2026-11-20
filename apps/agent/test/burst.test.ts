@@ -11,7 +11,7 @@ import type { JournalRecord } from "../src/journal/journal.ts";
 import { Journal } from "../src/journal/journal.ts";
 import {
   captureNoteToolName,
-  severalForwardedMessagesMessage,
+  forwardedInBurstMessage,
 } from "../src/notes/capture-note-tool.ts";
 import { Notes } from "../src/notes/notes.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
@@ -323,25 +323,23 @@ describe("A Turn answers a burst of Owner messages", () => {
     });
   });
 
-  it("keeps a forwarded message of a Burst under its own source, keyed by the Turn Event", async () => {
+  it("refuses capture_note for a Burst that holds a forwarded message and another message", async () => {
     const ownerId = await addOwner(7107);
-    const eventIds = await storeBurst(ownerId, 7107, { forwarded: [1] });
+    await storeBurst(ownerId, 7107, { forwarded: [1] });
     fakeBursts.allPendingTogether = true;
     scriptModel([
       { callTool: captureNoteToolName, input: { text: "keep this" } },
-      { say: "Kept" },
+      { say: "I could not keep it" },
     ]);
 
     await runTurn(ownerId);
 
-    expect(await noteRows(ownerId)).toEqual([
-      {
-        text: "second",
-        source_event_id: eventIds[0],
-        source_channel_message_id: "72",
-        trust_level: "untrusted",
-      },
-    ]);
+    expect(await noteRows(ownerId)).toEqual([]);
+    expect(
+      toolResultsOf(fakeModel.doGenerateCalls[1]?.prompt ?? []).join("\n")
+    ).toContain(forwardedInBurstMessage);
+    expect(fakeTelegram.sent).toHaveLength(1);
+    expect(await eventStates(ownerId)).toEqual(["done", "done", "done"]);
   });
 
   it("refuses capture_note for a Burst with more than one forwarded message and keeps no Note", async () => {
@@ -359,7 +357,7 @@ describe("A Turn answers a burst of Owner messages", () => {
     expect(fakeModel.doGenerateCalls).toHaveLength(2);
     expect(
       toolResultsOf(fakeModel.doGenerateCalls[1]?.prompt ?? []).join("\n")
-    ).toContain(severalForwardedMessagesMessage);
+    ).toContain(forwardedInBurstMessage);
     expect(fakeTelegram.sent).toHaveLength(1);
     expect(await eventStates(ownerId)).toEqual(["done", "done", "done"]);
   });

@@ -36,20 +36,24 @@ export const trustLevelOfBurst = (burst: Burst): TrustLevel =>
     ? "untrusted"
     : "owner";
 
-export const forwardedEventsOf = (burst: Burst) =>
-  burst.filter((event) => trustLevelOfEvent(event) === "untrusted");
+/**
+ * A capture keeps the text of a forwarded message in place of the model's
+ * text. In a Burst of several Events with a forwarded message, code cannot
+ * tell whether the capture is about the forwarded text or another message,
+ * so the capture tool refuses (see noteToolsFor). A Burst of one Event keeps
+ * today's behavior.
+ */
+export const captureIsAmbiguous = (burst: Burst) =>
+  burst.length > 1 && trustLevelOfBurst(burst) === "untrusted";
 
 /**
- * The source of a Note that the Turn of a Burst captures. A capture keeps the
- * text of a forwarded message, so a Burst with one forwarded message keeps
- * that message as the source; a Burst with more than one cannot tell which,
- * and its capture tool refuses (see noteToolsFor).
+ * The source of a Note that the Turn of a Burst captures: the Turn Event,
+ * with the trust level of the whole Burst.
  */
 export const noteSourceOfBurst = (burst: Burst): NoteSource => {
   const turnEvent = turnEventOf(burst);
-  const sourceEvent = forwardedEventsOf(burst)[0] ?? turnEvent;
   return {
-    ...noteSourceOfEvent(sourceEvent),
+    ...noteSourceOfEvent(turnEvent),
     eventId: turnEvent.eventId,
     trustLevel: trustLevelOfBurst(burst),
   };

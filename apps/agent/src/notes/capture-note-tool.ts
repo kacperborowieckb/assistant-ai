@@ -14,8 +14,8 @@ export const captureNoteToolName = "capture_note";
 export const noteNotKeptMessage =
   "The Note was not kept. Tell the Owner that you could not keep it.";
 
-export const severalForwardedMessagesMessage =
-  "These Owner messages hold more than one forwarded message, so a Note cannot keep the right forwarded text with its own source. Nothing was kept. Tell the Owner, and ask them to forward the message to keep on its own.";
+export const forwardedInBurstMessage =
+  "These Owner messages hold a forwarded message together with other messages, so a Note cannot tell which text to keep with which source. Nothing was kept. Tell the Owner, and ask them to send the message to keep on its own.";
 
 const CaptureNoteInput = Schema.Struct({
   text: Schema.String.pipe(

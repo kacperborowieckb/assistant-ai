@@ -1,5 +1,5 @@
 import {
-  forwardedEventsOf,
+  captureIsAmbiguous,
   noteSourceOfBurst,
   trustLevelOfBurst,
   turnEventOf,
@@ -8,7 +8,7 @@ import type { Burst } from "../personal-agent/burst.ts";
 import {
   captureNoteTool,
   captureNoteToolName,
-  severalForwardedMessagesMessage,
+  forwardedInBurstMessage,
 } from "./capture-note-tool.ts";
 import {
   closeOpenLoopTool,
@@ -32,9 +32,7 @@ export const noteToolsFor = (services: NoteToolServices, burst: Burst) => {
     [captureNoteToolName]: captureNoteTool(
       services,
       noteSourceOfBurst(burst),
-      forwardedEventsOf(burst).length > 1
-        ? severalForwardedMessagesMessage
-        : undefined
+      captureIsAmbiguous(burst) ? forwardedInBurstMessage : undefined
     ),
     ...(trustLevelOfBurst(burst) === "owner"
       ? {
