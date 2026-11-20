@@ -31,7 +31,10 @@ export const holdProactiveMessage = Effect.fnUntraced(
           eventId: event.eventId,
         });
         const recorded = yield* traces.readForEvent(event.eventId);
-        if (Option.isSome(held) && recorded.length === 0) {
+        const alreadyTraced = recorded.some(
+          ({ trace }) => trace.task === "proactive_hold"
+        );
+        if (Option.isSome(held) && !alreadyTraced) {
           yield* traces.record({
             eventId: event.eventId,
             task: "proactive_hold",

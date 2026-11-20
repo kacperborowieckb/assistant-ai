@@ -121,6 +121,20 @@ describe("the end of Quiet Hours", () => {
       zone: "Europe/Warsaw",
       expected: "2026-03-29T01:30:00.000Z",
     },
+    {
+      name: "inside a range whose end falls in the March gap, after the raw end label",
+      quietHours: { start: "22:00", end: "02:30" },
+      now: "2026-03-29T01:10:00Z",
+      zone: "Europe/Warsaw",
+      expected: "2026-03-29T01:30:00.000Z",
+    },
+    {
+      name: "at the resolved end of a range whose end falls in the March gap",
+      quietHours: { start: "22:00", end: "02:30" },
+      now: "2026-03-29T01:30:00Z",
+      zone: "Europe/Warsaw",
+      expected: null,
+    },
   ])("$name", ({ quietHours, now, zone, expected }) => {
     expect(endOf(quietHours, now, zone)).toBe(expected);
   });
