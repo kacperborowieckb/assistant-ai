@@ -178,6 +178,21 @@ export const makeScheduleQueries = Effect.fnUntraced(
         .orderBy(asc(schedules.nextDueAt), asc(schedules.createdAt))
         .pipe(Effect.map((rows) => rows.map((row) => toSchedule(row))));
 
+    const activeAgentDueBy = (until: DateTime.Utc) =>
+      database
+        .select()
+        .from(schedules)
+        .where(
+          and(
+            eq(schedules.ownerId, ownerId),
+            eq(schedules.state, "active"),
+            eq(schedules.setBy, "agent"),
+            lte(schedules.nextDueAt, DateTime.formatIso(until))
+          )
+        )
+        .orderBy(asc(schedules.nextDueAt), asc(schedules.createdAt))
+        .pipe(Effect.flatMap(withOpenLoops));
+
     const activeRepeatingOutsideZone = (zoneName: string) =>
       database
         .select()
@@ -232,6 +247,7 @@ export const makeScheduleQueries = Effect.fnUntraced(
       findByRequest,
       earliestAlarmAt,
       unfiredDueBy,
+      activeAgentDueBy,
       activeRepeatingOutsideZone,
       insert,
       updateActive,

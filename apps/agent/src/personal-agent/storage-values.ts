@@ -62,6 +62,7 @@ export const proactiveFoldReasons = [
   "muted",
   "message_budget",
   "token_budget",
+  "brief_soon",
 ] as const;
 
 export const proactiveMuteChanges = ["muted", "unmuted"] as const;

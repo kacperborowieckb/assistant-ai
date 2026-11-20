@@ -10,6 +10,7 @@ import { deliveryStateOf, honestFailureText } from "./delivery.ts";
 import type { DeliveryState } from "./delivery.ts";
 import { foldProactiveMessage } from "./fired-fold.ts";
 import { holdProactiveMessage } from "./fired-hold.ts";
+import { completeMergedSchedules } from "./fired-merge.ts";
 import {
   recordProactiveMessageSent,
   runProactiveMessage,
@@ -82,6 +83,9 @@ const recover = Effect.fnUntraced(function* recover({
     yield* recordProactiveMessageSent(ownerId, event.eventId, 0);
   }
   if (completesScheduleAfter(schedule.value, state)) {
+    if (schedule.value.setBy === "agent") {
+      yield* completeMergedSchedules(event.eventId);
+    }
     yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
   }
   if (schedule.value.action._tag === "SendText") {
@@ -163,6 +167,7 @@ export const handleFiredSchedule = Effect.fnUntraced(
             behavior,
             event,
             action,
+            schedule: schedule.value,
           });
         }
         return yield* runScheduledTask({
