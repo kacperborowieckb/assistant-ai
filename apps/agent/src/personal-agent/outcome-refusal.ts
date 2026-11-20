@@ -91,3 +91,20 @@ export const refusalOfOutcomeTool = Effect.fnUntraced(
       : undefined;
   }
 );
+
+export const defaultReactionAllowed = Effect.fnUntraced(
+  function* defaultReactionAllowed(call: Omit<OutcomeToolCall, "name">) {
+    const silenceRefusal = yield* refusalOfOutcomeTool({
+      ...call,
+      name: staySilentToolName,
+    });
+    const reactionRefusal = yield* refusalOfOutcomeTool({
+      ...call,
+      name: reactToolName,
+    });
+    return (
+      silenceRefusal === silenceAfterChangeMessage &&
+      reactionRefusal === undefined
+    );
+  }
+);

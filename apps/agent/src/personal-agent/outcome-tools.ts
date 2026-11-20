@@ -12,9 +12,11 @@ import type {
 import { ModelUnavailable } from "../model-gateway/model-unavailable.ts";
 import { StepLimitReached } from "../model-gateway/step-limit-reached.ts";
 import { sumUsage } from "../model-gateway/usage-ledger.ts";
-import { refusalOfOutcomeTool } from "./outcome-refusal.ts";
 import {
-  reactToolName,
+  defaultReactionAllowed,
+  refusalOfOutcomeTool,
+} from "./outcome-refusal.ts";
+import {
   reactionAcceptedOutput,
   reactionFor,
   requestedEmojiOf,
@@ -180,16 +182,15 @@ export const generateWithOutcomeTools = Effect.fnUntraced(
       });
       const calls = reply.endedWith;
       if (calls.length === 0) {
-        const reactionAllowed =
+        const reactionInstead =
           reply.text.trim().length === 0 &&
-          (yield* refusalOfOutcomeTool({
+          (yield* defaultReactionAllowed({
             eventId,
-            name: reactToolName,
             steps,
             earlierMessages,
             tools,
-          })) === undefined;
-        return reactionAllowed
+          }));
+        return reactionInstead
           ? replied(steps, "reaction", { emoji: defaultReaction })
           : replied(steps, "reply");
       }

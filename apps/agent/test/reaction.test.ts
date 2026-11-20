@@ -358,6 +358,31 @@ describe("One outcome for each Event: a reaction", () => {
     expect(trace?.refusedOutcomeTools).toEqual([staySilentToolName]);
   });
 
+  it("does not react when a Turn that changed nothing ends with no text", async () => {
+    scriptModel([{ say: "" }]);
+
+    const ownerId = await ownerSays(6211, "hm");
+
+    expect(fakeTelegram.reactions).toEqual([]);
+    const trace = await replyTraceOf(ownerId);
+    expect(trace?.outcome).toEqual({ kind: "reply" });
+  });
+
+  it("does not react when a changing tool call failed and the model ends with no text", async () => {
+    fakeTool.failWith = "The store is down";
+    scriptModel([
+      { callTool: captureNoteToolName, input: { text: "buy milk" } },
+      { callTool: fakeTool.name, input: { word: "milk" } },
+      { say: "" },
+    ]);
+
+    const ownerId = await ownerSays(6212, "buy milk and keep milk");
+
+    expect(fakeTelegram.reactions).toEqual([]);
+    const trace = await replyTraceOf(ownerId);
+    expect(trace?.outcome).toEqual({ kind: "reply" });
+  });
+
   it("records the reaction outcome in the metric when Telegram refuses the reaction", async () => {
     fakeTelegram.answerWith("refuse");
     scriptModel([reactWith("🔥")]);

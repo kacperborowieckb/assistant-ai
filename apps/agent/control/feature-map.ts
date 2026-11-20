@@ -42,7 +42,7 @@ export const renderFeatureMap = () =>
     "",
     "## Reactions",
     "",
-    'The model can also answer with one emoji reaction and no text: it calls `react`, and the Telegram Channel sets the reaction with `setMessageReaction` on the newest Owner message of the Burst. An emoji that Telegram does not allow bots to use becomes a close match or the default reaction 👍, and the Trace records the replacement. Code refuses `react` after a changing tool call failed, and reacts with 👍 when the model ends with no text and no outcome. Recovery sends an unconfirmed reaction again. `react` is absent where `stay_silent` is. In the local fake model, `react: <emoji>` reacts with that emoji. Example: `pnpm control request --message "react: ✍️" --message "react: 🦖"` shows the reaction ✍ on the first message and 👍 on the second.',
+    'The model can also answer with one emoji reaction and no text: it calls `react`, and the Telegram Channel sets the reaction with `setMessageReaction` on the newest Owner message of the Burst. An emoji that Telegram does not allow bots to use becomes a close match or the default reaction 👍, and the Trace records the replacement. Code refuses `react` after a changing tool call failed, and reacts with 👍 when a Turn that changed Owner data ends with no text and no outcome. Recovery sends an unconfirmed reaction again. `react` is absent where `stay_silent` is. In the local fake model, `react: <emoji>` reacts with that emoji. Example: `pnpm control request --message "react: ✍️" --message "react: 🦖"` shows the reaction ✍ on the first message and 👍 on the second.',
     "",
     "## Open Loops in the chat",
     "",
