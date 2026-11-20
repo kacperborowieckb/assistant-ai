@@ -37,11 +37,11 @@ export interface ModelReply {
   readonly usage: Usage;
   readonly steps: readonly ModelStep[];
   /**
-   * The call of a tool without an execute function (an outcome tool) that
-   * ended the tool loop. Its result is not in the steps yet: the caller
-   * decides it.
+   * The calls of tools without an execute function (outcome tools) that
+   * ended the tool loop, empty when the model ended with text. Their results
+   * are not in the steps yet: the caller decides them.
    */
-  readonly endedWith: PendingToolCall | undefined;
+  readonly endedWith: readonly PendingToolCall[];
 }
 
 const attemptTimeout = `${attemptTimeoutMillis} millis` as const;
@@ -87,9 +87,9 @@ const toolCallsOf = (step: StepResult<ToolSet>): readonly ModelToolCall[] =>
     return [];
   });
 
-const pendingToolCallOf = (
+const pendingToolCallsOf = (
   step: StepResult<ToolSet>
-): PendingToolCall | undefined => {
+): readonly PendingToolCall[] => {
   const answered = new Set(
     step.content.flatMap((part) =>
       part.type === "tool-result" || part.type === "tool-error"
@@ -97,16 +97,17 @@ const pendingToolCallOf = (
         : []
     )
   );
-  const pending = step.content.find(
-    (part) => part.type === "tool-call" && !answered.has(part.toolCallId)
+  return step.content.flatMap((part) =>
+    part.type === "tool-call" && !answered.has(part.toolCallId)
+      ? [
+          {
+            callId: part.toolCallId,
+            name: part.toolName,
+            input: stringify(part.input),
+          },
+        ]
+      : []
   );
-  return pending?.type === "tool-call"
-    ? {
-        callId: pending.toolCallId,
-        name: pending.toolName,
-        input: stringify(pending.input),
-      }
-    : undefined;
 };
 
 const modelStepOf = (step: StepResult<ToolSet>): ModelStep => ({
@@ -236,8 +237,8 @@ const makeModelGateway = Effect.gen(function* makeModelGatewayEffect() {
 
       const lastStep = result.steps.at(-1);
       const endedWith =
-        lastStep === undefined ? undefined : pendingToolCallOf(lastStep);
-      if (lastStep?.finishReason === "tool-calls" && endedWith === undefined) {
+        lastStep === undefined ? [] : pendingToolCallsOf(lastStep);
+      if (lastStep?.finishReason === "tool-calls" && endedWith.length === 0) {
         return yield* new StepLimitReached({
           modelId,
           reasoningEffort,

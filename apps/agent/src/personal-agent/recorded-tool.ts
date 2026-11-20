@@ -68,16 +68,25 @@ export const recordedTool = <
     execute: Effect.fnUntraced(
       function* recordedToolEffect(input, { toolCallId, modelStepKey }) {
         yield* progress.markModelStep(eventId, modelStepKey);
-        return yield* progress.recordingToolCall(
-          {
-            eventId,
-            toolCallId,
-            toolName: definition.name,
-            input: definition.recordedInput?.(input) ?? input,
-            redactor,
-          },
-          definition.work(input)
-        );
+        const call = {
+          eventId,
+          toolCallId,
+          toolName: definition.name,
+          input: definition.recordedInput?.(input) ?? input,
+          redactor,
+        };
+        return yield* progress
+          .recordingToolCall(call, definition.work(input))
+          .pipe(
+            Effect.catchCause((cause) => {
+              const failure = toolFailedFrom(definition.failureMessage)(cause);
+              // The failed call survives a reset, so the restarted Turn sees
+              // it and silence stays refused.
+              return progress
+                .recordFailedToolCall(call, failure.message)
+                .pipe(Effect.andThen(Effect.fail(failure)));
+            })
+          );
       },
       Effect.catchCause((cause) =>
         Effect.fail(toolFailedFrom(definition.failureMessage)(cause))

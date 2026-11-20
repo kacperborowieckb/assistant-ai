@@ -42,41 +42,43 @@ const toolResultMessage = (
   ],
 });
 
-interface OutcomeToolResult {
-  readonly call: PendingToolCall;
+interface OutcomeToolResults {
+  readonly calls: readonly PendingToolCall[];
   readonly output: JSONValue;
   readonly refused: boolean;
 }
 
 /**
- * Gives the pending outcome tool call of the last step its result, so the
- * steps are complete for the Trace and the Conversation.
+ * Gives every pending outcome tool call of the last step its result, so no
+ * step is saved or sent back to the model with an unanswered call.
  */
 const closeLastStep = (
   steps: readonly ModelStep[],
-  { call, output, refused }: OutcomeToolResult
+  { calls, output, refused }: OutcomeToolResults
 ): readonly ModelStep[] => {
   const last = steps.at(-1);
   if (last === undefined) {
     return steps;
   }
+  const outputText =
+    typeof output === "string" ? output : JSON.stringify(output);
   return [
     ...steps.slice(0, -1),
     {
       ...last,
       toolCalls: [
         ...last.toolCalls,
-        {
+        ...calls.map((call) => ({
           callId: call.callId,
           name: call.name,
           input: call.input,
-          output: typeof output === "string" ? output : JSON.stringify(output),
+          output: outputText,
           failed: refused,
-        },
+        })),
       ],
       responseMessages: [
         ...last.responseMessages,
-        toolResultMessage(call, output),
+        ...calls.map((call) => toolResultMessage(call, output)),
       ],
     },
   ];
@@ -102,6 +104,7 @@ const withEarlierSteps = (
 
 interface OutcomeGeneration {
   readonly eventId: string;
+  readonly earlierMessages: readonly ModelMessage[];
   readonly request: ModelRequest;
   readonly tools: AgentTools;
 }
@@ -114,6 +117,7 @@ interface OutcomeGeneration {
 export const generateWithOutcomeTools = Effect.fnUntraced(
   function* generateWithOutcomeTools({
     eventId,
+    earlierMessages,
     request,
     tools,
   }: OutcomeGeneration) {
@@ -168,32 +172,34 @@ export const generateWithOutcomeTools = Effect.fnUntraced(
         kind,
         refusedOutcomeTools: refused,
       });
-      const call = reply.endedWith;
-      if (call === undefined) {
+      const calls = reply.endedWith;
+      if (calls.length === 0) {
         return replied(steps, "reply");
       }
-      const refusal = yield* refusalOfOutcomeTool({
-        eventId,
-        name: call.name,
-        steps,
-        tools,
-      });
+      const refusals: readonly (string | undefined)[] = yield* Effect.all(
+        calls.map((call) =>
+          refusalOfOutcomeTool({
+            eventId,
+            name: call.name,
+            steps,
+            earlierMessages,
+            tools,
+          })
+        )
+      );
+      const refusal = refusals.find((found) => found !== undefined);
       if (refusal === undefined) {
         return replied(
           closeLastStep(steps, {
-            call,
+            calls,
             output: silenceAcceptedOutput,
             refused: false,
           }),
           "silent"
         );
       }
-      refused.push(call.name);
-      earlier = closeLastStep(steps, {
-        call,
-        output: refusal,
-        refused: true,
-      });
+      refused.push(...calls.map((call) => call.name));
+      earlier = closeLastStep(steps, { calls, output: refusal, refused: true });
       if (earlier.length >= request.stepLimit) {
         return {
           outcome: {

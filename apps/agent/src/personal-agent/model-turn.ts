@@ -103,6 +103,7 @@ export const runModelTurn = <Failure, Requirements>({
     const messages = [...history, kind.input, ...earlier];
     const decided = yield* generateWithOutcomeTools({
       eventId: event.eventId,
+      earlierMessages: earlier,
       request: {
         task: kind.task,
         system,
@@ -183,6 +184,7 @@ export const runModelTurn = <Failure, Requirements>({
         eventId: event.eventId,
         outcome,
         result: "send_failed",
+        outcomeKind: "reply",
         startedAt,
       });
       return;

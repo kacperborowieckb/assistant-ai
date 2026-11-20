@@ -1,3 +1,4 @@
+import type { ModelMessage } from "ai";
 import { Effect, Schema } from "effect";
 
 import { Journal } from "../journal/journal.ts";
@@ -47,29 +48,53 @@ interface OutcomeToolCall {
   readonly eventId: string;
   readonly name: string;
   readonly steps: readonly ModelStep[];
+  readonly earlierMessages: readonly ModelMessage[];
   readonly tools: AgentTools;
 }
+
+/** The tools whose calls failed in Turn progress from before a reset. */
+const failedToolNamesOf = (messages: readonly ModelMessage[]) =>
+  messages.flatMap((message) =>
+    message.role === "tool"
+      ? message.content.flatMap((part) =>
+          part.type === "tool-result" &&
+          (part.output.type === "error-text" ||
+            part.output.type === "error-json")
+            ? [part.toolName]
+            : []
+        )
+      : []
+  );
 
 /**
  * Decides a call of an outcome tool. Returns undefined when the outcome is
  * accepted, or the refusal that the model gets as the tool result.
  *
  * The Journal is the record of what changed in the Turn, also across a reset.
- * A failed call of a tool that may change Owner data refuses silence too.
+ * A failed call of a tool that may change Owner data refuses silence too,
+ * also when Turn progress kept it from before a reset.
  */
 export const refusalOfOutcomeTool = Effect.fnUntraced(
   function* refusalOfOutcomeTool({
     eventId,
     name,
     steps,
+    earlierMessages,
     tools,
   }: OutcomeToolCall) {
     if (name !== staySilentToolName) {
       return unknownOutcomeToolMessage;
     }
-    const changeFailed = steps
-      .flatMap((step) => step.toolCalls)
-      .some((call) => call.failed && tools[call.name]?.readsOnly !== true);
+    const failedNames = [
+      ...steps
+        .flatMap((step) => step.toolCalls)
+        .filter((call) => call.failed)
+        .map((call) => call.name),
+      ...failedToolNamesOf(earlierMessages),
+    ];
+    const changeFailed = failedNames.some(
+      (failedName) => tools[failedName]?.readsOnly !== true
+    );
     if (changeFailed) {
       return silenceAfterFailureMessage;
     }

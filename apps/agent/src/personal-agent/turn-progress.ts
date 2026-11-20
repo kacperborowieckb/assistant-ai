@@ -88,6 +88,32 @@ const makeTurnProgress = Effect.gen(function* makeTurnProgressEffect() {
       }
     });
 
+  const recordFailedToolCall = (call: ToolCallProgress, message: string) =>
+    record(call, [
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "tool-call",
+            toolCallId: call.toolCallId,
+            toolName: call.toolName,
+            input: call.input,
+          },
+        ],
+      },
+      {
+        role: "tool",
+        content: [
+          {
+            type: "tool-result",
+            toolCallId: call.toolCallId,
+            toolName: call.toolName,
+            output: { type: "error-text", value: message },
+          },
+        ],
+      },
+    ]);
+
   const recordingToolCall = <Output extends JSONValue, Failure, Needs>(
     call: ToolCallProgress,
     run: Effect.Effect<Output, Failure, Needs>
@@ -98,7 +124,13 @@ const makeTurnProgress = Effect.gen(function* makeTurnProgressEffect() {
       )
     );
 
-  return { completedFor, markModelStep, usedStepCount, recordingToolCall };
+  return {
+    completedFor,
+    markModelStep,
+    usedStepCount,
+    recordingToolCall,
+    recordFailedToolCall,
+  };
 });
 
 export class TurnProgress extends Context.Service<

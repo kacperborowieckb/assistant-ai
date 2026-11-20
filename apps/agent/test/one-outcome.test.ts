@@ -24,6 +24,8 @@ import {
   silenceAfterFailureMessage,
   staySilentToolName,
 } from "../src/personal-agent/stay-silent-tool.ts";
+import { TurnProgress } from "../src/personal-agent/turn-progress.ts";
+import { setTimeZoneToolName } from "../src/preferences/set-time-zone-tool.ts";
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
 import {
   failModel,
@@ -40,7 +42,11 @@ import { addOwner, telegramWebhook, textUpdate } from "./telegram-requests.ts";
 
 const inPersonalAgent = async <A, E>(
   ownerId: string,
-  effect: Effect.Effect<A, E, Conversation | Inbox | Journal | TurnTraces>
+  effect: Effect.Effect<
+    A,
+    E,
+    Conversation | Inbox | Journal | TurnProgress | TurnTraces
+  >
 ) =>
   runInDurableObject(
     await personalAgentFor(env.PERSONAL_AGENT, OwnerIdSchema.make(ownerId)),
@@ -480,5 +486,113 @@ describe("One outcome for each Event: silence", () => {
       { name: captureNoteToolName, failed: false },
       { name: staySilentToolName, failed: true },
     ]);
+  });
+
+  it("refuses silence after a changing tool call that failed before a reset", async () => {
+    const ownerId = await addOwner(6109);
+    await inPersonalAgent(
+      ownerId,
+      Effect.gen(function* seedEffect() {
+        const inbox = yield* Inbox;
+        const progress = yield* TurnProgress;
+        yield* inbox.store({
+          _tag: "OwnerMessage",
+          channel: "telegram",
+          channelUpdateId: "failed-before-reset",
+          conversationId: "6109",
+          channelMessageId: "62",
+          text: "keep milk",
+          sentAt: new Date().toISOString(),
+        });
+        const [event] = yield* inbox.pending;
+        yield* progress.recordFailedToolCall(
+          {
+            eventId: event?.eventId ?? "",
+            toolCallId: "call-before-reset",
+            toolName: fakeTool.name,
+            input: { word: "milk" },
+            redactor: {
+              redact: (text) => text,
+              redactMessage: (message) => message,
+            },
+          },
+          "The store is down"
+        );
+      })
+    );
+    scriptModel([staySilent, { say: "Sorry, I could not keep that." }]);
+
+    const agent = await personalAgentFor(
+      env.PERSONAL_AGENT,
+      OwnerIdSchema.make(ownerId)
+    );
+    await runInDurableObject(agent, (instance) => instance.runTurn());
+
+    expect(fakeTelegram.sent.map((message) => message.body.text)).toEqual([
+      "Sorry, I could not keep that.",
+    ]);
+    expect(toolResultTexts()).toContain(silenceAfterFailureMessage);
+  });
+
+  it("records a failed tool call in Turn progress, so a restarted Turn sees it", async () => {
+    scriptModel([
+      { callTool: setTimeZoneToolName, input: { timeZone: "Not/AZone" } },
+      { say: "Sorry, I could not set that time zone." },
+    ]);
+
+    const ownerId = await ownerSays(6110, "I live in Not/AZone");
+
+    const progress = await inPersonalAgent(
+      ownerId,
+      Effect.gen(function* progressEffect() {
+        const inbox = yield* Inbox;
+        const turnProgress = yield* TurnProgress;
+        const journal = yield* Journal;
+        const [entry] = yield* journal.read;
+        yield* inbox.pending;
+        return yield* turnProgress.completedFor(entry?.record.eventId ?? "");
+      })
+    );
+    expect(progress).toMatchObject([
+      { role: "assistant", content: [{ toolName: setTimeZoneToolName }] },
+      {
+        role: "tool",
+        content: [
+          { toolName: setTimeZoneToolName, output: { type: "error-text" } },
+        ],
+      },
+    ]);
+  });
+
+  it("gives every outcome call of the last step a result", async () => {
+    scriptModel([{ ...staySilent, times: 2 }]);
+
+    const ownerId = await ownerSays(6111, "ok ok");
+
+    expect(fakeTelegram.sent).toEqual([]);
+    const trace = await replyTraceOf(ownerId);
+    expect(trace?.outcome).toEqual({ kind: "silent" });
+    expect(trace?.steps.at(-1)?.toolCalls).toMatchObject([
+      { name: staySilentToolName, failed: false },
+      { name: staySilentToolName, failed: false },
+    ]);
+    const history = await inPersonalAgent(
+      ownerId,
+      Conversation.pipe(Effect.flatMap((conversation) => conversation.recent))
+    );
+    const results = history.flatMap((message) =>
+      message.role === "tool" ? message.content : []
+    );
+    expect(results).toHaveLength(2);
+  });
+
+  it("keeps the reply outcome in the metric when the send fails", async () => {
+    fakeTelegram.answerWith("refuse");
+
+    await ownerSays(6112, "hello");
+
+    const [blobs] = turnMetricBlobs();
+    expect(blobs?.[1]).toBe("send_failed");
+    expect(blobs?.[5]).toBe("reply");
   });
 });

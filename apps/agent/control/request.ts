@@ -77,6 +77,8 @@ export const requestReply = ({
     let replyParts: readonly string[] = [];
     const unprompted: FakeTelegramMessage[] = [];
     for (const [index, message] of messages.entries()) {
+      const callsBefore = fakes.modelCalls().length;
+      const callsForMessage = () => fakes.modelCalls().slice(callsBefore);
       const webhook = yield* sendTelegramUpdate({
         workerUrl: url,
         webhookSecret: secrets.TELEGRAM_WEBHOOK_SECRET,
@@ -97,13 +99,13 @@ export const requestReply = ({
         firstReplyTimeout: replyTimeout,
         nextPartTimeout,
         stayedSilent: Effect.sync(() =>
-          stayedSilentOn(fakes.modelCalls(), message)
+          stayedSilentOn(callsForMessage(), message)
         ),
       });
       unprompted.push(...selection.unprompted);
       const [sent] = selection.replyParts;
       if (sent === undefined) {
-        if (!stayedSilentOn(fakes.modelCalls(), message)) {
+        if (!stayedSilentOn(callsForMessage(), message)) {
           return yield* new ReplyMissing({ contains, reply: "" });
         }
         replyParts = [];
