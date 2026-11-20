@@ -21,6 +21,7 @@ export interface Schedule {
   readonly setBy: (typeof scheduleSetBy)[number];
   readonly action: ScheduleAction;
   readonly noteId: string | undefined;
+  readonly openLoopIds: readonly string[];
   readonly nextDueAt: DateTime.Utc;
   readonly createdAt: DateTime.Utc;
   readonly repeat: Repeat | undefined;
@@ -31,10 +32,12 @@ export interface SetScheduleRequest {
   readonly action: ScheduleAction;
   readonly setBy: Schedule["setBy"];
   readonly noteId?: string | undefined;
+  readonly openLoopIds?: readonly string[] | undefined;
   readonly dueAt: DateTime.Utc;
   readonly repeat?: Repeat | undefined;
   readonly sourceEventId: string;
   readonly activeScheduledTaskLimit?: number | undefined;
+  readonly activeAgentScheduleLimit?: number | undefined;
 }
 
 export interface ScheduleSet {
@@ -76,11 +79,15 @@ const repeatOf = ({
   };
 };
 
-export const toSchedule = (row: typeof schedules.$inferSelect): Schedule => ({
+export const toSchedule = (
+  row: typeof schedules.$inferSelect,
+  openLoopIds: readonly string[] = []
+): Schedule => ({
   scheduleId: row.scheduleId,
   setBy: row.setBy,
   action: actionOfColumns({ action: row.action, text: row.text }),
   noteId: row.noteId ?? undefined,
+  openLoopIds,
   nextDueAt: DateTime.makeUnsafe(row.nextDueAt),
   createdAt: DateTime.makeUnsafe(row.createdAt),
   repeat: repeatOf(row),
@@ -97,7 +104,9 @@ export const requestKeyOf = ({
   action,
   dueAt,
   noteId,
+  openLoopIds = [],
   repeat,
+  setBy,
 }: SetScheduleRequest) =>
   JSON.stringify([
     action._tag === "SendText" ? action.text : { prompt: action.prompt },
@@ -105,4 +114,6 @@ export const requestKeyOf = ({
     repeat === undefined
       ? [DateTime.formatIso(dueAt)]
       : [encodeRule(repeat.rule), DateTime.zoneToString(repeat.timeZone)],
+    ...(openLoopIds.length === 0 ? [] : [openLoopIds.toSorted()]),
+    ...(setBy === "agent" ? ["agent"] : []),
   ]);

@@ -67,8 +67,12 @@ const makeNotes = (ownerId: OwnerId) =>
     const journal = yield* Journal;
     const { requireOwnNotes, linkedNoteIdsOf, linkedNotesOf, addLinks } =
       yield* makeNoteLinks(ownerId);
-    const { journalOpenLoopChange, closeOpenLoop, listOpenLoops } =
-      yield* makeOpenLoopStore(ownerId);
+    const {
+      journalOpenLoopChange,
+      closeOpenLoop,
+      listOpenLoops,
+      openLoopsAmong,
+    } = yield* makeOpenLoopStore(ownerId);
     const { update } = yield* makeNoteUpdates(ownerId);
 
     const journalCapture = (eventId: string, noteId: string) =>
@@ -242,6 +246,7 @@ const makeNotes = (ownerId: OwnerId) =>
       byIds,
       closeOpenLoop,
       listOpenLoops,
+      openLoopsAmong,
       search,
       listLinked,
       list,

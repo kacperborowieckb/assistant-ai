@@ -10,4 +10,6 @@ export interface ScheduleToolServices {
   readonly progress: TurnProgress["Service"];
   readonly redactor: Redactor["Service"];
   readonly maxActiveScheduledTasks: number;
+  readonly maxActiveAgentSchedules: number;
+  readonly turnOrigin: "owner-message" | "proactive";
 }

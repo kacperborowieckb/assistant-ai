@@ -1,4 +1,4 @@
-import { Clock, Effect } from "effect";
+import { Clock, Effect, Option } from "effect";
 
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import type { Journal } from "../journal/journal.ts";
@@ -31,19 +31,23 @@ const proactivePreparation = Effect.fnUntraced(function* proactivePreparation(
   const proactiveMessages = yield* ProactiveMessages;
   const lateNotice = yield* lateNoticeFor(behavior, event);
   const timeZone = yield* ownerTimeZone(behavior);
-  const page = yield* notes.listOpenLoops({
-    offset: 0,
-    limit: openLoopsInReach,
-  });
+  const schedules = yield* Schedules;
+  const schedule = yield* schedules.byId(event.scheduleId);
+  const linkedIds = Option.isSome(schedule) ? schedule.value.openLoopIds : [];
+  const inReach =
+    linkedIds.length > 0
+      ? yield* notes.openLoopsAmong(linkedIds)
+      : (yield* notes.listOpenLoops({ offset: 0, limit: openLoopsInReach }))
+          .notes;
   const plannedIds = yield* proactiveMessages.plan(
     event.eventId,
-    page.notes.map((note) => note.noteId)
+    inReach.map((note) => note.noteId)
   );
   const recentOutcomes = yield* proactiveMessages.recentOutcomesOf(plannedIds);
   return {
     situation: [
       proactiveSection(
-        page.notes.filter((note) => plannedIds.includes(note.noteId)),
+        inReach.filter((note) => plannedIds.includes(note.noteId)),
         timeZone,
         recentOutcomes
       ),

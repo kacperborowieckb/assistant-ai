@@ -51,16 +51,19 @@ export interface OwnerMessageToolServices extends Omit<
   readonly behavior: BehaviorConfig;
 }
 
-export const scheduleToolServicesOf = ({
-  schedules,
-  preferences,
-  behavior,
-  progress,
-  redactor,
-}: Pick<
-  OwnerMessageToolServices,
-  "behavior" | "preferences" | "progress" | "redactor" | "schedules"
->): ScheduleToolServices => ({
+export const scheduleToolServicesOf = (
+  {
+    schedules,
+    preferences,
+    behavior,
+    progress,
+    redactor,
+  }: Pick<
+    OwnerMessageToolServices,
+    "behavior" | "preferences" | "progress" | "redactor" | "schedules"
+  >,
+  turnOrigin: ScheduleToolServices["turnOrigin"]
+): ScheduleToolServices => ({
   schedules,
   ownerTimeZone: ownerTimeZone(behavior).pipe(
     Effect.provideService(OwnerPreferences, preferences),
@@ -69,6 +72,8 @@ export const scheduleToolServicesOf = ({
   progress,
   redactor,
   maxActiveScheduledTasks: behavior.maxActiveScheduledTasks,
+  maxActiveAgentSchedules: behavior.maxActiveAgentSchedules,
+  turnOrigin,
 });
 
 export const ownerMessageTools = (
@@ -83,13 +88,16 @@ export const ownerMessageTools = (
   }: OwnerMessageToolServices
 ) => {
   const { progress, redactor } = noteServices;
-  const scheduleServices = scheduleToolServicesOf({
-    schedules,
-    preferences,
-    behavior,
-    progress,
-    redactor,
-  });
+  const scheduleServices = scheduleToolServicesOf(
+    {
+      schedules,
+      preferences,
+      behavior,
+      progress,
+      redactor,
+    },
+    "owner-message"
+  );
   return {
     ...noteToolsFor(
       { ...noteServices, ownerTimeZone: scheduleServices.ownerTimeZone },

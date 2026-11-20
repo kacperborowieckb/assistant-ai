@@ -1,14 +1,15 @@
 import { DateTime, Effect, Layer, Option, Context } from "effect";
 
 import { Journal } from "../journal/journal.ts";
-import { makeNoteLinks } from "../notes/note-links.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { nextOccurrence } from "../time/next-occurrence.ts";
 import { columnsOfAction } from "./schedule-action.ts";
 import { makeScheduleMoves } from "./schedule-moves.ts";
 import { makeScheduleQueries } from "./schedule-queries.ts";
-import { recurrenceValuesOf, requestKeyOf, toSchedule } from "./schedule.ts";
+import type { ScheduleRow } from "./schedule-queries.ts";
+import { makeWriteSchedule } from "./schedule-writer.ts";
+import { recurrenceValuesOf, toSchedule } from "./schedule.ts";
 import type {
   Schedule,
   ScheduleCancelRequest,
@@ -34,9 +35,9 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
 ) {
   const { database } = yield* AgentStorage;
   const journal = yield* Journal;
-  const { requireOwnNotes } = yield* makeNoteLinks(ownerId);
   const queries = yield* makeScheduleQueries(ownerId);
   const { requireRoomForScheduledTask } = queries;
+  const writeSchedule = yield* makeWriteSchedule(ownerId, queries);
 
   const rearm = queries.earliestAlarmAt.pipe(
     Effect.flatMap((dueAt) => Effect.promise(() => clock.setAt(dueAt)))
@@ -53,61 +54,18 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
       work.pipe(Effect.tap(() => rearmWithoutFailing))
     );
 
-  const writeSchedule = Effect.fnUntraced(function* writeSchedule(
-    request: SetScheduleRequest
-  ) {
-    yield* requireOwnNotes(
-      request.noteId === undefined ? [] : [request.noteId]
-    );
-    const requestKey = requestKeyOf(request);
-    const alreadyStored = yield* queries.findByRequest(
-      request.sourceEventId,
-      requestKey
-    );
-    if (Option.isSome(alreadyStored)) {
-      return {
-        schedule: toSchedule(alreadyStored.value),
-        alreadySet: true,
-      };
-    }
-    if (request.action._tag === "RunPrompt") {
-      yield* requireRoomForScheduledTask(request.activeScheduledTaskLimit);
-    }
-    const now = DateTime.formatIso(yield* DateTime.now);
-    const inserted = yield* queries.insert({
-      scheduleId: crypto.randomUUID(),
-      ownerId,
-      ...columnsOfAction(request.action),
-      setBy: request.setBy,
-      noteId: request.noteId ?? null,
-      nextDueAt: DateTime.formatIso(request.dueAt),
-      ...recurrenceValuesOf(request.repeat),
-      state: "active",
-      sourceEventId: request.sourceEventId,
-      requestKey,
-      createdAt: now,
-      changedAt: now,
-    });
-    if (Option.isSome(inserted)) {
-      yield* journal.append({
-        _tag: "ScheduleSet",
-        eventId: request.sourceEventId,
-        scheduleId: inserted.value.scheduleId,
-      });
-      return { schedule: toSchedule(inserted.value), alreadySet: false };
-    }
-    const existing = yield* queries.findByRequest(
-      request.sourceEventId,
-      requestKey
-    );
-    if (Option.isNone(existing)) {
-      return yield* Effect.die("The Schedule is neither written nor found");
-    }
-    return { schedule: toSchedule(existing.value), alreadySet: true };
-  });
-
   const set = (request: SetScheduleRequest) =>
     rearmedTransaction(writeSchedule(request));
+
+  const withLinks = Effect.fnUntraced(function* withLinks(
+    row: Option.Option<ScheduleRow>
+  ) {
+    if (Option.isNone(row)) {
+      return Option.none<Schedule>();
+    }
+    const [schedule] = yield* queries.withOpenLoops([row.value]);
+    return Option.fromNullishOr(schedule);
+  });
 
   const changeActive = Effect.fnUntraced(function* changeActive(
     request: ScheduleChangeRequest
@@ -138,7 +96,7 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
         scheduleId: request.scheduleId,
       });
     }
-    return changed.pipe(Option.map(toSchedule));
+    return yield* withLinks(changed);
   });
 
   const change = (request: ScheduleChangeRequest) =>
@@ -158,7 +116,7 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
         scheduleId: request.scheduleId,
       });
     }
-    return cancelled.pipe(Option.map(toSchedule));
+    return yield* withLinks(cancelled);
   });
 
   const cancel = (request: ScheduleCancelRequest) =>
