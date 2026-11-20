@@ -4,6 +4,8 @@ import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { noTools } from "../model-gateway/agent-tool.ts";
 import type { AgentTools } from "../model-gateway/agent-tool.ts";
 import type { OwnerId } from "../owner-id.ts";
+import type { ProactiveMessages } from "../proactive/proactive-messages.ts";
+import type { OperatorMetrics } from "../tracing/operator-metrics.ts";
 import { whileAcknowledging } from "./acknowledge.ts";
 import { agentToolServices } from "./agent-tool-services.ts";
 import {
@@ -35,6 +37,15 @@ interface TurnSettings {
   readonly tools: AgentTools;
 }
 
+const settleSilentBurst = (ownerId: OwnerId, burst: Burst) =>
+  Effect.gen(function* settleSilentBurstEffect() {
+    const inbox = yield* Inbox;
+    yield* inbox.markDone(burst.slice(1));
+    for (const event of burst) {
+      yield* recordOutcomeOfConnectedTurn(ownerId, event.eventId);
+    }
+  });
+
 const answer = (
   ownerId: OwnerId,
   { behavior, tools }: TurnSettings,
@@ -44,6 +55,9 @@ const answer = (
   const replyTo = newestEventOf(burst);
   return Effect.gen(function* answerEffect() {
     const toolServices = yield* agentToolServices;
+    const silenceServices = yield* Effect.context<
+      Inbox | ProactiveMessages | OperatorMetrics
+    >();
     const preparation = yield* connectedProactivePreparation(behavior, burst);
     const ownerTools = ownerMessageTools(burst, { ...toolServices, behavior });
 
@@ -65,6 +79,9 @@ const answer = (
           ],
         }),
         traceOf: (model) => traceOf({ event, ...model }),
+        whenSilent: settleSilentBurst(ownerId, burst).pipe(
+          Effect.provideContext(silenceServices)
+        ),
         whenFailed: (reason) => failWithNotice(event, reason, replyTo),
       },
     });

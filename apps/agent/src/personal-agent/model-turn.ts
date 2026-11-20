@@ -51,6 +51,7 @@ export interface ModelTurnKind<Failure, Requirements> {
   readonly prepare?: Effect.Effect<TurnPreparation, Failure, Requirements>;
   readonly tracesSendFailure?: boolean;
   readonly whenSent?: Effect.Effect<void, Failure, Requirements>;
+  readonly whenSilent?: Effect.Effect<void, Failure, Requirements>;
   readonly whenSendFailed?: Effect.Effect<void, Failure, Requirements>;
   readonly whenFailed: (
     reason: string
@@ -165,7 +166,8 @@ export const runModelTurn = <Failure, Requirements>({
           ])
           .pipe(
             Effect.andThen(staySilent(event)),
-            Effect.andThen(inbox.markDone([event]))
+            Effect.andThen(inbox.markDone([event])),
+            Effect.andThen(kind.whenSilent ?? Effect.void)
           )
       );
       yield* recordTurnMetric({
