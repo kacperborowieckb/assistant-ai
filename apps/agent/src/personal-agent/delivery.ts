@@ -9,6 +9,7 @@ import type { OperatorMetric } from "../tracing/operator-metrics.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
 import type { TurnTrace } from "../tracing/turn-trace.ts";
 import { Conversation } from "./conversation.ts";
+import { lastOf, latestPlanOf, textPlanOf } from "./delivery-plans.ts";
 import { recordSend } from "./delivery-send.ts";
 import { Inbox } from "./inbox.ts";
 import type { InboxEvent } from "./inbox.ts";
@@ -56,29 +57,17 @@ export type DeliveryState =
       readonly text: string | undefined;
     };
 
-const lastOf = <Tag extends JournalEntry["record"]["_tag"]>(
-  entries: readonly JournalEntry[],
-  tag: Tag
-) => {
-  const found = entries.findLast((entry) => entry.record._tag === tag);
-  return found?.record as
-    | Extract<JournalEntry["record"], { _tag: Tag }>
-    | undefined;
-};
-
-const isPlan = (entry: JournalEntry) =>
-  entry.record._tag === "ReplyPlanned" ||
-  entry.record._tag === "ReactionPlanned";
-
 const failedStateOf = (entries: readonly JournalEntry[]): DeliveryState => {
   const hasSendStarted = entries.some(
     (entry) => entry.record._tag === "SendStarted"
   );
-  const planned = lastOf(entries, "ReplyPlanned");
+  const planned = textPlanOf(entries);
   const sent = lastOf(entries, "ReplySent");
   const sendFailed = lastOf(entries, "ReplyFailed");
   const turnFailed = lastOf(entries, "TurnFailed");
-  const firstPlanned = entries.find(isPlan);
+  const firstPlanned = entries.find(
+    ({ record }) => record._tag === "ReplyPlanned"
+  );
   const lastTurnFailed = entries.findLast(
     (entry) => entry.record._tag === "TurnFailed"
   );
@@ -101,14 +90,6 @@ const failedStateOf = (entries: readonly JournalEntry[]): DeliveryState => {
   return sendFailed === undefined
     ? { _tag: "FailedNoticeUnconfirmed", text: planned?.text }
     : { _tag: "FailedNoticeRefused", text: planned?.text, reason };
-};
-
-const latestPlanOf = (entries: readonly JournalEntry[]) => {
-  const latest = entries.findLast(isPlan)?.record;
-  return {
-    planned: latest?._tag === "ReplyPlanned" ? latest : undefined,
-    reaction: latest?._tag === "ReactionPlanned" ? latest : undefined,
-  };
 };
 
 export const deliveryStateOfEntries = (

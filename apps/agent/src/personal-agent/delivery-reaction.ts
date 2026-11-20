@@ -66,9 +66,10 @@ export const react = Effect.fnUntraced(function* react(
     emoji,
   };
   yield* journal.append({
-    _tag: "ReactionPlanned",
+    _tag: "ReplyPlanned",
     eventId: event.eventId,
-    ...reaction,
+    text: "",
+    reaction,
   });
   const first = yield* attemptReaction(event, reaction);
   const delivery =
