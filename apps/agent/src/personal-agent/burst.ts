@@ -37,7 +37,7 @@ export const trustLevelOfBurst = (burst: Burst): TrustLevel =>
     : "owner";
 
 export const forwardedEventsOf = (burst: Burst) =>
-  burst.filter((event) => event.forwardOrigin !== undefined);
+  burst.filter((event) => trustLevelOfEvent(event) === "untrusted");
 
 /**
  * The source of a Note that the Turn of a Burst captures. A capture keeps the
@@ -47,9 +47,7 @@ export const forwardedEventsOf = (burst: Burst) =>
  */
 export const noteSourceOfBurst = (burst: Burst): NoteSource => {
   const turnEvent = turnEventOf(burst);
-  const sourceEvent =
-    burst.find((event) => trustLevelOfEvent(event) === "untrusted") ??
-    turnEvent;
+  const sourceEvent = forwardedEventsOf(burst)[0] ?? turnEvent;
   return {
     ...noteSourceOfEvent(sourceEvent),
     eventId: turnEvent.eventId,
