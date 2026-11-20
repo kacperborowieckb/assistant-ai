@@ -64,20 +64,23 @@ const answer = (
     });
   });
 
-const answerBurst = (ownerId: OwnerId, settings: TurnSettings, burst: Burst) =>
-  Effect.gen(function* answerBurstEffect() {
-    const outcome = yield* settleFromJournal(
-      turnEventOf(burst),
-      ownerMessageRecovery(burst)
-    );
-    if (outcome === "unanswered") {
-      yield* answer(ownerId, settings, burst);
-    }
-    yield* settleBurst(burst);
-    for (const event of burst) {
-      yield* recordOutcomeOfConnectedTurn(ownerId, event.eventId);
-    }
-  });
+const answerBurst = Effect.fnUntraced(function* answerBurst(
+  ownerId: OwnerId,
+  settings: TurnSettings,
+  burst: Burst
+) {
+  const outcome = yield* settleFromJournal(
+    turnEventOf(burst),
+    ownerMessageRecovery(burst)
+  );
+  if (outcome === "unanswered") {
+    yield* answer(ownerId, settings, burst);
+  }
+  yield* settleBurst(burst);
+  for (const event of burst) {
+    yield* recordOutcomeOfConnectedTurn(ownerId, event.eventId);
+  }
+});
 
 interface TurnOptions {
   readonly tools?: AgentTools;

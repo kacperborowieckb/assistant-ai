@@ -1,6 +1,7 @@
 import { and, desc, eq, isNotNull, isNull, like, lt, ne } from "drizzle-orm";
 import { DateTime, Effect, Option, Schema } from "effect";
 
+import { answeringTurnEventIdOf } from "../journal/journal.ts";
 import type { Journal } from "../journal/journal.ts";
 import type { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { inboxEvents } from "../personal-agent/storage-schema.ts";
@@ -123,12 +124,10 @@ export const makeProactiveOutcomes = (
   const entriesOfAnsweringTurn = Effect.fnUntraced(
     function* entriesOfAnsweringTurn(ownerMessageEventId: string) {
       const entries = yield* journal.readForEvent(ownerMessageEventId);
-      const link = entries.find(
-        (entry) => entry.record._tag === "AnsweredByTurn"
-      );
-      return link?.record._tag === "AnsweredByTurn"
-        ? yield* journal.readForEvent(link.record.turnEventId)
-        : entries;
+      const turnEventId = answeringTurnEventIdOf(entries);
+      return turnEventId === undefined
+        ? entries
+        : yield* journal.readForEvent(turnEventId);
     }
   );
 

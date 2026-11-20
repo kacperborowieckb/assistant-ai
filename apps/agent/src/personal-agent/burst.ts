@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 
-import { Journal } from "../journal/journal.ts";
+import { answeringTurnEventIdOf, Journal } from "../journal/journal.ts";
 import type { NoteSource, TrustLevel } from "../notes/note.ts";
 import { noteSourceOfEvent } from "../notes/note.ts";
 import { AgentStorage } from "./agent-storage.ts";
@@ -11,10 +11,10 @@ import { Inbox } from "./inbox.ts";
 import type { OwnerMessageEvent } from "./inbox.ts";
 
 /**
- * The pending Owner message Events that one Turn answers, in arrival order.
+ * A Burst: the pending Owner message Events that one Turn answers, in arrival order.
  * The first Event is the Turn Event: it keys the Delivery, the Turn progress,
  * the Conversation, the Trace, and the metric, so the key stays the same when
- * a later message joins the burst. The outcome goes to the newest message.
+ * a later message joins the Burst. The outcome goes to the newest message.
  */
 export type Burst = readonly [OwnerMessageEvent, ...OwnerMessageEvent[]];
 
@@ -52,11 +52,7 @@ const answeringTurnOf = Effect.fnUntraced(function* answeringTurnOf(
   event: OwnerMessageEvent
 ) {
   const journal = yield* Journal;
-  const entries = yield* journal.readForEvent(event.eventId);
-  const link = entries.find((entry) => entry.record._tag === "AnsweredByTurn");
-  return link?.record._tag === "AnsweredByTurn"
-    ? link.record.turnEventId
-    : undefined;
+  return answeringTurnEventIdOf(yield* journal.readForEvent(event.eventId));
 });
 
 export const linkBurst = Effect.fnUntraced(function* linkBurst(burst: Burst) {
@@ -107,15 +103,8 @@ export const settleWithTurn = Effect.fnUntraced(function* settleWithTurn(
 export const settleBurst = (burst: Burst) =>
   settleWithTurn(turnEventOf(burst).eventId, burst.slice(1));
 
-/**
- * Forms the bursts of the pending Owner messages. An Event that the Journal
- * links to a Turn joins the burst of that Turn when the Turn Event is still
- * pending, and is settled from the Delivery of that Turn when it is not, so
- * recovery after a reset never answers it again.
- */
-export const pendingBursts = Effect.fnUntraced(function* pendingBursts(
-  events: readonly OwnerMessageEvent[],
-  formBursts: FormBursts
+const sortLinkedEvents = Effect.fnUntraced(function* sortLinkedEvents(
+  events: readonly OwnerMessageEvent[]
 ) {
   const pendingIds = new Set(events.map((event) => event.eventId));
   const joined = new Map<string, OwnerMessageEvent[]>();
@@ -123,7 +112,9 @@ export const pendingBursts = Effect.fnUntraced(function* pendingBursts(
   for (const event of events) {
     const turnEventId = yield* answeringTurnOf(event);
     if (turnEventId !== undefined && pendingIds.has(turnEventId)) {
-      joined.set(turnEventId, [...(joined.get(turnEventId) ?? []), event]);
+      const linked = joined.get(turnEventId) ?? [];
+      linked.push(event);
+      joined.set(turnEventId, linked);
       continue;
     }
     const settled =
@@ -134,6 +125,20 @@ export const pendingBursts = Effect.fnUntraced(function* pendingBursts(
       fresh.push(event);
     }
   }
+  return { joined, fresh };
+});
+
+/**
+ * Forms the Bursts of the pending Owner messages. An Event that the Journal
+ * links to a Turn joins the Burst of that Turn when the Turn Event is still
+ * pending, and is settled from the Delivery of that Turn when it is not, so
+ * recovery after a reset never answers it again.
+ */
+export const pendingBursts = Effect.fnUntraced(function* pendingBursts(
+  events: readonly OwnerMessageEvent[],
+  formBursts: FormBursts
+) {
+  const { joined, fresh } = yield* sortLinkedEvents(events);
   const restored = new Map(
     fresh
       .filter((event) => joined.has(event.eventId))

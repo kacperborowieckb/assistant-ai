@@ -133,6 +133,13 @@ export interface JournalEntry {
   readonly record: JournalRecord;
 }
 
+export const answeringTurnEventIdOf = (entries: readonly JournalEntry[]) => {
+  const link = entries.find((entry) => entry.record._tag === "AnsweredByTurn");
+  return link?.record._tag === "AnsweredByTurn"
+    ? link.record.turnEventId
+    : undefined;
+};
+
 const RecordJsonSchema = Schema.fromJsonString(JournalRecordSchema);
 
 const decodeRecord = Schema.decodeUnknownSync(RecordJsonSchema);
