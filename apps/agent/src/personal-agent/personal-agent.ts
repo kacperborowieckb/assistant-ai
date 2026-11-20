@@ -21,9 +21,10 @@ import type { AlarmClock } from "../schedule/schedules.ts";
 import type { OperatorMetrics } from "../tracing/operator-metrics.ts";
 import type { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
+import { showTypingOnce } from "./acknowledge.ts";
 import { AgentStorage } from "./agent-storage.ts";
-import { oneEventBursts } from "./burst.ts";
-import type { FormBursts } from "./burst.ts";
+import { burstWaitOf } from "./burst-wait.ts";
+import type { BurstWait } from "./burst-wait.ts";
 import { Conversation } from "./conversation.ts";
 import { fireDueSchedulesThen } from "./due-schedule-events.ts";
 import { Inbox } from "./inbox.ts";
@@ -34,13 +35,18 @@ import { TurnProgress } from "./turn-progress.ts";
 import { liveTurnServices } from "./turn-services.ts";
 import { takeTurn } from "./turn.ts";
 
+interface AgentAlarm {
+  readonly clock: AlarmClock;
+  readonly burstWait: () => BurstWait;
+}
+
 const personalAgentLayer = (
   storage: DurableObjectStorage,
   ownerId: OwnerId,
-  alarmClock: AlarmClock
+  { clock, burstWait }: AgentAlarm
 ) => {
   const journal = Journal.layer(ownerId);
-  const schedules = Schedules.layer(ownerId, alarmClock).pipe(
+  const schedules = Schedules.layer(ownerId, clock, burstWait).pipe(
     Layer.provide(journal)
   );
   return Layer.mergeAll(
@@ -77,8 +83,6 @@ export class PersonalAgent extends Agent<Env> {
 
   protected readonly turnTools: AgentTools = noTools;
 
-  protected readonly formBursts: FormBursts = oneEventBursts;
-
   protected readonly behavior: BehaviorConfig = defaultBehaviorConfig;
 
   protected readonly alarmClock: AlarmClock = {
@@ -86,12 +90,30 @@ export class PersonalAgent extends Agent<Env> {
   };
 
   readonly runtime = ManagedRuntime.make(
-    personalAgentLayer(this.ctx.storage, this.ownerId, this.alarmClock)
+    personalAgentLayer(this.ctx.storage, this.ownerId, {
+      clock: this.alarmClock,
+      burstWait: () => burstWaitOf(this.behavior),
+    })
   );
 
   async receive(event: Event): Promise<StoreConfirmation> {
     await this.runtime.runPromise(receiveEvent(event));
-    await this.runTurnWhenEventsArePending();
+    if (event._tag === "OwnerMessage") {
+      await this.runtime.runPromise(
+        Schedules.pipe(Effect.flatMap((schedules) => schedules.rearm))
+      );
+    }
+    const { burstIsDue } = await this.queueTurnWhenDue();
+    if (event._tag === "OwnerMessage" && !burstIsDue) {
+      this.ctx.waitUntil(
+        this.runtime.runPromise(
+          showTypingOnce(
+            event.conversationId,
+            this.behavior.typingRepeatMillis
+          ).pipe(Effect.provide(this.turnServices(this.env, this.ownerId)))
+        )
+      );
+    }
     return "stored";
   }
 
@@ -104,7 +126,7 @@ export class PersonalAgent extends Agent<Env> {
     );
     await this.runtime.runPromise(
       fireDueSchedulesThen(
-        Effect.promise(() => this.runTurnWhenEventsArePending())
+        Effect.promise(() => this.queueTurnWhenDue()).pipe(Effect.asVoid)
       )
     );
   }
@@ -138,27 +160,42 @@ export class PersonalAgent extends Agent<Env> {
     }
   }
 
-  private async runTurnWhenEventsArePending(): Promise<void> {
-    const hasPendingEvents = await this.runtime.runPromise(
+  private async queueTurnWhenDue(): Promise<{ readonly burstIsDue: boolean }> {
+    const { burstIsDue, otherEventIsPending } = await this.runtime.runPromise(
       Inbox.pipe(
-        Effect.flatMap((inbox) => inbox.pending),
-        Effect.map((events) => events.length > 0)
+        Effect.flatMap((inbox) =>
+          Effect.all({
+            burstIsDue: inbox.burstIsDue(burstWaitOf(this.behavior)),
+            otherEventIsPending: inbox.pending.pipe(
+              Effect.map((events) =>
+                events.some((event) => event._tag !== "OwnerMessage")
+              )
+            ),
+          })
+        )
       )
     );
-    if (hasPendingEvents) {
-      await this.schedule(0, "runTurn", undefined, {
-        retry: { maxAttempts: 1 },
-      });
+    if (burstIsDue || otherEventIsPending) {
+      await this.queueTurn();
     }
+    return { burstIsDue };
+  }
+
+  private async queueTurn(): Promise<void> {
+    await this.schedule(0, "runTurn", undefined, {
+      retry: { maxAttempts: 1 },
+    });
   }
 
   async runTurn(): Promise<void> {
-    await this.runtime.runPromise(
-      takeTurn(this.ownerId, this.behavior, {
-        tools: this.turnTools,
-        formBursts: this.formBursts,
-      }).pipe(Effect.provide(this.turnServices(this.env, this.ownerId)))
+    const { nextBurstIsDue } = await this.runtime.runPromise(
+      takeTurn(this.ownerId, this.behavior, { tools: this.turnTools }).pipe(
+        Effect.provide(this.turnServices(this.env, this.ownerId))
+      )
     );
+    if (nextBurstIsDue) {
+      await this.queueTurn();
+    }
   }
 }
 

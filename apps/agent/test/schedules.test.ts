@@ -3,7 +3,7 @@ import {
   env,
   runInDurableObject,
 } from "cloudflare:test";
-import { DateTime, Effect, Layer } from "effect";
+import { DateTime, Effect, Exit, Layer } from "effect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Journal } from "../src/journal/journal.ts";
@@ -558,6 +558,34 @@ describe("Schedules store alarm", () => {
 
     const rows = await schedulesOf(ownerId);
     expect(rows.map((row) => row.text)).toEqual(["kept"]);
+  });
+
+  it("fails the rearm that an arriving Owner message needs when the alarm cannot be set", async () => {
+    const ownerId = await ownerInWarsaw(9016);
+    const refusingClock = {
+      setAt: () => Promise.reject(new Error("The alarm is not available")),
+    };
+
+    const exit = await runInDurableObject(
+      await agentOf(ownerId),
+      (_, state) => {
+        const journal = Journal.layer(OwnerIdSchema.make(ownerId));
+        const services = Layer.mergeAll(
+          Schedules.layer(OwnerIdSchema.make(ownerId), refusingClock).pipe(
+            Layer.provide(journal)
+          ),
+          journal
+        ).pipe(Layer.provideMerge(AgentStorage.layer(state.storage)));
+        return Effect.runPromise(
+          Schedules.pipe(
+            Effect.flatMap((schedules) => Effect.exit(schedules.rearm)),
+            Effect.provide(services)
+          )
+        );
+      }
+    );
+
+    expect(Exit.isFailure(exit)).toBe(true);
   });
 });
 

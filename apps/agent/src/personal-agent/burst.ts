@@ -12,12 +12,10 @@ import type { OwnerMessageEvent } from "./inbox.ts";
 
 export type Burst = readonly [OwnerMessageEvent, ...OwnerMessageEvent[]];
 
-export type FormBursts = (
-  events: readonly OwnerMessageEvent[]
-) => readonly Burst[];
-
-export const oneEventBursts: FormBursts = (events) =>
-  events.map((event): Burst => [event]);
+const oneBurstOf = (events: readonly OwnerMessageEvent[]): Burst[] => {
+  const [first, ...rest] = events;
+  return first === undefined ? [] : [[first, ...rest]];
+};
 
 export const turnEventOf = (burst: Burst) => burst[0];
 
@@ -124,7 +122,7 @@ const sortLinkedEvents = Effect.fnUntraced(function* sortLinkedEvents(
 
 export const pendingBursts = Effect.fnUntraced(function* pendingBursts(
   events: readonly OwnerMessageEvent[],
-  formBursts: FormBursts
+  newBurstIsDue: boolean
 ) {
   const { joined, fresh } = yield* sortLinkedEvents(events);
   const restored = new Map(
@@ -140,12 +138,14 @@ export const pendingBursts = Effect.fnUntraced(function* pendingBursts(
     .flatMap(([, linked]) => linked);
   const order = new Map(events.map((event, index) => [event.eventId, index]));
   const arrival = (event: OwnerMessageEvent) => order.get(event.eventId) ?? 0;
-  const formed = formBursts(
-    [
-      ...fresh.filter((event) => !restored.has(event.eventId)),
-      ...stranded,
-    ].toSorted((left, right) => arrival(left) - arrival(right))
-  );
+  const formed = newBurstIsDue
+    ? oneBurstOf(
+        [
+          ...fresh.filter((event) => !restored.has(event.eventId)),
+          ...stranded,
+        ].toSorted((left, right) => arrival(left) - arrival(right))
+      )
+    : [];
   const position = (burst: Burst) => arrival(turnEventOf(burst));
   return [...restored.values(), ...formed].toSorted(
     (left, right) => position(left) - position(right)

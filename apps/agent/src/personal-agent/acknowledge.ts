@@ -3,7 +3,7 @@ import { Effect, Fiber, Option, Schedule } from "effect";
 import { Channel } from "../channels/channel.ts";
 import { Redactor } from "../tracing/redactor.ts";
 
-const showTypingOnce = Effect.fnUntraced(function* showTypingOnce(
+export const showTypingOnce = Effect.fnUntraced(function* showTypingOnce(
   conversationId: string,
   timeoutMillis: number
 ) {

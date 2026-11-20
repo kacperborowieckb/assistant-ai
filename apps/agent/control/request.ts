@@ -1,5 +1,6 @@
-import { Data, Effect, Option } from "effect";
+import { Clock, Data, Effect, Option } from "effect";
 
+import { checkBurstSend } from "./burst-split.ts";
 import type { FakeTelegramChatAction } from "./fake-chat-actions.ts";
 import { startLocalFakes } from "./local-fakes.ts";
 import type { FakeModelCall, FakeTelegramMessage } from "./local-fakes.ts";
@@ -56,14 +57,60 @@ const stayedSilentOn = (
     .findLast((call) => call.lastUserMessage === message)
     ?.toolCalls.includes(staySilentToolName) === true;
 
+interface NumberedMessage {
+  readonly text: string;
+  readonly updateId: number;
+  readonly messageId: number;
+}
+
+const messageGroups = (messages: readonly string[], burst: boolean) => {
+  const numbered = messages.map((text, index): NumberedMessage => ({
+    text,
+    updateId: index + 1,
+    messageId: sampleMessageId + index + 1,
+  }));
+  return burst ? [numbered] : numbered.map((sent) => [sent]);
+};
+
+const sendMessages = Effect.fnUntraced(function* sendMessages(
+  workerUrl: URL,
+  webhookSecret: string,
+  messages: readonly NumberedMessage[]
+) {
+  const lines: string[] = [];
+  const startedAt = yield* Clock.currentTimeMillis;
+  for (const sent of messages) {
+    const webhook = yield* sendTelegramUpdate({
+      workerUrl,
+      webhookSecret,
+      update: {
+        updateId: sent.updateId,
+        messageId: sent.messageId,
+        userId: sampleTelegramUserId,
+        text: sent.text,
+      },
+    });
+    lines.push(
+      `Webhook answered ${webhook.status} for the message "${sent.text}"`
+    );
+  }
+  yield* checkBurstSend({
+    messageCount: messages.length,
+    sendMillis: (yield* Clock.currentTimeMillis) - startedAt,
+  });
+  return lines;
+});
+
 export const requestReply = ({
   messages,
   contains,
   waitForLaterMessage,
+  burst = false,
 }: {
   readonly messages: readonly string[];
   readonly contains: string | undefined;
   readonly waitForLaterMessage: boolean;
+  readonly burst?: boolean;
 }) =>
   Effect.gen(function* requestReplyEffect() {
     const fakes = yield* startLocalFakes();
@@ -88,25 +135,20 @@ export const requestReply = ({
 
     let replyParts: readonly string[] = [];
     const unprompted: FakeTelegramMessage[] = [];
-    for (const [index, message] of messages.entries()) {
+    for (const group of messageGroups(messages, burst)) {
       const callsBefore = fakes.modelCalls().length;
       const callsForMessage = () => fakes.modelCalls().slice(callsBefore);
       const chatActionsBefore = fakes.chatActions().length;
-      const webhook = yield* sendTelegramUpdate({
-        workerUrl: url,
-        webhookSecret: secrets.TELEGRAM_WEBHOOK_SECRET,
-        update: {
-          updateId: index + 1,
-          messageId: sampleMessageId + index + 1,
-          userId: sampleTelegramUserId,
-          text: message,
-        },
-      });
       lines.push(
-        `Webhook answered ${webhook.status} for the message "${message}"`
+        ...(yield* sendMessages(url, secrets.TELEGRAM_WEBHOOK_SECRET, group))
       );
+      const newest = group.at(-1);
+      if (newest === undefined) {
+        continue;
+      }
+      const message = newest.text;
       const selection = yield* selectReplyTo({
-        inputMessageId: sampleMessageId + index + 1,
+        inputMessageId: newest.messageId,
         take: (timeout) =>
           fakes.nextTelegramMessage.pipe(Effect.timeoutOption(timeout)),
         firstReplyTimeout: replyTimeout,

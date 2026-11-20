@@ -27,7 +27,8 @@ import {
 } from "./fakes.ts";
 import { addOwner, telegramWebhook, textUpdate } from "./telegram-requests.ts";
 
-const { proactiveResponseWindowMillis } = defaultBehaviorConfig;
+const { proactiveResponseWindowMillis, burstQuietMillis } =
+  defaultBehaviorConfig;
 
 interface ProactiveMessageRow extends Record<string, SqlStorageValue> {
   event_id: string;
@@ -469,6 +470,8 @@ const noAlarm: AlarmClock = { setAt: () => Promise.resolve() };
 
 const startOfTime = Date.parse("2027-01-14T10:00:00.000Z");
 
+const turnStartedAt = startOfTime + 60_000 + burstQuietMillis;
+
 const sendProactiveMessage = Effect.fnUntraced(function* sendProactiveMessage(
   { eventId, sentAt }: SentProactiveMessage,
   openLoopIds: readonly string[] = []
@@ -700,12 +703,13 @@ describe("the alarm of the Schedules store", () => {
         const schedules = yield* Schedules;
         yield* sendProactiveMessage({ eventId: "pm-1", sentAt: startOfTime });
         yield* ownerMessageArrives(startOfTime + 60_000, "u-1");
+        yield* TestClock.adjust(burstQuietMillis);
         yield* schedules.complete("none", "none", "pm-1");
       })
     );
 
     expect(armed.at(-1)).toEqual(
-      Option.some(DateTime.makeUnsafe(startOfTime + 120_000))
+      Option.some(DateTime.makeUnsafe(turnStartedAt + 60_000))
     );
   });
 });
@@ -729,6 +733,7 @@ describe("the alarm after a connected Turn left the Inbox", () => {
         const messages = yield* ProactiveMessages;
         yield* sendProactiveMessage({ eventId: "pm-1", sentAt: startOfTime });
         yield* ownerMessageArrives(startOfTime + 60_000, "u-1");
+        yield* TestClock.adjust(burstQuietMillis);
         yield* schedules.complete("none", "none", "pm-1");
         const armedWhilePending = armed.at(-1);
         yield* inbox.markDone(yield* inbox.pending);
@@ -737,10 +742,10 @@ describe("the alarm after a connected Turn left the Inbox", () => {
         yield* messages.settleFinishedTurns();
         yield* schedules.complete("none", "none", "pm-1");
         expect(armedWhilePending).toEqual(
-          Option.some(DateTime.makeUnsafe(startOfTime + 120_000))
+          Option.some(DateTime.makeUnsafe(turnStartedAt + 60_000))
         );
         expect(armedWhileOpen).toEqual(
-          Option.some(DateTime.makeUnsafe(startOfTime + 60_000))
+          Option.some(DateTime.makeUnsafe(turnStartedAt))
         );
         expect(armed.at(-1)).toEqual(Option.none());
       })

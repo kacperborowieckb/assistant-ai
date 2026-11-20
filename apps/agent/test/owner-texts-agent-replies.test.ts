@@ -183,7 +183,7 @@ describe("Owner texts, agent replies", () => {
 });
 
 describe("Pending Events", () => {
-  it("gives each pending Event its own reply, oldest first", async () => {
+  it("gives the pending Owner messages one reply, on the newest message", async () => {
     const ownerId = await addOwner(5006);
 
     await runInDurableObject(
@@ -222,14 +222,11 @@ describe("Pending Events", () => {
         message.body.reply_parameters?.message_id,
         message.body.text,
       ])
-    ).toEqual([
-      [41, `${fakeReplyPrefix}first`],
-      [42, `${fakeReplyPrefix}second`],
-    ]);
+    ).toEqual([[42, `${fakeReplyPrefix}second`]]);
     const journal = await journalOf(ownerId);
     expect(
       journal.filter((entry) => entry.record._tag === "ReplySent")
-    ).toHaveLength(2);
+    ).toHaveLength(1);
   });
 });
 

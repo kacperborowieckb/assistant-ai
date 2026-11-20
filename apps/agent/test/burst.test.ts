@@ -22,7 +22,6 @@ import { OwnerPreferences } from "../src/preferences/owner-preferences.ts";
 import { muteProactiveMessageToolName } from "../src/proactive/mute-proactive-message-tool.ts";
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
 import {
-  fakeBursts,
   fakeModel,
   fakeReplyPrefix,
   fakeTelegram,
@@ -178,7 +177,6 @@ describe("A Turn answers a burst of Owner messages", () => {
   it("makes one model call with every message in order and one Delivery on the newest message", async () => {
     const ownerId = await addOwner(7101);
     const eventIds = await storeBurst(ownerId, 7101);
-    fakeBursts.allPendingTogether = true;
 
     await runTurn(ownerId);
 
@@ -301,7 +299,6 @@ describe("A Turn answers a burst of Owner messages", () => {
   it("sends once for the burst after the Durable Object is reset in the middle of its Turn", async () => {
     const ownerId = await addOwner(7106);
     await storeBurst(ownerId, 7106);
-    fakeBursts.allPendingTogether = true;
     const releaseModel = holdModel();
     const agent = await agentOf(ownerId);
 
@@ -310,7 +307,6 @@ describe("A Turn answers a burst of Owner messages", () => {
     );
     await vi.waitFor(() => expect(fakeModel.doGenerateCalls).toHaveLength(1));
     await abortAllDurableObjects();
-    fakeBursts.allPendingTogether = false;
     releaseModel();
     await runDurableObjectAlarm(await agentOf(ownerId));
 
@@ -326,7 +322,6 @@ describe("A Turn answers a burst of Owner messages", () => {
   it("refuses capture_note for a Burst that holds a forwarded message and another message", async () => {
     const ownerId = await addOwner(7107);
     await storeBurst(ownerId, 7107, { forwarded: [1] });
-    fakeBursts.allPendingTogether = true;
     scriptModel([
       { callTool: captureNoteToolName, input: { text: "keep this" } },
       { say: "I could not keep it" },
@@ -345,7 +340,6 @@ describe("A Turn answers a burst of Owner messages", () => {
   it("refuses capture_note for a Burst with more than one forwarded message and keeps no Note", async () => {
     const ownerId = await addOwner(7108);
     await storeBurst(ownerId, 7108, { forwarded: [1, 2] });
-    fakeBursts.allPendingTogether = true;
     scriptModel([
       { callTool: captureNoteToolName, input: { text: "keep this" } },
       { say: "I could not keep it" },
@@ -394,7 +388,6 @@ describe("A Turn answers a burst of Owner messages", () => {
         eventIds[1] ?? ""
       );
     });
-    fakeBursts.allPendingTogether = true;
     scriptModel([
       { callTool: muteProactiveMessageToolName, input: { action: "mute" } },
       { say: "Muted" },

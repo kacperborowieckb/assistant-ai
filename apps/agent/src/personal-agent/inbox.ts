@@ -5,11 +5,13 @@ import { ownerMessageFields, scheduleFiredFields } from "../event.ts";
 import type { Event, OwnerMessage, ScheduleFired } from "../event.ts";
 import { Journal } from "../journal/journal.ts";
 import { AgentStorage } from "./agent-storage.ts";
+import { makeBurstWaitQueries } from "./burst-wait.ts";
 import { inboxEvents } from "./storage-schema.ts";
 import { inboxStates } from "./storage-values.ts";
 
 const inboxFields = {
   eventId: Schema.String,
+  receivedAt: Schema.String,
   state: Schema.Literals(inboxStates),
 };
 
@@ -136,10 +138,14 @@ const makeInbox = Effect.gen(function* makeInboxEffect() {
         { discard: true }
       );
 
+  const { burstIsDue, burstGrewSince } = makeBurstWaitQueries(database);
+
   return {
     store,
     storeEvent,
     pending,
+    burstIsDue,
+    burstGrewSince,
     markDone: settle("done"),
     markFailed: settle("failed"),
   };
