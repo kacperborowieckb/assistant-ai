@@ -278,7 +278,7 @@ describe("an agent-set Schedule that fires in Quiet Hours", () => {
     const [row] = await schedulesOf(ownerId);
     expect(row?.next_due_at).toBe(toDueAt);
     expect(await heldEntriesOf(ownerId)).toHaveLength(1);
-    expect(await heldTracesOf(ownerId)).toHaveLength(1);
+    expect(await heldTracesOf(ownerId)).toMatchObject([{ heldUntil: toDueAt }]);
     expect(fakeTelegram.sent).toHaveLength(1);
   });
 });

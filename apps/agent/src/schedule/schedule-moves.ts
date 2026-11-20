@@ -1,4 +1,5 @@
 import { DateTime, Effect, Option } from "effect";
+import type { SqlError } from "effect/sql/SqlError";
 
 import type { Journal } from "../journal/journal.ts";
 import type { proactiveHoldReasons } from "../personal-agent/storage-values.ts";
@@ -18,7 +19,7 @@ type ScheduleQueries = Effect.Success<ReturnType<typeof makeScheduleQueries>>;
 
 type InTransaction = <A, E, R>(
   work: Effect.Effect<A, E, R>
-) => Effect.Effect<A, unknown, R>;
+) => Effect.Effect<A, E | SqlError, R>;
 
 export const makeScheduleMoves = (
   queries: ScheduleQueries,
@@ -72,7 +73,7 @@ export const makeScheduleMoves = (
       }
     );
     if (Option.isNone(held)) {
-      return false;
+      return Option.none<string>();
     }
     if (recorded === undefined) {
       yield* journal.append({
@@ -84,7 +85,7 @@ export const makeScheduleMoves = (
         reason: request.reason,
       });
     }
-    return true;
+    return Option.some(toDueAt);
   });
 
   return {

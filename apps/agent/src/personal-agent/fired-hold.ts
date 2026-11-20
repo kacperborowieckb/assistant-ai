@@ -1,4 +1,5 @@
-import { DateTime, Effect } from "effect";
+import { Effect, Option } from "effect";
+import type { DateTime } from "effect";
 
 import { Schedules } from "../schedule/schedules.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
@@ -20,7 +21,6 @@ export const holdProactiveMessage = Effect.fnUntraced(
     const schedules = yield* Schedules;
     const traces = yield* TurnTraces;
 
-    const heldUntil = DateTime.formatIso(until);
     yield* database.transaction(() =>
       Effect.gen(function* holdEffect() {
         const held = yield* schedules.hold({
@@ -31,14 +31,14 @@ export const holdProactiveMessage = Effect.fnUntraced(
           eventId: event.eventId,
         });
         const recorded = yield* traces.readForEvent(event.eventId);
-        if (held && recorded.length === 0) {
+        if (Option.isSome(held) && recorded.length === 0) {
           yield* traces.record({
             eventId: event.eventId,
             task: "proactive_hold",
             result: "proactive_message_held",
             scheduleId: event.scheduleId,
             dueAt: event.dueAt,
-            heldUntil,
+            heldUntil: held.value,
             reason,
           });
         }
