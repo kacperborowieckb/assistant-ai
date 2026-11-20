@@ -34,7 +34,13 @@ const proactivePreparation = Effect.fnUntraced(function* proactivePreparation(
   const schedule = yield* schedules.byId(event.scheduleId);
   const linkedIds = Option.isSome(schedule) ? schedule.value.openLoopIds : [];
   const { inReach, mutedIds } = yield* proactiveReach(
-    { notes, preferences, journal },
+    {
+      notes,
+      preferences,
+      journal,
+      proactiveMessages,
+      eventId: event.eventId,
+    },
     linkedIds
   );
   const plannedIds = yield* proactiveMessages.plan(

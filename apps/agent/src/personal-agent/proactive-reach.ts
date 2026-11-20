@@ -4,6 +4,7 @@ import type { Journal } from "../journal/journal.ts";
 import type { Note, Notes } from "../notes/notes.ts";
 import type { OwnerPreferences } from "../preferences/owner-preferences.ts";
 import { openLoopsWithMutes } from "../proactive/muted-open-loops.ts";
+import type { ProactiveMessages } from "../proactive/proactive-messages.ts";
 
 export const openLoopsInReach = 20;
 
@@ -11,17 +12,31 @@ interface ReachServices {
   readonly notes: Notes["Service"];
   readonly preferences: OwnerPreferences["Service"];
   readonly journal: Journal["Service"];
+  readonly proactiveMessages: ProactiveMessages["Service"];
+  readonly eventId: string;
 }
 
 const foldedOpenLoops = Effect.fnUntraced(function* foldedOpenLoops({
   notes,
   journal,
+  proactiveMessages,
+  eventId,
 }: ReachServices) {
   const entries = yield* journal.readOfKind("ProactiveMessageFolded");
-  const foldedIds = entries.flatMap(({ record }) =>
-    record._tag === "ProactiveMessageFolded" ? record.openLoopIds : []
+  const planned = yield* proactiveMessages.plannedOpenLoops(eventId);
+  const notYetInAMessage = entries.flatMap(({ record, recordedAt }) =>
+    record._tag === "ProactiveMessageFolded"
+      ? record.openLoopIds.filter(
+          (noteId) =>
+            !planned.some(
+              (message) =>
+                message.plannedAt > recordedAt &&
+                message.openLoopIds.includes(noteId)
+            )
+        )
+      : []
   );
-  return yield* notes.openLoopsAmong([...new Set(foldedIds)]);
+  return yield* notes.openLoopsAmong([...new Set(notYetInAMessage)]);
 });
 
 const briefOpenLoops = Effect.fnUntraced(function* briefOpenLoops(

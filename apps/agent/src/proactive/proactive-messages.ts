@@ -1,4 +1,4 @@
-import { eq, isNull, and } from "drizzle-orm";
+import { and, eq, isNull, ne } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
 import { Journal } from "../journal/journal.ts";
@@ -49,6 +49,22 @@ const makeProactiveMessages = Effect.gen(
       return planned?.openLoopIds ?? openLoopIds;
     });
 
+    const plannedOpenLoops = Effect.fnUntraced(function* plannedOpenLoops(
+      exceptEventId: string
+    ) {
+      const rows = yield* database
+        .select({
+          plannedAt: proactiveMessages.plannedAt,
+          openLoopIds: proactiveMessages.openLoopIds,
+        })
+        .from(proactiveMessages)
+        .where(ne(proactiveMessages.eventId, exceptEventId));
+      return rows.map((row) => ({
+        plannedAt: row.plannedAt,
+        openLoopIds: decodeIds(row.openLoopIds),
+      }));
+    });
+
     const recordSent = Effect.fnUntraced(function* recordSent(
       eventId: string,
       sentMessageId: string,
@@ -81,6 +97,7 @@ const makeProactiveMessages = Effect.gen(
 
     return {
       plan,
+      plannedOpenLoops,
       recordSent,
       forEvent,
       ...makeProactiveOutcomes(database, journal),

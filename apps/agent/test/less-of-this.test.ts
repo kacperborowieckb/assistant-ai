@@ -347,6 +347,47 @@ describe("a follow-up for a muted Open Loop", () => {
     expect(JSON.stringify(system?.content)).toContain(folded.noteId);
   });
 
+  it("names a newly folded Open Loop when 20 folded ones were already in an earlier Brief", async () => {
+    const ownerId = await ownerInWarsaw(9914);
+    const earlier = await Promise.all(
+      Array.from({ length: 20 }, (_, index) =>
+        keepOpenLoop(ownerId, `Earlier folded ${index}`)
+      )
+    );
+    await Promise.all(
+      earlier.map((note) => muteOpenLoop(ownerId, note.noteId))
+    );
+    await seedFollowUp(
+      ownerId,
+      earlier.map(({ noteId }) => noteId)
+    );
+    await makeDue(ownerId, followUpPrompt);
+    await vi.waitFor(async () =>
+      expect(
+        await journalTagsOf(ownerId, "ProactiveMessageFolded")
+      ).toHaveLength(1)
+    );
+    await sendBrief(ownerId, 1);
+
+    const later = await keepOpenLoop(ownerId, "Buy a gift for Ana");
+    await muteOpenLoop(ownerId, later.noteId);
+    await seedFollowUp(ownerId, [later.noteId]);
+    await makeDue(ownerId, followUpPrompt);
+    await vi.waitFor(async () =>
+      expect(
+        await journalTagsOf(ownerId, "ProactiveMessageFolded")
+      ).toHaveLength(2)
+    );
+    scriptModel([{ say: "Brief again" }]);
+    await makeDue(ownerId, briefPrompt);
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(3));
+
+    const system = fakeModel.doGenerateCalls
+      .at(-1)
+      ?.prompt.find((message) => message.role === "system");
+    expect(JSON.stringify(system?.content)).toContain(later.noteId);
+  });
+
   it("sends a mixed follow-up that lists only the unmuted Open Loop and names the muted one", async () => {
     const ownerId = await ownerInWarsaw(9913);
     const muted = await keepOpenLoop(ownerId, "Buy a gift for Ana");
