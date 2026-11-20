@@ -245,14 +245,17 @@ describe("a follow-up set in a proactive Turn", () => {
     const ownerId = await ownerInWarsaw(9712);
     const note = await keepOpenLoop(ownerId, "Buy a gift for Ana");
     scriptModel([
-      followUpCall([note.noteId]),
       followUpCall([note.noteId, note.noteId]),
       { say: "Good morning" },
     ]);
 
     await briefFires(ownerId, 1);
 
+    expect(lastToolResultOf(setScheduleToolName)).toMatchObject({
+      type: "json",
+    });
     expect(await schedulesOf(ownerId)).toHaveLength(1);
+    expect(await linksOf(ownerId)).toHaveLength(1);
   });
 
   it("refuses a Note that has no open Open Loop and stores nothing", async () => {
@@ -459,6 +462,7 @@ describe("a follow-up that fires", () => {
       .at(-1)
       ?.prompt.find((message) => message.role === "system");
     expect(system?.content).toContain("The Owner is not present.");
+    expect(system?.content).toContain("Buy a gift for Ana");
     expect(system?.content).not.toContain("Renew the passport");
   });
 
