@@ -58,7 +58,7 @@ beforeEach(() => {
   resetFakes();
 });
 
-describe("typing while the agent works", () => {
+describe("Acknowledge: typing while the agent works", () => {
   it("shows typing within a second of the Owner message and before the model call", async () => {
     await addOwner(12_101);
     const releaseModel = holdModel();

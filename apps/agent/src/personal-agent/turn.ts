@@ -4,6 +4,7 @@ import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { noTools } from "../model-gateway/agent-tool.ts";
 import type { AgentTools } from "../model-gateway/agent-tool.ts";
 import type { OwnerId } from "../owner-id.ts";
+import { whileAcknowledging } from "./acknowledge.ts";
 import { agentToolServices } from "./agent-tool-services.ts";
 import { connectedProactivePreparation } from "./connected-proactive-section.ts";
 import { failWithNotice } from "./delivery.ts";
@@ -19,7 +20,6 @@ import {
 import { ownerMessageTools } from "./owner-message-tools.ts";
 import { traceOf } from "./turn-record.ts";
 import { ownerMessageRecovery, settleFromJournal } from "./turn-recovery.ts";
-import { whileTyping } from "./typing.ts";
 
 interface TurnSettings {
   readonly behavior: BehaviorConfig;
@@ -51,7 +51,9 @@ const answer = (
         whenFailed: (reason) => failWithNotice(event, reason),
       },
     });
-  }).pipe(whileTyping(event, behavior.typingRepeatMillis));
+  }).pipe(
+    whileAcknowledging(event.conversationId, behavior.typingRepeatMillis)
+  );
 
 export const takeTurn = (
   ownerId: OwnerId,

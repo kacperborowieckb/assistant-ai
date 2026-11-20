@@ -23,12 +23,14 @@ const replyPartsContain = (parts: readonly string[], contains: string) => {
   );
 };
 
-const renderChatActions = (chatActions: readonly FakeTelegramChatAction[]) => {
-  const [first] = chatActions;
-  return first === undefined
+const renderChatActions = (chatActions: readonly FakeTelegramChatAction[]) =>
+  chatActions.length === 0
     ? "Telegram sendChatAction: none before the reply"
-    : `Telegram sendChatAction "${first.action}" to chat ${first.chatId}: ${chatActions.length} before the reply`;
-};
+    : `Telegram sendChatAction before the reply: ${chatActions
+        .map(
+          (chatAction) => `"${chatAction.action}" to chat ${chatAction.chatId}`
+        )
+        .join(", ")}`;
 
 export class ReplyMissing extends Data.TaggedError("ReplyMissing")<{
   readonly contains: string;
