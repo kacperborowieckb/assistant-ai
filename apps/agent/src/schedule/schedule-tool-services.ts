@@ -7,6 +7,9 @@ import type { Schedules } from "./schedules.ts";
 export interface ScheduleToolServices {
   readonly schedules: Schedules["Service"];
   readonly ownerTimeZone: Effect.Effect<Option.Option<DateTime.TimeZone.Named>>;
+  readonly mutedAmong: (
+    noteIds: readonly string[]
+  ) => Effect.Effect<readonly string[]>;
   readonly progress: TurnProgress["Service"];
   readonly redactor: Redactor["Service"];
   readonly maxActiveScheduledTasks: number;

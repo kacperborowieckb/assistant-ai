@@ -7,7 +7,9 @@ import { journalEntries } from "../personal-agent/storage-schema.ts";
 import {
   noteChanges,
   openLoopClosedReasons,
+  proactiveFoldReasons,
   proactiveHoldReasons,
+  proactiveMuteChanges,
   ownerPreferenceKeys,
   proactiveOutcomes,
   profileEntryKinds,
@@ -77,6 +79,18 @@ export const JournalRecordSchema = Schema.TaggedUnion({
     fromDueAt: Schema.String,
     toDueAt: Schema.String,
     reason: Schema.Literals(proactiveHoldReasons),
+  },
+  ProactiveMessageFolded: {
+    eventId: Schema.String,
+    scheduleId: Schema.String,
+    openLoopIds: Schema.Array(Schema.String),
+    reason: Schema.Literals(proactiveFoldReasons),
+  },
+  ProactiveMuteChanged: {
+    eventId: Schema.String,
+    change: Schema.Literals(proactiveMuteChanges),
+    openLoopIds: Schema.Array(Schema.String),
+    kinds: Schema.Array(Schema.String),
   },
   ProactiveMessageOutcome: {
     eventId: Schema.String,

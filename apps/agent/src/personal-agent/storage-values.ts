@@ -12,7 +12,11 @@ export const openLoopClosedReasons = ["done", "dropped", "replaced"] as const;
 
 export const profileEntryKinds = ["fact", "style_rule"] as const;
 
-export const ownerPreferenceKeys = ["time_zone", "quiet_hours"] as const;
+export const ownerPreferenceKeys = [
+  "time_zone",
+  "quiet_hours",
+  "muted_proactive_messages",
+] as const;
 
 export const ownerPreferenceSources = ["owner"] as const;
 
@@ -27,6 +31,7 @@ export const turnResults = [
   "proactive_message_sent",
   "proactive_message_failed",
   "proactive_message_held",
+  "proactive_message_folded",
 ] as const;
 
 export const scheduleActions = ["send_text", "run_prompt"] as const;
@@ -50,5 +55,9 @@ export const proactiveOutcomes = [
 ] as const;
 
 export const proactiveHoldReasons = ["quiet_hours"] as const;
+
+export const proactiveFoldReasons = ["muted"] as const;
+
+export const proactiveMuteChanges = ["muted", "unmuted"] as const;
 
 export type ProactiveOutcome = (typeof proactiveOutcomes)[number];

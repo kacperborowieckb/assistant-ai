@@ -4,7 +4,7 @@ Status: accepted
 
 Date: 2026-11-19
 
-Spec #97 (Proactivity), tickets #102 (the default Brief) and #100 (Outcome). Builds on [0013](0013-schedules-and-time.md), [0014](0014-schedule-actions.md), [0015](0015-scheduled-task-turn.md), [0016](0016-scheduled-task-failure-and-lateness.md), [0017](0017-scheduled-task-limits.md), and [0018](0018-reminder-failure-completes-the-schedule.md). It supersedes only one rule of [0007](0007-typed-queries-and-migrations.md) (see Schema file). Reminders and Scheduled Tasks that the Owner sets do not change.
+Spec #97 (Proactivity), tickets #102 (the default Brief), #100 (Outcome), and #105 (Less of this). Builds on [0013](0013-schedules-and-time.md), [0014](0014-schedule-actions.md), [0015](0015-scheduled-task-turn.md), [0016](0016-scheduled-task-failure-and-lateness.md), [0017](0017-scheduled-task-limits.md), and [0018](0018-reminder-failure-completes-the-schedule.md). It supersedes only one rule of [0007](0007-typed-queries-and-migrations.md) (see Schema file). Reminders and Scheduled Tasks that the Owner sets do not change.
 
 ## Decision
 
@@ -65,6 +65,18 @@ Spec #97 (Proactivity), tickets #102 (the default Brief) and #100 (Outcome). Bui
 - **Once.** An update that needs `outcome IS NULL` and the `ProactiveMessageOutcome` Journal Entry are in one transaction, so a second alarm run, a recovery, or a repeated recording writes nothing. The Operator metric of the kind `outcome` (the result is the Outcome, the Event id of the Proactive Message is in `blob5`, the latency is the time from the send) is written after the transaction. A reset between the two can lose the data point. The Journal is the record.
 - **Recent Outcomes.** A proactive Turn shows the last three Outcomes of earlier Proactive Messages for each of its Open Loops in reach, and its system prompt says: when the Owner keeps ignoring an Open Loop, change the approach (another time, a smaller step) or ask why. No code rule stops Follow-ups.
 - **Known limit.** An Owner message that arrives between the real send of a Proactive Message and the write of its sent instant (the Turn is still running) is not connected to it.
+
+### What ticket #105 builds
+
+- **Preference.** `muted_proactive_messages` is a new Owner Preference (source `owner`): a set of Open Loop ids and a set of kinds. A kind is stored trimmed and in lower case, and an Open Loop matches when its kind, normalized the same way, is in the set. The CHECK of `owner_preferences` and of `turn_traces` change in one migration.
+- **The tool.** `mute_proactive_message` has the actions `mute`, `undo`, and `list`, and the scopes `open_loops` (default) and `kind`. Code resolves the target: with no `openLoopIds` and no `kind`, it uses the Open Loops of the Proactive Message that the Turn is connected to (and their kinds, for scope `kind`). With no connected message and no target, it fails with a message for the model. Only an Event with Trust Level `owner` gets it, so a proactive Turn and a Turn for an untrusted Event have none. Each call appends a `ProactiveMuteChanged` Journal Entry, also when the stored value did not change, in the same transaction as the write.
+- **Which scope.** When it is not clear whether the Owner means the Open Loops of the message or their kind, the agent saves the default (the Open Loops of the message) in the same Turn and asks one short question whether to cover the whole kind. No answer therefore leaves the default saved, and no timer or code state is needed.
+- **Outcome.** In the connected Turn, a `ProactiveMuteChanged` entry with the change `muted` gives `muted`. The order is `acted`, then `muted`, then `replied`: a Turn that also changes an Open Loop of the message records `acted`, as the first rule wins.
+- **The gate.** The result `FoldIntoBrief` (reason `muted`) is new. A follow-up whose open Open Loops are all muted (by id or by kind) gets it, before the Quiet Hours check, because it sends nothing. It makes no model call. Code completes the Schedule, appends a `ProactiveMessageFolded` Journal Entry, and writes a Trace with the result `proactive_message_folded` in one transaction. A second run for the same Event writes nothing. The Brief lists every open Open Loop in reach, muted or not, so a folded Open Loop appears in the next Brief with no other state. If the Send Budget ticket (#104) adds the same result, its path replaces this completion and keeps the reason `muted`.
+- **Mixed follow-ups.** A follow-up with some muted and some unmuted Open Loops is sent, and its proactive Turn lists only the unmuted ones.
+- **`set_schedule`.** A follow-up that names a muted Open Loop is refused with a message for the model. A Schedule that the Owner asked for is not refused.
+- **Undo.** `undo` removes the ids or the kinds that the same selectors give. Undoing an id does not remove a mute of its kind, and the result lists what is still muted. `list` shows the muted ids with their text and the muted kinds.
+- **Evals.** There is still no real-model Eval Case for "less of this" (see Evals above).
 
 ## Why
 

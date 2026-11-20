@@ -52,6 +52,7 @@ Use these terms with these meanings in code, docs, issues, and prompts. Use the 
 - **Outcome**: what the Owner did with a Proactive Message: `acted`, `replied`, `muted`, or `ignored`. Code connects the next Owner message to the last Proactive Message, when it comes within the response window. An Outcome is recorded once.
 - **Behavior Config**: the typed defaults for each Instance (texting style, quiet hours, budgets, proactivity limits).
 - **Owner Preferences**: values in the Personal Agent that override the Behavior Config for one Owner, for example Quiet Hours or a "less of this" reply. Each stored value records its source (`owner` now).
+- **Mute**: the Owner Preference from a "less of this" reply: the Open Loops of a Proactive Message, or their kind. A muted Open Loop gets no follow-up of its own and appears only in the Brief. "Less" means less often, not never; "stop" closes the Open Loop or cancels the Schedule. The Owner can undo it in the chat.
 - **Quiet Hours**: the local time range when the agent sends no Proactive Messages (default 22:00 to 08:00). Code holds a Proactive Message that is due in Quiet Hours and moves it to the end of Quiet Hours. The Owner changes them in the chat, and the stored value records its source. Reminders and Scheduled Tasks that the Owner set still arrive.
 - **Budget**: the limit on Proactive Messages per day and on tokens for background work, for each Owner.
 - **Acknowledge**: the instant receipt signal (a reaction or "typing") that the Channel shows before the model runs.

@@ -8,6 +8,7 @@ import type { Schedule } from "../schedule/schedule.ts";
 import { Schedules } from "../schedule/schedules.ts";
 import { deliveryStateOf, honestFailureText } from "./delivery.ts";
 import type { DeliveryState } from "./delivery.ts";
+import { foldProactiveMessage } from "./fired-fold.ts";
 import { holdProactiveMessage } from "./fired-hold.ts";
 import {
   recordProactiveMessageSent,
@@ -142,7 +143,10 @@ export const handleFiredSchedule = Effect.fnUntraced(
       return;
     }
     if (schedule.value.setBy === "agent") {
-      const decision = yield* decideProactiveMessage(behavior);
+      const decision = yield* decideProactiveMessage(behavior, schedule.value);
+      if (decision._tag === "FoldIntoBrief") {
+        return yield* foldProactiveMessage({ event, ...decision });
+      }
       if (decision._tag === "Hold") {
         return yield* holdProactiveMessage({ event, ...decision });
       }

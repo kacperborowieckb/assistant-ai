@@ -4,6 +4,15 @@ import { Context, DateTime, Effect, Layer, Option, Schema } from "effect";
 import { Journal } from "../journal/journal.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { ownerPreferenceSources } from "../personal-agent/storage-values.ts";
+import type { proactiveMuteChanges } from "../personal-agent/storage-values.ts";
+import {
+  noProactiveMutes,
+  ProactiveMutesSchema,
+  sameMutes,
+  withMutes,
+  withoutMutes,
+} from "../proactive/proactive-mutes.ts";
+import type { ProactiveMutes } from "../proactive/proactive-mutes.ts";
 import { QuietHoursSchema } from "../time/quiet-hours.ts";
 import type { QuietHours } from "../time/quiet-hours.ts";
 import { namedTimeZone, TimeZoneNameSchema } from "../time/time-zone.ts";
@@ -13,6 +22,7 @@ import { ownerPreferences } from "./preferences-schema.ts";
 export const OwnerPreferenceSchemas = {
   time_zone: TimeZoneNameSchema,
   quiet_hours: QuietHoursSchema,
+  muted_proactive_messages: ProactiveMutesSchema,
 } as const;
 
 export type OwnerPreferenceKey = keyof typeof OwnerPreferenceSchemas;
@@ -39,6 +49,11 @@ export interface EffectiveQuietHours {
   readonly source: OwnerPreferenceSource | "default";
 }
 
+export interface ProactiveMutesChange {
+  readonly mutes: ProactiveMutes;
+  readonly changed: boolean;
+}
+
 export interface QuietHoursChange extends EffectiveQuietHours {
   readonly previous: QuietHours;
   readonly changed: boolean;
@@ -47,9 +62,14 @@ export interface QuietHoursChange extends EffectiveQuietHours {
 interface PreferenceWrite<Key extends OwnerPreferenceKey> {
   readonly key: Key;
   readonly value: OwnerPreferenceValue<Key>;
-  readonly journalValue: string;
+  readonly journalValue: string | undefined;
   readonly eventId: string;
   readonly source: OwnerPreferenceSource;
+}
+
+export interface ProactiveMuteChange {
+  readonly change: (typeof proactiveMuteChanges)[number];
+  readonly targets: ProactiveMutes;
 }
 
 const quietHoursText = ({ start, end }: QuietHours) => `${start}-${end}`;
@@ -111,12 +131,14 @@ const makeOwnerPreferences = Effect.gen(function* makeOwnerPreferencesEffect() {
           changedAt,
         },
       });
-    yield* journal.append({
-      _tag: "OwnerPreferenceChanged",
-      eventId,
-      preference: key,
-      value: journalValue,
-    });
+    if (journalValue !== undefined) {
+      yield* journal.append({
+        _tag: "OwnerPreferenceChanged",
+        eventId,
+        preference: key,
+        value: journalValue,
+      });
+    }
   });
 
   const timeZone = read("time_zone");
@@ -201,7 +223,50 @@ const makeOwnerPreferences = Effect.gen(function* makeOwnerPreferencesEffect() {
   ) =>
     database.transaction(() => writeQuietHours(requested, defaults, eventId));
 
-  return { timeZone, setTimeZone, quietHours, setQuietHours };
+  const proactiveMutes = read("muted_proactive_messages").pipe(
+    Effect.map(Option.getOrElse(() => noProactiveMutes))
+  );
+
+  const writeProactiveMutes = Effect.fnUntraced(function* writeProactiveMutes(
+    change: ProactiveMuteChange,
+    eventId: string
+  ) {
+    const current = yield* proactiveMutes;
+    const next =
+      change.change === "muted"
+        ? withMutes(current, change.targets)
+        : withoutMutes(current, change.targets);
+    const changed = !sameMutes(current, next);
+    if (changed) {
+      yield* write({
+        key: "muted_proactive_messages",
+        value: next,
+        journalValue: undefined,
+        eventId,
+        source: "owner",
+      });
+    }
+    yield* journal.append({
+      _tag: "ProactiveMuteChanged",
+      eventId,
+      change: change.change,
+      openLoopIds: change.targets.openLoopIds,
+      kinds: change.targets.kinds,
+    });
+    return { mutes: next, changed } satisfies ProactiveMutesChange;
+  });
+
+  const changeProactiveMutes = (change: ProactiveMuteChange, eventId: string) =>
+    database.transaction(() => writeProactiveMutes(change, eventId));
+
+  return {
+    timeZone,
+    setTimeZone,
+    quietHours,
+    setQuietHours,
+    proactiveMutes,
+    changeProactiveMutes,
+  };
 });
 
 export class OwnerPreferences extends Context.Service<

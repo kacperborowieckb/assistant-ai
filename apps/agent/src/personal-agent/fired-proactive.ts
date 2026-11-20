@@ -3,6 +3,7 @@ import { Clock, Effect, Option } from "effect";
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import type { Journal } from "../journal/journal.ts";
 import type { OwnerId } from "../owner-id.ts";
+import { openLoopsWithMutes } from "../proactive/muted-open-loops.ts";
 import { ProactiveMessages } from "../proactive/proactive-messages.ts";
 import { lateProactiveMessageText } from "../schedule/lateness.ts";
 import type { RunPrompt } from "../schedule/schedule-action.ts";
@@ -27,16 +28,23 @@ const proactivePreparation = Effect.fnUntraced(function* proactivePreparation(
   behavior: BehaviorConfig,
   event: ScheduleFiredEvent
 ) {
-  const { notes } = yield* agentToolServices;
+  const { notes, preferences } = yield* agentToolServices;
   const proactiveMessages = yield* ProactiveMessages;
   const lateNotice = yield* lateNoticeFor(behavior, event);
   const timeZone = yield* ownerTimeZone(behavior);
   const schedules = yield* Schedules;
   const schedule = yield* schedules.byId(event.scheduleId);
   const linkedIds = Option.isSome(schedule) ? schedule.value.openLoopIds : [];
+  const unmutedLinked = Effect.gen(function* unmutedLinkedEffect() {
+    const { open, muted } = yield* openLoopsWithMutes(
+      { preferences, notes },
+      linkedIds
+    );
+    return open.filter((note) => !muted.includes(note));
+  });
   const inReach =
     linkedIds.length > 0
-      ? yield* notes.openLoopsAmong(linkedIds)
+      ? yield* unmutedLinked
       : (yield* notes.listOpenLoops({ offset: 0, limit: openLoopsInReach }))
           .notes;
   const plannedIds = yield* proactiveMessages.plan(

@@ -8,6 +8,7 @@ import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { turnTraces } from "../personal-agent/storage-schema.ts";
 import {
+  proactiveFoldReasons,
   proactiveHoldReasons,
   turnResults,
 } from "../personal-agent/storage-values.ts";
@@ -79,6 +80,14 @@ const ProactiveHoldTraceBodySchema = Schema.Struct({
   reason: Schema.Literals(proactiveHoldReasons),
 });
 
+const ProactiveFoldTraceBodySchema = Schema.Struct({
+  task: Schema.Literal("proactive_fold"),
+  scheduleId: Schema.String,
+  dueAt: Schema.String,
+  openLoopIds: Schema.Array(Schema.String),
+  reason: Schema.Literals(proactiveFoldReasons),
+});
+
 const ScheduledTaskSkipTraceBodySchema = Schema.Struct({
   task: Schema.Literal("scheduled_task_skip"),
   scheduleId: Schema.String,
@@ -106,6 +115,7 @@ const TraceBodySchema = Schema.Union([
   ScheduledTaskTraceBodySchema,
   ProactiveTraceBodySchema,
   ProactiveHoldTraceBodySchema,
+  ProactiveFoldTraceBodySchema,
   ScheduledTaskSkipTraceBodySchema,
   ReminderDeliveryTraceBodySchema,
 ]);
@@ -135,6 +145,11 @@ export const ProactiveHoldTurnTraceSchema = Schema.Struct({
   ...ProactiveHoldTraceBodySchema.fields,
 });
 
+export const ProactiveFoldTurnTraceSchema = Schema.Struct({
+  ...traceFields,
+  ...ProactiveFoldTraceBodySchema.fields,
+});
+
 export const ScheduledTaskSkipTurnTraceSchema = Schema.Struct({
   ...traceFields,
   ...ScheduledTaskSkipTraceBodySchema.fields,
@@ -150,6 +165,7 @@ export const TurnTraceSchema = Schema.Union([
   ScheduledTaskTurnTraceSchema,
   ProactiveTurnTraceSchema,
   ProactiveHoldTurnTraceSchema,
+  ProactiveFoldTurnTraceSchema,
   ScheduledTaskSkipTurnTraceSchema,
   ReminderDeliveryTurnTraceSchema,
 ]);

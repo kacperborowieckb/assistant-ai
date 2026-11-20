@@ -25,6 +25,8 @@ const budgetIsSpentAt = (isoInstant: string, spent: readonly SpentTokens[]) => {
         setTimeZone: () => Effect.die("not used"),
         quietHours: () => Effect.die("not used"),
         setQuietHours: () => Effect.die("not used"),
+        proactiveMutes: Effect.die("not used"),
+        changeProactiveMutes: () => Effect.die("not used"),
       })
     ),
     Layer.succeed(UsageLedger, {
