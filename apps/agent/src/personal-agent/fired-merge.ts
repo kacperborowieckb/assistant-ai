@@ -71,6 +71,7 @@ const recordedMerge = Effect.fnUntraced(function* recordedMerge(
 
 const isStillDue = ({ schedule, dueAt }: MergedSchedule) =>
   schedule.state === "active" &&
+  schedule.action._tag === "RunPrompt" &&
   DateTime.formatIso(schedule.nextDueAt) === dueAt;
 
 const loadRecorded = Effect.fnUntraced(function* loadRecorded(
@@ -126,8 +127,8 @@ export const completeMergedSchedules = Effect.fnUntraced(
   function* completeMergedSchedules(eventId: string) {
     const schedules = yield* Schedules;
     const { merged } = yield* recordedMerge(eventId);
-    for (const { scheduleId, dueAt } of merged ?? []) {
-      yield* schedules.complete(scheduleId, dueAt, eventId);
+    for (const { schedule, dueAt } of yield* loadRecorded(merged ?? [])) {
+      yield* schedules.complete(schedule.scheduleId, dueAt, eventId);
     }
   }
 );

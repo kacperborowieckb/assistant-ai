@@ -572,3 +572,63 @@ describe("a recorded merge whose Schedule was cancelled", () => {
     expect(prompt).not.toContain(`${followUpPrefix} keep-b`);
   });
 });
+
+describe("a recorded merge whose Schedule became a Reminder", () => {
+  it("leaves it out of the message and keeps it active for its own delivery", async () => {
+    const ownerId = await ownerWithBrief(9942);
+    await addFollowUp(ownerId, { name: "swap-a", dueInMinutes: 0 });
+    await addFollowUp(ownerId, { name: "swap-b", dueInMinutes: 5 });
+    await makeDue(ownerId, "swap-a");
+    const swapped = await inAgent(
+      ownerId,
+      Effect.gen(function* seedEffect() {
+        const inbox = yield* Inbox;
+        const journal = yield* Journal;
+        const schedules = yield* Schedules;
+        yield* storeDueScheduleEvents;
+        const [event] = yield* inbox.pending;
+        const due = yield* schedules.activeAgentDueBy(
+          DateTime.add(DateTime.nowUnsafe(), { minutes: 30 })
+        );
+        const member = due.find(
+          ({ action }) =>
+            action._tag === "RunPrompt" &&
+            action.prompt === `${followUpPrefix} swap-b`
+        );
+        yield* journal.append({
+          _tag: "ProactiveMessageMerged",
+          eventId: event?.eventId ?? "",
+          merged: [
+            {
+              scheduleId: member?.scheduleId ?? "",
+              dueAt: DateTime.formatIso(
+                member?.nextDueAt ?? DateTime.nowUnsafe()
+              ),
+            },
+          ],
+        });
+        yield* schedules.change({
+          scheduleId: member?.scheduleId ?? "",
+          action: { _tag: "SendText", text: "Call Ana" },
+          eventId: "swap-change",
+        });
+        return member?.scheduleId;
+      })
+    );
+    scriptModel([{ say: "Only the first" }]);
+
+    await runInDurableObject(await agentOf(ownerId), (instance) =>
+      instance.runTurn()
+    );
+
+    expect(fakeTelegram.sent).toHaveLength(2);
+    const [row] = await sqlIn<ScheduleRow>(
+      ownerId,
+      "SELECT schedule_id, state, text, next_due_at FROM schedules WHERE schedule_id = ?",
+      swapped ?? ""
+    );
+    expect(row?.state).toBe("active");
+    const prompt = JSON.stringify(fakeModel.doGenerateCalls.at(-1)?.prompt);
+    expect(prompt).not.toContain(`${followUpPrefix} swap-b`);
+  });
+});
