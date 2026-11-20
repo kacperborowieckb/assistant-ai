@@ -40,6 +40,7 @@ type GateBehavior = Pick<
   | "defaultTimeZone"
   | "quietHours"
   | "proactiveMessageBudget"
+  | "proactiveMergeWindowMillis"
   | "proactiveDailyTokenBudget"
 >;
 
@@ -74,6 +75,44 @@ const budgetExceeded = ({
     : undefined;
 };
 
+const openLoopsToFold = Effect.fnUntraced(function* openLoopsToFold(
+  schedule: GatedSchedule
+) {
+  const notes = yield* Notes;
+  return schedule.openLoopIds.length > 0
+    ? yield* notes.openLoopsAmong(schedule.openLoopIds)
+    : (yield* notes.listOpenLoops({ offset: 0, limit: openLoopsInFold })).notes;
+});
+
+const foldIntoBriefDecision = Effect.fnUntraced(function* foldIntoBriefDecision(
+  schedule: GatedSchedule,
+  reason: (typeof proactiveFoldReasons)[number]
+) {
+  const openLoops = yield* openLoopsToFold(schedule);
+  return {
+    _tag: "FoldIntoBrief",
+    openLoopIds: openLoops.map(({ noteId }) => noteId),
+    reason,
+  } satisfies ProactiveGateDecision;
+});
+
+const isBriefDueWithinMergeWindow = Effect.fnUntraced(
+  function* isBriefDueWithinMergeWindow(
+    behavior: Pick<GateBehavior, "proactiveMergeWindowMillis">,
+    briefId: Option.Option<string>
+  ) {
+    if (Option.isNone(briefId)) {
+      return false;
+    }
+    const schedules = yield* Schedules;
+    const until = DateTime.add(yield* DateTime.now, {
+      milliseconds: behavior.proactiveMergeWindowMillis,
+    });
+    const due = yield* schedules.activeAgentDueBy(until);
+    return due.some(({ scheduleId }) => scheduleId === briefId.value);
+  }
+);
+
 const budgetFold = Effect.fnUntraced(function* budgetFold(
   behavior: GateBehavior,
   schedule: GatedSchedule,
@@ -99,12 +138,7 @@ const budgetFold = Effect.fnUntraced(function* budgetFold(
   if (exceeded === undefined) {
     return Option.none<ProactiveGateDecision>();
   }
-  const notes = yield* Notes;
-  const openLoops =
-    schedule.openLoopIds.length > 0
-      ? yield* notes.openLoopsAmong(schedule.openLoopIds)
-      : (yield* notes.listOpenLoops({ offset: 0, limit: openLoopsInFold }))
-          .notes;
+  const openLoops = yield* openLoopsToFold(schedule);
   return Option.some({
     _tag: "FoldIntoBrief",
     openLoopIds: openLoops.map(({ noteId }) => noteId),
@@ -152,6 +186,9 @@ export const decideProactiveMessage = Effect.fnUntraced(
     });
     if (Option.contains(briefId, schedule.scheduleId)) {
       return { _tag: "Send" } satisfies ProactiveGateDecision;
+    }
+    if (yield* isBriefDueWithinMergeWindow(behavior, briefId)) {
+      return yield* foldIntoBriefDecision(schedule, "brief_soon");
     }
     const fold = yield* budgetFold(behavior, schedule, timeZone);
     return Option.isSome(fold)

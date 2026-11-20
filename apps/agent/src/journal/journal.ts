@@ -93,6 +93,12 @@ export const JournalRecordSchema = Schema.TaggedUnion({
     reason: Schema.Literals(proactiveFoldReasons),
   },
   ProactiveMessagePlanned: { eventId: Schema.String },
+  ProactiveMessageMerged: {
+    eventId: Schema.String,
+    merged: Schema.Array(
+      Schema.Struct({ scheduleId: Schema.String, dueAt: Schema.String })
+    ),
+  },
   ProactiveMuteChanged: {
     eventId: Schema.String,
     change: Schema.Literals(proactiveMuteChanges),
