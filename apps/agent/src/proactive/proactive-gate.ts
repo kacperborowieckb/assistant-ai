@@ -1,13 +1,24 @@
 import { DateTime, Effect, Option } from "effect";
 
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
-import type { proactiveHoldReasons } from "../personal-agent/storage-values.ts";
+import { Notes } from "../notes/notes.ts";
+import type {
+  proactiveFoldReasons,
+  proactiveHoldReasons,
+} from "../personal-agent/storage-values.ts";
 import { OwnerPreferences } from "../preferences/owner-preferences.ts";
+import type { Schedule } from "../schedule/schedule.ts";
 import { ownerTimeZone } from "../time/owner-current-time.ts";
 import { endOfQuietHours } from "../time/quiet-hours.ts";
+import { openLoopsWithMutes } from "./muted-open-loops.ts";
 
 export type ProactiveGateDecision =
   | { readonly _tag: "Send" }
+  | {
+      readonly _tag: "FoldIntoBrief";
+      readonly openLoopIds: readonly string[];
+      readonly reason: (typeof proactiveFoldReasons)[number];
+    }
   | {
       readonly _tag: "Hold";
       readonly until: DateTime.Utc;
@@ -16,9 +27,22 @@ export type ProactiveGateDecision =
 
 export const decideProactiveMessage = Effect.fnUntraced(
   function* decideProactiveMessage(
-    behavior: Pick<BehaviorConfig, "defaultTimeZone" | "quietHours">
+    behavior: Pick<BehaviorConfig, "defaultTimeZone" | "quietHours">,
+    schedule: Pick<Schedule, "openLoopIds">
   ) {
     const preferences = yield* OwnerPreferences;
+    const notes = yield* Notes;
+    const { open, muted } = yield* openLoopsWithMutes(
+      { preferences, notes },
+      schedule.openLoopIds
+    );
+    if (open.length > 0 && muted.length === open.length) {
+      return {
+        _tag: "FoldIntoBrief",
+        openLoopIds: open.map(({ noteId }) => noteId),
+        reason: "muted",
+      } satisfies ProactiveGateDecision;
+    }
     const timeZone = yield* ownerTimeZone(behavior);
     if (Option.isNone(timeZone)) {
       return { _tag: "Send" } satisfies ProactiveGateDecision;

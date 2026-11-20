@@ -16,29 +16,33 @@ import { lateNoticeFor } from "./fired-schedule-lateness.ts";
 import type { Inbox, ScheduleFiredEvent } from "./inbox.ts";
 import { runModelTurn } from "./model-turn.ts";
 import type { TurnPreparation } from "./model-turn.ts";
+import { proactiveReach } from "./proactive-reach.ts";
 import { proactiveSection } from "./proactive-section.ts";
 import { proactiveTools } from "./proactive-tools.ts";
 import { tokensSpentToday } from "./scheduled-task-budget.ts";
 import { proactiveTraceOf } from "./turn-record.ts";
 
-export const openLoopsInReach = 20;
-
 const proactivePreparation = Effect.fnUntraced(function* proactivePreparation(
   behavior: BehaviorConfig,
   event: ScheduleFiredEvent
 ) {
-  const { notes } = yield* agentToolServices;
+  const { notes, preferences, journal } = yield* agentToolServices;
   const proactiveMessages = yield* ProactiveMessages;
   const lateNotice = yield* lateNoticeFor(behavior, event);
   const timeZone = yield* ownerTimeZone(behavior);
   const schedules = yield* Schedules;
   const schedule = yield* schedules.byId(event.scheduleId);
   const linkedIds = Option.isSome(schedule) ? schedule.value.openLoopIds : [];
-  const inReach =
-    linkedIds.length > 0
-      ? yield* notes.openLoopsAmong(linkedIds)
-      : (yield* notes.listOpenLoops({ offset: 0, limit: openLoopsInReach }))
-          .notes;
+  const { inReach, mutedIds } = yield* proactiveReach(
+    {
+      notes,
+      preferences,
+      journal,
+      proactiveMessages,
+      eventId: event.eventId,
+    },
+    linkedIds
+  );
   const plannedIds = yield* proactiveMessages.plan(
     event.eventId,
     inReach.map((note) => note.noteId)
@@ -49,7 +53,7 @@ const proactivePreparation = Effect.fnUntraced(function* proactivePreparation(
       proactiveSection(
         inReach.filter((note) => plannedIds.includes(note.noteId)),
         timeZone,
-        recentOutcomes
+        { recentOutcomes, mutedOpenLoopIds: mutedIds }
       ),
     ],
     lateText: (text: string) =>

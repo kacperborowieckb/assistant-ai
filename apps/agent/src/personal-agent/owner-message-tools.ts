@@ -13,6 +13,12 @@ import {
   setTimeZoneTool,
   setTimeZoneToolName,
 } from "../preferences/set-time-zone-tool.ts";
+import {
+  muteProactiveMessageTool,
+  muteProactiveMessageToolName,
+} from "../proactive/mute-proactive-message-tool.ts";
+import { mutedAmong } from "../proactive/muted-open-loops.ts";
+import type { ProactiveMessages } from "../proactive/proactive-messages.ts";
 import type { Profile } from "../profile/profile.ts";
 import {
   updateProfileTool,
@@ -47,6 +53,7 @@ export interface OwnerMessageToolServices extends Omit<
   readonly journal: Journal["Service"];
   readonly profile: Profile["Service"];
   readonly preferences: OwnerPreferences["Service"];
+  readonly proactiveMessages: ProactiveMessages["Service"];
   readonly schedules: Schedules["Service"];
   readonly behavior: BehaviorConfig;
 }
@@ -55,12 +62,13 @@ export const scheduleToolServicesOf = (
   {
     schedules,
     preferences,
+    notes,
     behavior,
     progress,
     redactor,
   }: Pick<
     OwnerMessageToolServices,
-    "behavior" | "preferences" | "progress" | "redactor" | "schedules"
+    "behavior" | "notes" | "preferences" | "progress" | "redactor" | "schedules"
   >,
   turnOrigin: ScheduleToolServices["turnOrigin"]
 ): ScheduleToolServices => ({
@@ -69,6 +77,7 @@ export const scheduleToolServicesOf = (
     Effect.provideService(OwnerPreferences, preferences),
     Effect.orDie
   ),
+  mutedAmong: (noteIds) => mutedAmong({ preferences, notes }, noteIds),
   progress,
   redactor,
   maxActiveScheduledTasks: behavior.maxActiveScheduledTasks,
@@ -82,6 +91,7 @@ export const ownerMessageTools = (
     journal,
     profile,
     preferences,
+    proactiveMessages,
     schedules,
     behavior,
     ...noteServices
@@ -92,6 +102,7 @@ export const ownerMessageTools = (
     {
       schedules,
       preferences,
+      notes: noteServices.notes,
       behavior,
       progress,
       redactor,
@@ -133,6 +144,16 @@ export const ownerMessageTools = (
               progress,
               redactor,
               defaultQuietHours: behavior.quietHours,
+            },
+            event.eventId
+          ),
+          [muteProactiveMessageToolName]: muteProactiveMessageTool(
+            {
+              preferences,
+              notes: noteServices.notes,
+              proactiveMessages,
+              progress,
+              redactor,
             },
             event.eventId
           ),

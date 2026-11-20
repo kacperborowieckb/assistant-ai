@@ -19,10 +19,15 @@ const openLoopLine = (
   return `- ${note.noteId} (${openLoop?.kind ?? "open"}, due: ${due}): ${textForModel(note)}${recentOutcomesText(outcomes)}`;
 };
 
+interface ProactiveSituation {
+  readonly recentOutcomes: ReadonlyMap<string, readonly ProactiveOutcome[]>;
+  readonly mutedOpenLoopIds: readonly string[];
+}
+
 export const proactiveSection = (
   openLoops: readonly Note[],
   timeZone: OwnerTimeZone,
-  recentOutcomes: ReadonlyMap<string, readonly ProactiveOutcome[]>
+  { recentOutcomes, mutedOpenLoopIds }: ProactiveSituation
 ) =>
   [
     `${proactiveMarker} The Owner is not present. You start this message yourself. The Owner did not ask for it. It comes from a Schedule that you set. It is due now.`,
@@ -37,4 +42,9 @@ export const proactiveSection = (
           ),
           "An Outcome says what the Owner did with an earlier Proactive Message: acted (an Open Loop of it changed), replied (the Owner answered and changed no Open Loop), muted (the Owner asked for less of it), or ignored (no answer in the response window). When the Owner keeps ignoring an Open Loop, change your approach (another time, a smaller step) or ask why. Do not repeat the same message.",
         ].join("\n"),
-  ].join("\n");
+    mutedOpenLoopIds.length === 0
+      ? ""
+      : `The Owner asked for less of these Open Loops, so they appear only in the Brief: ${mutedOpenLoopIds.join(", ")}. Do not write about them, even when the stored prompt names them.`,
+  ]
+    .filter((line) => line !== "")
+    .join("\n");

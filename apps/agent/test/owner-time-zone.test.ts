@@ -20,6 +20,8 @@ const preferencesWith = (timeZone: string | undefined) =>
       setTimeZone: () => Effect.die("not used"),
       quietHours: () => Effect.die("not used"),
       setQuietHours: () => Effect.die("not used"),
+      proactiveMutes: Effect.die("not used"),
+      changeProactiveMutes: () => Effect.die("not used"),
     })
   );
 

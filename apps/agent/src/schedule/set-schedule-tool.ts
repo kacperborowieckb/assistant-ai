@@ -35,6 +35,9 @@ export const noDueGivenMessage = `Neither a local due time nor a repeat rule was
 
 export const dueAndRepeatGivenMessage = `Both a local due time and a repeat rule were given, so no Schedule was set. Give only one of them and call ${setScheduleToolName} again.`;
 
+export const mutedOpenLoopsMessage = (noteIds: readonly string[]) =>
+  `The Owner asked for less of these Open Loops: ${noteIds.join(", ")}. No Schedule was set. They appear only in the Brief. Set no follow-up for them.`;
+
 export const followUpNeedsOpenLoopsMessage = `A follow-up needs at least one Open Loop and the RunPrompt Action, so no Schedule was set. Pass the ids of the Open Loops in openLoopIds, with a RunPrompt action, and call ${setScheduleToolName} again.`;
 
 const SetScheduleInput = Schema.Struct({
@@ -85,6 +88,7 @@ export const setScheduleTool = (
   {
     schedules,
     ownerTimeZone,
+    mutedAmong,
     progress,
     redactor,
     maxActiveScheduledTasks,
@@ -122,6 +126,14 @@ export const setScheduleTool = (
           return yield* new ToolFailed({
             message: followUpNeedsOpenLoopsMessage,
           });
+        }
+        if (isFollowUp) {
+          const muted = yield* mutedAmong(openLoopIds ?? []);
+          if (muted.length > 0) {
+            return yield* new ToolFailed({
+              message: mutedOpenLoopsMessage(muted),
+            });
+          }
         }
         const timeZone = yield* ownerTimeZone;
         if (Option.isNone(timeZone)) {

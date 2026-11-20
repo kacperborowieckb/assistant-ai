@@ -1,4 +1,4 @@
-import { eq, isNull, and } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
 import { Journal } from "../journal/journal.ts";
@@ -45,8 +45,35 @@ const makeProactiveMessages = Effect.gen(
           plannedAt: DateTime.formatIso(yield* DateTime.now),
         })
         .onConflictDoNothing();
+      const entries = yield* journal.readForEvent(eventId);
+      if (
+        !entries.some(({ record }) => record._tag === "ProactiveMessagePlanned")
+      ) {
+        yield* journal.append({ _tag: "ProactiveMessagePlanned", eventId });
+      }
       const planned = yield* forEvent(eventId);
       return planned?.openLoopIds ?? openLoopIds;
+    });
+
+    const plannedOpenLoops = Effect.fnUntraced(function* plannedOpenLoops(
+      exceptEventId: string
+    ) {
+      const rows = yield* database
+        .select({
+          eventId: proactiveMessages.eventId,
+          openLoopIds: proactiveMessages.openLoopIds,
+        })
+        .from(proactiveMessages)
+        .where(
+          and(
+            ne(proactiveMessages.eventId, exceptEventId),
+            isNotNull(proactiveMessages.sentMessageId)
+          )
+        );
+      return rows.map((row) => ({
+        eventId: row.eventId,
+        openLoopIds: decodeIds(row.openLoopIds),
+      }));
     });
 
     const recordSent = Effect.fnUntraced(function* recordSent(
@@ -81,6 +108,7 @@ const makeProactiveMessages = Effect.gen(
 
     return {
       plan,
+      plannedOpenLoops,
       recordSent,
       forEvent,
       ...makeProactiveOutcomes(database, journal),

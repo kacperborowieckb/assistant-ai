@@ -18,10 +18,16 @@ const changesOpenLoopOf = (
   }
 };
 
+const mutesInTurn = (entry: JournalEntry) =>
+  entry.record._tag === "ProactiveMuteChanged" &&
+  entry.record.change === "muted";
+
 export const outcomeOfConnectedTurn = (
   openLoopIds: readonly string[],
   entriesOfTurn: readonly JournalEntry[]
-): ProactiveOutcome =>
-  entriesOfTurn.some((entry) => changesOpenLoopOf(openLoopIds, entry))
-    ? "acted"
-    : "replied";
+): ProactiveOutcome => {
+  if (entriesOfTurn.some((entry) => changesOpenLoopOf(openLoopIds, entry))) {
+    return "acted";
+  }
+  return entriesOfTurn.some(mutesInTurn) ? "muted" : "replied";
+};
