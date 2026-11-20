@@ -6,7 +6,7 @@ export class BurstSplit extends Data.TaggedError("BurstSplit")<{
   readonly sendMillis: number;
 }> {
   override get message() {
-    return `Sending the Burst took ${this.sendMillis} ms, longer than the Quiet Gap of ${defaultBehaviorConfig.burstQuietMillis} ms, so the agent may have answered it in more than one Turn.`;
+    return `Sending the Burst took ${this.sendMillis} ms, at least the Quiet Gap of ${defaultBehaviorConfig.burstQuietMillis} ms, so the agent may have answered it in more than one Turn.`;
   }
 }
 
