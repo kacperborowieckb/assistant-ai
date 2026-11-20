@@ -120,13 +120,25 @@ export const makeProactiveOutcomes = (
       })
     );
 
+  const entriesOfAnsweringTurn = Effect.fnUntraced(
+    function* entriesOfAnsweringTurn(ownerMessageEventId: string) {
+      const entries = yield* journal.readForEvent(ownerMessageEventId);
+      const link = entries.find(
+        (entry) => entry.record._tag === "AnsweredByTurn"
+      );
+      return link?.record._tag === "AnsweredByTurn"
+        ? yield* journal.readForEvent(link.record.turnEventId)
+        : entries;
+    }
+  );
+
   const recordOutcomeOfConnectedTurn = Effect.fnUntraced(
     function* recordOutcomeOfConnectedTurn(ownerMessageEventId: string) {
       const connected = yield* connectedTo(ownerMessageEventId);
       if (connected === undefined) {
         return Option.none<RecordedOutcome>();
       }
-      const entries = yield* journal.readForEvent(ownerMessageEventId);
+      const entries = yield* entriesOfAnsweringTurn(ownerMessageEventId);
       return yield* settle(
         connected.eventId,
         outcomeOfConnectedTurn(connected.openLoopIds, entries),

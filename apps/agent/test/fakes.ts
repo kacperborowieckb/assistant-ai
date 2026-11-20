@@ -200,7 +200,12 @@ export const fakeTool = {
   failWith: undefined as string | undefined,
 };
 
+export const fakeBursts = {
+  allPendingTogether: false,
+};
+
 export const resetFakes = () => {
+  fakeBursts.allPendingTogether = false;
   modelScript.length = 0;
   fakeTool.kept = [];
   fakeTool.failWith = undefined;

@@ -1,8 +1,11 @@
+import type { ModelMessage } from "ai";
 import { Effect } from "effect";
 
 import { Journal } from "../journal/journal.ts";
 import type { JournalEntry } from "../journal/journal.ts";
 import { Redactor } from "../tracing/redactor.ts";
+import { burstInputs, newestEventOf } from "./burst.ts";
+import type { Burst } from "./burst.ts";
 import { Conversation } from "./conversation.ts";
 import {
   deliveryStateOfEntries,
@@ -21,7 +24,8 @@ import { TurnProgress } from "./turn-progress.ts";
 
 const recordConversation = Effect.fnUntraced(function* recordConversation(
   event: InboxEvent,
-  state: DeliveryState
+  state: DeliveryState,
+  inputs: readonly ModelMessage[] | undefined
 ) {
   const conversation = yield* Conversation;
   const progress = yield* TurnProgress;
@@ -34,7 +38,9 @@ const recordConversation = Effect.fnUntraced(function* recordConversation(
 
   if (earlier.length + reply.length > 0) {
     yield* conversation.append(event.eventId, [
-      redactor.redactMessage(yield* inputMessageOf(event)),
+      ...(inputs ?? [yield* inputMessageOf(event)]).map((input) =>
+        redactor.redactMessage(input)
+      ),
       ...earlier,
       ...reply,
     ]);
@@ -55,12 +61,16 @@ export interface Recovery<UnsentRequirements, NoticeRequirements> {
     unknown,
     NoticeRequirements
   >;
+  readonly inputs?: readonly ModelMessage[];
+  readonly replyTo?: InboxEvent;
 }
 
-export const ownerMessageRecovery = {
+export const ownerMessageRecovery = (burst: Burst) => ({
   resumeUnsent: () => Effect.succeed("unanswered" as const),
   failureNoticeText: Effect.succeed(honestFailureText),
-};
+  inputs: burstInputs(burst),
+  replyTo: newestEventOf(burst),
+});
 
 interface Settling<UnsentRequirements, NoticeRequirements> {
   readonly event: InboxEvent;
@@ -110,7 +120,7 @@ const settleState = Effect.fnUntraced(function* settleState<
       const noticeText = yield* recovery.failureNoticeText;
       yield* noticeText === undefined
         ? inbox.markFailed([event])
-        : sendFailureNotice(event, noticeText);
+        : sendFailureNotice(event, noticeText, recovery.replyTo);
       return "settled" as const;
     }
     case "FailedNoticeSent": {
@@ -146,7 +156,7 @@ export const settleFromJournal = Effect.fnUntraced(function* settleFromJournal<
   const state = deliveryStateOfEntries(entries);
 
   if (state._tag !== "Unsent") {
-    yield* recordConversation(event, state);
+    yield* recordConversation(event, state, recovery.inputs);
   }
   return yield* settleState({ event, entries, state, recovery });
 });

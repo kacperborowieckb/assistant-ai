@@ -7,11 +7,14 @@ import { agentTool, ToolFailed } from "../src/model-gateway/agent-tool.ts";
 import type { AgentTools } from "../src/model-gateway/agent-tool.ts";
 import { ModelGateway } from "../src/model-gateway/model-gateway.ts";
 import { ModelProvider } from "../src/model-gateway/model-provider.ts";
+import { oneEventBursts } from "../src/personal-agent/burst.ts";
+import type { Burst, FormBursts } from "../src/personal-agent/burst.ts";
 import { PersonalAgent as LivePersonalAgent } from "../src/personal-agent/personal-agent.ts";
 import type { TurnServices } from "../src/personal-agent/personal-agent.ts";
 import { OperatorMetrics } from "../src/tracing/operator-metrics.ts";
 import { Redactor } from "../src/tracing/redactor.ts";
 import {
+  fakeBursts,
   fakeMetrics,
   fakeModel,
   fakeTelegram,
@@ -59,7 +62,17 @@ const fakeTools: AgentTools = {
 
 const useFakeTurnServices = () => fakeTurnServices;
 
+const fakeFormBursts: FormBursts = (events) => {
+  const [first, ...rest] = events;
+  if (!fakeBursts.allPendingTogether || first === undefined) {
+    return oneEventBursts(events);
+  }
+  const burst: Burst = [first, ...rest];
+  return [burst];
+};
+
 export class PersonalAgent extends LivePersonalAgent {
   protected override readonly turnServices = useFakeTurnServices;
   protected override readonly turnTools = fakeTools;
+  protected override readonly formBursts = fakeFormBursts;
 }

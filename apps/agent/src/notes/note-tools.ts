@@ -1,5 +1,9 @@
-import { trustLevelOfEvent } from "../personal-agent/event-trust.ts";
-import type { OwnerMessageEvent } from "../personal-agent/inbox.ts";
+import {
+  noteSourceOfBurst,
+  trustLevelOfBurst,
+  turnEventOf,
+} from "../personal-agent/burst.ts";
+import type { Burst } from "../personal-agent/burst.ts";
 import { captureNoteTool, captureNoteToolName } from "./capture-note-tool.ts";
 import {
   closeOpenLoopTool,
@@ -14,22 +18,21 @@ import {
   listOpenLoopsToolName,
 } from "./list-open-loops-tool.ts";
 import type { NoteToolServices } from "./note-tool-services.ts";
-import { noteSourceOfEvent } from "./note.ts";
 import { searchNotesTool, searchNotesToolName } from "./search-notes-tool.ts";
 import { updateNoteTool, updateNoteToolName } from "./update-note-tool.ts";
 
-export const noteToolsFor = (
-  services: NoteToolServices,
-  event: OwnerMessageEvent
-) => ({
-  [captureNoteToolName]: captureNoteTool(services, noteSourceOfEvent(event)),
-  ...(trustLevelOfEvent(event) === "owner"
-    ? {
-        [updateNoteToolName]: updateNoteTool(services, event.eventId),
-        [closeOpenLoopToolName]: closeOpenLoopTool(services, event.eventId),
-      }
-    : {}),
-  [searchNotesToolName]: searchNotesTool(services, event.eventId),
-  [listLinkedNotesToolName]: listLinkedNotesTool(services, event.eventId),
-  [listOpenLoopsToolName]: listOpenLoopsTool(services, event.eventId),
-});
+export const noteToolsFor = (services: NoteToolServices, burst: Burst) => {
+  const { eventId } = turnEventOf(burst);
+  return {
+    [captureNoteToolName]: captureNoteTool(services, noteSourceOfBurst(burst)),
+    ...(trustLevelOfBurst(burst) === "owner"
+      ? {
+          [updateNoteToolName]: updateNoteTool(services, eventId),
+          [closeOpenLoopToolName]: closeOpenLoopTool(services, eventId),
+        }
+      : {}),
+    [searchNotesToolName]: searchNotesTool(services, eventId),
+    [listLinkedNotesToolName]: listLinkedNotesTool(services, eventId),
+    [listOpenLoopsToolName]: listOpenLoopsTool(services, eventId),
+  };
+};

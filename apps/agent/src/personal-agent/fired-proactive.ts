@@ -199,7 +199,9 @@ export const runProactiveMessage = Effect.fnUntraced(
       kind: {
         task: "proactive",
         event,
-        input: scheduledTaskInputMessage(mergedPromptOf(action.prompt, merged)),
+        inputs: [
+          scheduledTaskInputMessage(mergedPromptOf(action.prompt, merged)),
+        ],
         tools: proactiveTools(event.eventId, { ...toolServices, behavior }),
         prepare: proactivePreparation(behavior, event, merged),
         tracesSendFailure: true,

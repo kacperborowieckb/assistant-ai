@@ -5,12 +5,20 @@ import { noTools } from "../model-gateway/agent-tool.ts";
 import type { AgentTools } from "../model-gateway/agent-tool.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { agentToolServices } from "./agent-tool-services.ts";
+import {
+  burstInputs,
+  linkBurst,
+  newestEventOf,
+  oneEventBursts,
+  pendingBursts,
+  settleBurst,
+  turnEventOf,
+} from "./burst.ts";
+import type { Burst, FormBursts } from "./burst.ts";
 import { connectedProactivePreparation } from "./connected-proactive-section.ts";
 import { failWithNotice } from "./delivery.ts";
-import { eventMessage } from "./event-message.ts";
 import { handleFiredSchedule } from "./fired-schedule.ts";
 import { Inbox } from "./inbox.ts";
-import type { OwnerMessageEvent } from "./inbox.ts";
 import { runModelTurn } from "./model-turn.ts";
 import {
   recordOutcomeOfConnectedTurn,
@@ -28,48 +36,79 @@ interface TurnSettings {
 const answer = (
   ownerId: OwnerId,
   { behavior, tools }: TurnSettings,
-  event: OwnerMessageEvent
+  burst: Burst
 ) =>
   Effect.gen(function* answerEffect() {
     const toolServices = yield* agentToolServices;
-    const preparation = yield* connectedProactivePreparation(behavior, event);
+    const preparation = yield* connectedProactivePreparation(behavior, burst);
+    const event = turnEventOf(burst);
+    const replyTo = newestEventOf(burst);
 
+    yield* linkBurst(burst);
     yield* runModelTurn({
       ownerId,
       behavior,
       kind: {
         task: "reply",
         event,
-        input: eventMessage(event),
+        replyTo,
+        inputs: burstInputs(burst),
         tools: {
           ...tools,
-          ...ownerMessageTools(event, { ...toolServices, behavior }),
+          ...ownerMessageTools(burst, { ...toolServices, behavior }),
         },
         prepare: Effect.succeed(preparation),
         traceOf: (model) => traceOf({ event, ...model }),
-        whenFailed: (reason) => failWithNotice(event, reason),
+        whenFailed: (reason) => failWithNotice(event, reason, replyTo),
       },
     });
   });
 
+const answerBurst = (ownerId: OwnerId, settings: TurnSettings, burst: Burst) =>
+  Effect.gen(function* answerBurstEffect() {
+    const outcome = yield* settleFromJournal(
+      turnEventOf(burst),
+      ownerMessageRecovery(burst)
+    );
+    if (outcome === "unanswered") {
+      yield* answer(ownerId, settings, burst);
+    }
+    yield* settleBurst(burst);
+    for (const event of burst) {
+      yield* recordOutcomeOfConnectedTurn(ownerId, event.eventId);
+    }
+  });
+
+interface TurnOptions {
+  readonly tools?: AgentTools;
+  readonly formBursts?: FormBursts;
+}
+
 export const takeTurn = (
   ownerId: OwnerId,
   behavior: BehaviorConfig,
-  tools: AgentTools = noTools
+  { tools = noTools, formBursts = oneEventBursts }: TurnOptions = {}
 ) =>
   Effect.gen(function* takeTurnEffect() {
     const inbox = yield* Inbox;
     yield* recordOutcomesOfFinishedTurns(ownerId);
     const events = yield* inbox.pending;
+    const ownerMessages = events.filter(
+      (event) => event._tag === "OwnerMessage"
+    );
+    const bursts = yield* pendingBursts(ownerMessages, formBursts);
+    const inBursts = new Set(bursts.flat().map((event) => event.eventId));
+    for (const event of ownerMessages) {
+      if (!inBursts.has(event.eventId)) {
+        yield* recordOutcomeOfConnectedTurn(ownerId, event.eventId);
+      }
+    }
+    for (const burst of bursts) {
+      yield* answerBurst(ownerId, { behavior, tools }, burst);
+    }
     for (const event of events) {
       if (event._tag === "ScheduleFired") {
         yield* handleFiredSchedule(ownerId, behavior, event);
-        continue;
       }
-      const outcome = yield* settleFromJournal(event, ownerMessageRecovery);
-      if (outcome === "unanswered") {
-        yield* answer(ownerId, { behavior, tools }, event);
-      }
-      yield* recordOutcomeOfConnectedTurn(ownerId, event.eventId);
     }
   });
