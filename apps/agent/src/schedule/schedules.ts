@@ -232,6 +232,7 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
     hold,
     moveRepeatingToTimeZone,
     fireDue,
+    rearm: rearmWithoutFailing,
   };
 });
 

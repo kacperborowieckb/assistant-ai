@@ -4,6 +4,7 @@ import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import { noTools } from "../model-gateway/agent-tool.ts";
 import type { AgentTools } from "../model-gateway/agent-tool.ts";
 import type { OwnerId } from "../owner-id.ts";
+import { Schedules } from "../schedule/schedules.ts";
 import { agentToolServices } from "./agent-tool-services.ts";
 import { connectedProactivePreparation } from "./connected-proactive-section.ts";
 import { failWithNotice } from "./delivery.ts";
@@ -59,6 +60,7 @@ export const takeTurn = (
 ) =>
   Effect.gen(function* takeTurnEffect() {
     const inbox = yield* Inbox;
+    const schedules = yield* Schedules;
     yield* recordOutcomesOfFinishedTurns(ownerId);
     const events = yield* inbox.pending;
     for (const event of events) {
@@ -70,6 +72,7 @@ export const takeTurn = (
       if (outcome === "unanswered") {
         yield* answer(ownerId, { behavior, tools }, event);
       }
+      yield* schedules.rearm;
       yield* recordOutcomeOfConnectedTurn(ownerId, event.eventId);
     }
   });

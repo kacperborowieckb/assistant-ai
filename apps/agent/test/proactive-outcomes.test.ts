@@ -711,11 +711,14 @@ describe("the alarm after a connected Turn left the Inbox", () => {
         const messages = yield* ProactiveMessages;
         yield* sendProactiveMessage({ eventId: "pm-1", sentAt: startOfTime });
         yield* ownerMessageArrives(startOfTime + 60_000, "u-1");
+        yield* schedules.rearm;
+        const armedWhilePending = armed.at(-1);
         yield* inbox.markDone(yield* inbox.pending);
-        yield* schedules.complete("none", "none", "pm-1");
+        yield* schedules.rearm;
         const armedWhileOpen = armed.at(-1);
         yield* messages.settleFinishedTurns();
-        yield* schedules.complete("none", "none", "pm-1");
+        yield* schedules.rearm;
+        expect(armedWhilePending).toEqual(Option.none());
         expect(armedWhileOpen).toEqual(
           Option.some(DateTime.makeUnsafe(startOfTime + 60_000))
         );
