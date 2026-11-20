@@ -50,3 +50,5 @@ export const proactiveOutcomes = [
 ] as const;
 
 export const proactiveHoldReasons = ["quiet_hours"] as const;
+
+export type ProactiveOutcome = (typeof proactiveOutcomes)[number];

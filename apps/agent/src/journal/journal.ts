@@ -9,6 +9,7 @@ import {
   openLoopClosedReasons,
   proactiveHoldReasons,
   ownerPreferenceKeys,
+  proactiveOutcomes,
   profileEntryKinds,
 } from "../personal-agent/storage-values.ts";
 
@@ -76,6 +77,11 @@ export const JournalRecordSchema = Schema.TaggedUnion({
     fromDueAt: Schema.String,
     toDueAt: Schema.String,
     reason: Schema.Literals(proactiveHoldReasons),
+  },
+  ProactiveMessageOutcome: {
+    eventId: Schema.String,
+    outcome: Schema.Literals(proactiveOutcomes),
+    connectedEventId: Schema.NullOr(Schema.String),
   },
   ScheduleCompleted: { eventId: Schema.String, scheduleId: Schema.String },
   ScheduleRescheduled: {

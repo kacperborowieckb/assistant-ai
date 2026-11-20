@@ -220,9 +220,26 @@ const makeNotes = (ownerId: OwnerId) =>
         )
       );
 
+    const byIds = Effect.fnUntraced(function* byIds(
+      noteIds: readonly string[]
+    ) {
+      if (noteIds.length === 0) {
+        return [];
+      }
+      const rows = yield* database
+        .select()
+        .from(notes)
+        .where(and(eq(notes.ownerId, ownerId), inArray(notes.noteId, noteIds)));
+      return noteIds.flatMap((noteId) => {
+        const row = rows.find((candidate) => candidate.noteId === noteId);
+        return row === undefined ? [] : [toNote(row)];
+      });
+    });
+
     return {
       capture,
       update,
+      byIds,
       closeOpenLoop,
       listOpenLoops,
       search,

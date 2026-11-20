@@ -53,11 +53,19 @@ const isStillDue = (schedule: Schedule, event: ScheduleFiredEvent) =>
   schedule.state === "active" &&
   DateTime.formatIso(schedule.nextDueAt) === event.dueAt;
 
-const recover = Effect.fnUntraced(function* recover(
-  ownerId: OwnerId,
-  event: ScheduleFiredEvent,
-  schedule: Option.Option<Schedule>
-) {
+interface Recovery {
+  readonly ownerId: OwnerId;
+  readonly behavior: BehaviorConfig;
+  readonly event: ScheduleFiredEvent;
+  readonly schedule: Option.Option<Schedule>;
+}
+
+const recover = Effect.fnUntraced(function* recover({
+  ownerId,
+  behavior,
+  event,
+  schedule,
+}: Recovery) {
   const schedules = yield* Schedules;
   const state = yield* deliveryStateOf(event.eventId);
   if (Option.isNone(schedule)) {
@@ -65,7 +73,11 @@ const recover = Effect.fnUntraced(function* recover(
   }
   if (schedule.value.setBy === "agent" && state._tag === "Sent") {
     const proactiveMessages = yield* ProactiveMessages;
-    yield* proactiveMessages.recordSent(event.eventId, state.channelMessageId);
+    yield* proactiveMessages.recordSent(
+      event.eventId,
+      state.channelMessageId,
+      behavior.proactiveResponseWindowMillis
+    );
     yield* recordProactiveMessageSent(ownerId, event.eventId, 0);
   }
   if (completesScheduleAfter(schedule.value, state)) {
@@ -117,7 +129,7 @@ export const handleFiredSchedule = Effect.fnUntraced(
     const schedules = yield* Schedules;
     const schedule = yield* schedules.byId(event.scheduleId);
 
-    yield* recover(ownerId, event, schedule);
+    yield* recover({ ownerId, behavior, event, schedule });
     const outcome = yield* settleFromJournal(event, {
       resumeUnsent: resumeUnsentFor(ownerId, event, schedule),
       failureNoticeText: failureNoticeTextOf(schedule),

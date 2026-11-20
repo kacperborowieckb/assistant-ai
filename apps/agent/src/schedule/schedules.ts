@@ -38,7 +38,7 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
   const queries = yield* makeScheduleQueries(ownerId);
   const { requireRoomForScheduledTask } = queries;
 
-  const rearm = queries.earliestUnfiredDueAt.pipe(
+  const rearm = queries.earliestAlarmAt.pipe(
     Effect.flatMap((dueAt) => Effect.promise(() => clock.setAt(dueAt)))
   );
 

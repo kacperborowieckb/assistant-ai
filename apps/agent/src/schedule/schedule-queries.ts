@@ -14,6 +14,7 @@ import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { inboxEvents, schedules } from "../personal-agent/storage-schema.ts";
 import { ActiveScheduledTaskLimitReached } from "./active-scheduled-task-limit-reached.ts";
+import { earlierOf, makeOutcomeAlarmQueries } from "./outcome-alarm-queries.ts";
 import { actionColumnOfTag } from "./schedule-action.ts";
 import { toSchedule } from "./schedule.ts";
 
@@ -154,6 +155,13 @@ export const makeScheduleQueries = Effect.fnUntraced(
         )
       );
 
+    const { earliestOutcomeAlarmAt } = makeOutcomeAlarmQueries(database);
+
+    const earliestAlarmAt = Effect.all([
+      earliestUnfiredDueAt,
+      earliestOutcomeAlarmAt,
+    ]).pipe(Effect.map(([dueAt, outcomeAt]) => earlierOf(dueAt, outcomeAt)));
+
     const unfiredDueBy = (now: DateTime.Utc) =>
       database
         .select()
@@ -215,7 +223,7 @@ export const makeScheduleQueries = Effect.fnUntraced(
       activeRowById,
       dueRowById,
       findByRequest,
-      earliestUnfiredDueAt,
+      earliestAlarmAt,
       unfiredDueBy,
       activeRepeatingOutsideZone,
       insert,
