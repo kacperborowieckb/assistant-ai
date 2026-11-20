@@ -13,6 +13,7 @@ Spec #119 (Chat replies), ticket #122. Builds on [0009](0009-agent-loop-and-clie
 - **One step budget.** All Model Gateway calls of a Turn share the step limit of the Turn. When refusals use it up, the Turn fails with `StepLimitReached` and the honest failure text.
 - **Failed calls survive a reset.** A recorded tool that fails saves its call and the error result in Turn progress. A Turn that runs again after a reset replays the failure to the model, and the silence check reads it.
 - **Every pending call gets a result.** When the last step has several outcome tool calls, code decides each one. If any is refused, all get the refusal; else all get the accepted result.
+- **Silence settles at once.** Accepted silence writes the Conversation first, then `StayedSilent` and the done Event in one transaction. No pending Event ever has a `StayedSilent` Entry, so a rollback to a version without that record never has to read it to finish a pending Event.
 - **Read-only tools.** A tool marks itself `readsOnly` when it never changes Owner data (`search_notes`, `list_linked_notes`, `list_open_loops`, `list_schedules`, and every outcome tool). A failed call of any other tool counts as a failed change.
 
 ## Why

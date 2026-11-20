@@ -9,6 +9,7 @@ import { ownerCurrentTimeText } from "../time/owner-current-time.ts";
 import { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
 import type { TurnTrace } from "../tracing/turn-trace.ts";
+import { AgentStorage } from "./agent-storage.ts";
 import { Conversation } from "./conversation.ts";
 import { fail, send, staySilent } from "./delivery.ts";
 import { Inbox } from "./inbox.ts";
@@ -68,6 +69,7 @@ export const runModelTurn = <Failure, Requirements>({
 }: ModelTurn<Failure, Requirements>) =>
   Effect.gen(function* runModelTurnEffect() {
     const { event } = kind;
+    const { database } = yield* AgentStorage;
     const inbox = yield* Inbox;
     const conversation = yield* Conversation;
     const traces = yield* TurnTraces;
@@ -149,7 +151,6 @@ export const runModelTurn = <Failure, Requirements>({
       return;
     }
     if (decided.kind === "silent") {
-      yield* staySilent(event);
       yield* conversation.append(event.eventId, [
         savedInput,
         ...earlier,
@@ -157,7 +158,9 @@ export const runModelTurn = <Failure, Requirements>({
           redactor.redactMessage(message)
         ),
       ]);
-      yield* inbox.markDone([event]);
+      yield* database.transaction(() =>
+        staySilent(event).pipe(Effect.andThen(inbox.markDone([event])))
+      );
       yield* recordTurnMetric({
         ownerId,
         eventId: event.eventId,
