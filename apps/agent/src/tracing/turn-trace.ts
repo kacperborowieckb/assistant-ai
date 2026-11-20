@@ -7,7 +7,10 @@ import { OwnerIdSchema } from "../owner-id.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { turnTraces } from "../personal-agent/storage-schema.ts";
-import { turnResults } from "../personal-agent/storage-values.ts";
+import {
+  proactiveHoldReasons,
+  turnResults,
+} from "../personal-agent/storage-values.ts";
 
 const TraceUsageSchema = Schema.Struct({
   inputTokens: Schema.NullOr(Schema.Number),
@@ -68,6 +71,14 @@ const ProactiveTraceBodySchema = Schema.Struct({
   ...modelTraceFields,
 });
 
+const ProactiveHoldTraceBodySchema = Schema.Struct({
+  task: Schema.Literal("proactive_hold"),
+  scheduleId: Schema.String,
+  dueAt: Schema.String,
+  heldUntil: Schema.String,
+  reason: Schema.Literals(proactiveHoldReasons),
+});
+
 const ScheduledTaskSkipTraceBodySchema = Schema.Struct({
   task: Schema.Literal("scheduled_task_skip"),
   scheduleId: Schema.String,
@@ -94,6 +105,7 @@ const TraceBodySchema = Schema.Union([
   ReplyTraceBodySchema,
   ScheduledTaskTraceBodySchema,
   ProactiveTraceBodySchema,
+  ProactiveHoldTraceBodySchema,
   ScheduledTaskSkipTraceBodySchema,
   ReminderDeliveryTraceBodySchema,
 ]);
@@ -118,6 +130,11 @@ export const ProactiveTurnTraceSchema = Schema.Struct({
   ...ProactiveTraceBodySchema.fields,
 });
 
+export const ProactiveHoldTurnTraceSchema = Schema.Struct({
+  ...traceFields,
+  ...ProactiveHoldTraceBodySchema.fields,
+});
+
 export const ScheduledTaskSkipTurnTraceSchema = Schema.Struct({
   ...traceFields,
   ...ScheduledTaskSkipTraceBodySchema.fields,
@@ -132,6 +149,7 @@ export const TurnTraceSchema = Schema.Union([
   ReplyTurnTraceSchema,
   ScheduledTaskTurnTraceSchema,
   ProactiveTurnTraceSchema,
+  ProactiveHoldTurnTraceSchema,
   ScheduledTaskSkipTurnTraceSchema,
   ReminderDeliveryTurnTraceSchema,
 ]);
@@ -141,6 +159,8 @@ export type ReplyTurnTrace = typeof ReplyTurnTraceSchema.Type;
 export type ScheduledTaskTurnTrace = typeof ScheduledTaskTurnTraceSchema.Type;
 
 export type ProactiveTurnTrace = typeof ProactiveTurnTraceSchema.Type;
+
+export type ProactiveHoldTurnTrace = typeof ProactiveHoldTurnTraceSchema.Type;
 
 export type ReminderDeliveryTurnTrace =
   typeof ReminderDeliveryTurnTraceSchema.Type;

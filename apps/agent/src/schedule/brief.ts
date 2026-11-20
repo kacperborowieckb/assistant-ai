@@ -6,17 +6,69 @@ import type { RecurrenceRule } from "../time/recurrence-rule.ts";
 import { briefPrompt } from "./brief-prompt.ts";
 import type { Schedules } from "./schedules.ts";
 
+interface BriefServices {
+  readonly schedules: Schedules["Service"];
+  readonly journal: Journal["Service"];
+}
+
 interface BriefRequest {
   readonly timeZone: DateTime.TimeZone.Named;
   readonly localTime: string;
   readonly eventId: string;
 }
 
+const briefScheduleIdOf = Effect.fnUntraced(function* briefScheduleIdOf(
+  services: BriefServices
+) {
+  const { schedules, journal } = services;
+  const [created] = yield* journal.readOfKind("BriefCreated");
+  if (created?.record._tag === "BriefCreated") {
+    return Option.some(created.record.scheduleId);
+  }
+  return yield* schedules.agentPromptScheduleId(briefPrompt);
+});
+
+interface BriefMove {
+  readonly oldEnd: string;
+  readonly newEnd: string;
+  readonly eventId: string;
+}
+
+export const moveBriefToNewQuietHoursEnd = Effect.fnUntraced(
+  function* moveBriefToNewQuietHoursEnd(
+    services: BriefServices,
+    { oldEnd, newEnd, eventId }: BriefMove
+  ) {
+    const { schedules } = services;
+    const scheduleId = yield* briefScheduleIdOf(services);
+    if (Option.isNone(scheduleId) || oldEnd === newEnd) {
+      return false;
+    }
+    const brief = yield* schedules.byId(scheduleId.value);
+    if (Option.isNone(brief)) {
+      return false;
+    }
+    const { state, repeat } = brief.value;
+    if (
+      state !== "active" ||
+      repeat?.rule._tag !== "Daily" ||
+      repeat.rule.time !== oldEnd
+    ) {
+      return false;
+    }
+    const rule: RecurrenceRule = { _tag: "Daily", time: newEnd };
+    const moved = yield* schedules.change({
+      scheduleId: scheduleId.value,
+      dueAt: nextOccurrence(rule, yield* DateTime.now, repeat.timeZone),
+      repeat: { rule, timeZone: repeat.timeZone },
+      eventId,
+    });
+    return Option.isSome(moved);
+  }
+);
+
 export const ensureBrief = Effect.fnUntraced(function* ensureBrief(
-  services: {
-    readonly schedules: Schedules["Service"];
-    readonly journal: Journal["Service"];
-  },
+  services: BriefServices,
   { timeZone, localTime, eventId }: BriefRequest
 ) {
   const { schedules, journal } = services;

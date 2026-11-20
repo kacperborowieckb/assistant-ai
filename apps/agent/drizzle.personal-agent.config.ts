@@ -5,6 +5,7 @@ export default defineConfig({
   driver: "durable-sqlite",
   schema: [
     "./src/personal-agent/storage-schema.ts",
+    "./src/preferences/preferences-schema.ts",
     "./src/proactive/proactive-schema.ts",
   ],
   out: "./src/personal-agent/migrations",

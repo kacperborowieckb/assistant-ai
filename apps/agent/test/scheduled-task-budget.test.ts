@@ -23,6 +23,8 @@ const budgetIsSpentAt = (isoInstant: string, spent: readonly SpentTokens[]) => {
       OwnerPreferences.of({
         timeZone: Effect.succeed(Option.some("Europe/Warsaw")),
         setTimeZone: () => Effect.die("not used"),
+        quietHours: () => Effect.die("not used"),
+        setQuietHours: () => Effect.die("not used"),
       })
     ),
     Layer.succeed(UsageLedger, {

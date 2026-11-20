@@ -18,7 +18,6 @@ import {
   inboxStates,
   modelTasks,
   openLoopClosedReasons,
-  ownerPreferenceKeys,
   profileEntryKinds,
   scheduleActions,
   scheduleSetBy,
@@ -213,22 +212,6 @@ export const profileEntries = sqliteTable(
   (table) => [
     unique().on(table.kind, table.text),
     check("profile_entries_kind_check", valueIn(table.kind, profileEntryKinds)),
-  ]
-);
-
-export const ownerPreferences = sqliteTable(
-  "owner_preferences",
-  {
-    key: text("key", { enum: ownerPreferenceKeys }).primaryKey(),
-    value: text("value").notNull(),
-    sourceEventId: text("source_event_id").notNull(),
-    changedAt: text("changed_at").notNull(),
-  },
-  (table) => [
-    check(
-      "owner_preferences_key_check",
-      valueIn(table.key, ownerPreferenceKeys)
-    ),
   ]
 );
 

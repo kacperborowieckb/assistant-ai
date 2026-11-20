@@ -6,6 +6,7 @@ import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { nextOccurrence } from "../time/next-occurrence.ts";
 import { columnsOfAction } from "./schedule-action.ts";
+import { makeScheduleMoves } from "./schedule-moves.ts";
 import { makeScheduleQueries } from "./schedule-queries.ts";
 import { recurrenceValuesOf, requestKeyOf, toSchedule } from "./schedule.ts";
 import type {
@@ -204,36 +205,11 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
   const complete = (scheduleId: string, dueAt: string, eventId: string) =>
     rearmedTransaction(completeDue(scheduleId, dueAt, eventId));
 
-  const moveRepeatingInTransaction = Effect.fnUntraced(
-    function* moveRepeatingInTransaction(
-      timeZone: DateTime.TimeZone.Named,
-      eventId: string
-    ) {
-      const now = yield* DateTime.now;
-      const zoneName = DateTime.zoneToString(timeZone);
-      const rows = yield* queries.activeRepeatingOutsideZone(zoneName);
-      for (const row of rows) {
-        const { rule } = Option.getOrThrow(
-          Option.fromNullishOr(toSchedule(row).repeat)
-        );
-        yield* queries.updateActive(row.scheduleId, {
-          nextDueAt: DateTime.formatIso(nextOccurrence(rule, now, timeZone)),
-          recurrenceTimeZone: zoneName,
-          changedAt: DateTime.formatIso(now),
-        });
-        yield* journal.append({
-          _tag: "ScheduleChanged",
-          eventId,
-          scheduleId: row.scheduleId,
-        });
-      }
-    }
+  const { hold, moveRepeatingToTimeZone } = makeScheduleMoves(
+    queries,
+    journal,
+    rearmedTransaction
   );
-
-  const moveRepeatingToTimeZone = (
-    timeZone: DateTime.TimeZone.Named,
-    eventId: string
-  ) => rearmedTransaction(moveRepeatingInTransaction(timeZone, eventId));
 
   const fireDue = <E, R>(
     handOff: (due: readonly Schedule[]) => Effect.Effect<void, E, R>
@@ -253,6 +229,7 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
     change,
     cancel,
     complete,
+    hold,
     moveRepeatingToTimeZone,
     fireDue,
   };

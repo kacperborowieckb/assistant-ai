@@ -5,6 +5,7 @@ import { recordedTool } from "../personal-agent/recorded-tool.ts";
 import type { TurnProgress } from "../personal-agent/turn-progress.ts";
 import { ensureBrief } from "../schedule/brief.ts";
 import type { Schedules } from "../schedule/schedules.ts";
+import type { QuietHours } from "../time/quiet-hours.ts";
 import { namedTimeZone } from "../time/time-zone.ts";
 import type { Redactor } from "../tracing/redactor.ts";
 import { InvalidTimeZone } from "./invalid-time-zone.ts";
@@ -19,7 +20,7 @@ export interface PreferenceToolServices {
   readonly preferences: OwnerPreferences["Service"];
   readonly schedules: Schedules["Service"];
   readonly journal: Journal["Service"];
-  readonly briefLocalTime: string;
+  readonly defaultQuietHours: QuietHours;
   readonly progress: TurnProgress["Service"];
   readonly redactor: Redactor["Service"];
 }
@@ -46,7 +47,7 @@ export const setTimeZoneTool = (
     preferences,
     schedules,
     journal,
-    briefLocalTime,
+    defaultQuietHours,
     progress,
     redactor,
   }: PreferenceToolServices,
@@ -65,9 +66,11 @@ export const setTimeZoneTool = (
         const zone = namedTimeZone(result.timeZone);
         if (Option.isSome(zone)) {
           yield* schedules.moveRepeatingToTimeZone(zone.value, eventId);
+          const { quietHours } =
+            yield* preferences.quietHours(defaultQuietHours);
           yield* ensureBrief(
             { schedules, journal },
-            { timeZone: zone.value, localTime: briefLocalTime, eventId }
+            { timeZone: zone.value, localTime: quietHours.end, eventId }
           );
         }
         return result;

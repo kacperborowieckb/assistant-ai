@@ -18,6 +18,8 @@ const preferencesWith = (timeZone: string | undefined) =>
     OwnerPreferences.of({
       timeZone: Effect.succeed(Option.fromNullishOr(timeZone)),
       setTimeZone: () => Effect.die("not used"),
+      quietHours: () => Effect.die("not used"),
+      setQuietHours: () => Effect.die("not used"),
     })
   );
 
