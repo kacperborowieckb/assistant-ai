@@ -10,12 +10,6 @@ import { trustLevelOfEvent } from "./event-trust.ts";
 import { Inbox } from "./inbox.ts";
 import type { OwnerMessageEvent } from "./inbox.ts";
 
-/**
- * A Burst: the pending Owner message Events that one Turn answers, in arrival order.
- * The first Event is the Turn Event: it keys the Delivery, the Turn progress,
- * the Conversation, the Trace, and the metric, so the key stays the same when
- * a later message joins the Burst. The outcome goes to the newest message.
- */
 export type Burst = readonly [OwnerMessageEvent, ...OwnerMessageEvent[]];
 
 export type FormBursts = (
@@ -36,20 +30,9 @@ export const trustLevelOfBurst = (burst: Burst): TrustLevel =>
     ? "untrusted"
     : "owner";
 
-/**
- * A capture keeps the text of a forwarded message in place of the model's
- * text. In a Burst of several Events with a forwarded message, code cannot
- * tell whether the capture is about the forwarded text or another message,
- * so the capture tool refuses (see noteToolsFor). A Burst of one Event keeps
- * today's behavior.
- */
 export const captureIsAmbiguous = (burst: Burst) =>
   burst.length > 1 && trustLevelOfBurst(burst) === "untrusted";
 
-/**
- * The source of a Note that the Turn of a Burst captures: the Turn Event,
- * with the trust level of the whole Burst.
- */
 export const noteSourceOfBurst = (burst: Burst): NoteSource => {
   const turnEvent = turnEventOf(burst);
   return {
@@ -139,12 +122,6 @@ const sortLinkedEvents = Effect.fnUntraced(function* sortLinkedEvents(
   return { joined, fresh };
 });
 
-/**
- * Forms the Bursts of the pending Owner messages. An Event that the Journal
- * links to a Turn joins the Burst of that Turn when the Turn Event is still
- * pending, and is settled from the Delivery of that Turn when it is not, so
- * recovery after a reset never answers it again.
- */
 export const pendingBursts = Effect.fnUntraced(function* pendingBursts(
   events: readonly OwnerMessageEvent[],
   formBursts: FormBursts
