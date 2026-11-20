@@ -27,6 +27,7 @@ export interface RecordedToolDefinition<
   readonly inputSchema: Schema.Codec<Input, unknown>;
   readonly failureMessage: string | ((cause: Cause.Cause<unknown>) => string);
   readonly recordedInput?: (input: Input) => JSONValue;
+  readonly readsOnly?: boolean;
   readonly work: (input: Input) => Effect.Effect<Output, Failure>;
 }
 
@@ -62,20 +63,28 @@ export const recordedTool = <
 ): AgentTool =>
   agentTool({
     description: definition.description,
+    ...(definition.readsOnly === true ? { readsOnly: true } : {}),
     inputSchema: effectInputSchema(definition.inputSchema),
     execute: Effect.fnUntraced(
       function* recordedToolEffect(input, { toolCallId, modelStepKey }) {
         yield* progress.markModelStep(eventId, modelStepKey);
-        return yield* progress.recordingToolCall(
-          {
-            eventId,
-            toolCallId,
-            toolName: definition.name,
-            input: definition.recordedInput?.(input) ?? input,
-            redactor,
-          },
-          definition.work(input)
-        );
+        const call = {
+          eventId,
+          toolCallId,
+          toolName: definition.name,
+          input: definition.recordedInput?.(input) ?? input,
+          redactor,
+        };
+        return yield* progress
+          .recordingToolCall(call, definition.work(input))
+          .pipe(
+            Effect.catchCause((cause) => {
+              const failure = toolFailedFrom(definition.failureMessage)(cause);
+              return progress
+                .recordFailedToolCall(call, failure.message)
+                .pipe(Effect.andThen(Effect.fail(failure)));
+            })
+          );
       },
       Effect.catchCause((cause) =>
         Effect.fail(toolFailedFrom(definition.failureMessage)(cause))

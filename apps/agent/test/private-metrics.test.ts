@@ -30,8 +30,9 @@ describe("Private metrics", () => {
       "fake-reply-model",
       "cost_unknown",
     ]);
-    expect(point?.blobs).toHaveLength(5);
+    expect(point?.blobs).toHaveLength(6);
     expect(point?.blobs?.[4]).not.toBe("");
+    expect(point?.blobs?.[5]).toBe("reply");
     expect(point?.doubles?.slice(1)).toEqual([42, 7, 0, 12, 1, 0]);
     expect(point?.doubles?.[0]).toBeGreaterThanOrEqual(0);
     const everything = JSON.stringify(fakeMetrics.dataPoints);

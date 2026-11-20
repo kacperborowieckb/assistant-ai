@@ -78,6 +78,31 @@ beforeEach(() => {
   resetFakes();
 });
 
+const failedCallMessages = (message: string) => [
+  {
+    role: "assistant",
+    content: [
+      {
+        type: "tool-call",
+        toolCallId: "call-1",
+        toolName: "keep_word",
+        input: { word: "red" },
+      },
+    ],
+  },
+  {
+    role: "tool",
+    content: [
+      {
+        type: "tool-result",
+        toolCallId: "call-1",
+        toolName: "keep_word",
+        output: { type: "error-text", value: message },
+      },
+    ],
+  },
+];
+
 describe("Recorded tool", () => {
   it("marks the model step, runs the work, and records the call and its result", async () => {
     const ownerId = await addOwner(9501);
@@ -123,7 +148,7 @@ describe("Recorded tool", () => {
     ]);
   });
 
-  it("keeps the ToolFailed message of the work and records nothing", async () => {
+  it("keeps the ToolFailed message of the work and records only the failed call", async () => {
     const ownerId = await addOwner(9502);
     const outcome = await inRecordedTool(ownerId, ({ progress, toolOf }) =>
       Effect.gen(function* toolFailedEffect() {
@@ -138,7 +163,7 @@ describe("Recorded tool", () => {
     );
 
     expect(outcome.failure.message).toBe("The store is full");
-    expect(outcome.recorded).toEqual([]);
+    expect(outcome.recorded).toEqual(failedCallMessages("The store is full"));
   });
 
   it("maps a defect of the work to ToolFailed with the failure message", async () => {
@@ -155,7 +180,7 @@ describe("Recorded tool", () => {
 
     expect(outcome.failure.message).toBe(failureMessage);
     expect(outcome.failure.message).not.toContain("disk exploded");
-    expect(outcome.recorded).toEqual([]);
+    expect(outcome.recorded).toEqual(failedCallMessages(failureMessage));
   });
 
   it("writes once when the same call runs again after a crash", async () => {

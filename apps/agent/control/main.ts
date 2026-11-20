@@ -1,5 +1,5 @@
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
-import { Console, Effect, Schema } from "effect";
+import { Console, Effect, Option, Schema } from "effect";
 import { Command, Flag } from "effect/cli";
 
 import {
@@ -86,7 +86,10 @@ const request = Command.make(
   "request",
   {
     contains: Flag.String("contains").pipe(
-      Flag.withDescription("Text that the reply must contain")
+      Flag.withDescription(
+        "Text that the reply must contain. Leave it out to only show what the agent sent, for example no send for small talk."
+      ),
+      Flag.optional
     ),
     message: Flag.String("message").pipe(
       Flag.withDescription(
@@ -97,12 +100,13 @@ const request = Command.make(
     waitForLaterMessage: Flag.Boolean("wait-for-later-message").pipe(
       Flag.withDescription(
         "When the last reply lacks the text, wait up to 100 seconds for a later message from the agent that contains it, for example a Reminder."
-      )
+      ),
+      Flag.withDefault(false)
     ),
   },
   ({ contains, message, waitForLaterMessage }) =>
     requestReply({
-      contains,
+      contains: Option.getOrUndefined(contains),
       waitForLaterMessage,
       messages: message.length === 0 ? ["Hello agent"] : message,
     }).pipe(Effect.flatMap(Console.log))

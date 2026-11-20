@@ -11,9 +11,13 @@ Generated from `apps/agent/src/edge/routes.ts` by `pnpm control map`. Do not edi
 
 1. Run `pnpm control dev`. It applies the Directory migrations to local D1 and starts the Worker with a fake Telegram API and a fake model.
 2. Run `pnpm control owner add --telegram-user <id>` to seed the Owner through `POST /operator/owners`.
-3. Send a Telegram update to `POST /telegram/webhook` with the `TELEGRAM_WEBHOOK_SECRET` from `.dev.vars`. The `dev` output shows the fake `sendMessage` reply. Before the reply, the Personal Agent shows the typing signal with Telegram `sendChatAction` (`typing`), at once and about every 4 seconds until the reply is delivered; Reminders, Scheduled Tasks, and Proactive Messages show none.
+3. Send a Telegram update to `POST /telegram/webhook` with the `TELEGRAM_WEBHOOK_SECRET` from `.dev.vars`. The `dev` output shows the fake `sendMessage` reply. Before the reply, the Personal Agent shows the typing signal with Telegram `sendChatAction` (`typing`), at once and about every 4 seconds until the reply is delivered or the Turn stays silent; Reminders, Scheduled Tasks, and Proactive Messages show none.
 
-`pnpm control request --contains <text>` runs steps 1 to 3 with temporary storage and checks the reply. It prints the fake `sendChatAction` calls that each message got before its reply.
+`pnpm control request --contains <text>` runs steps 1 to 3 with temporary storage and checks the reply. It prints the fake `sendChatAction` calls that each message got before its reply. Without `--contains`, it shows what the agent sent, including no send.
+
+## Silence for small talk
+
+Each Owner message Turn ends in one outcome. A final text is a reply. For small talk such as "ok" or "thanks", the model calls `stay_silent`: code makes no Channel call, and the Journal records `StayedSilent`, so recovery never sends later. Code refuses `stay_silent`, and the model gets the refusal as the tool result, when a tool call in the Turn changed Owner data or a changing tool call failed. A failed model call still sends the honest failure text. A proactive Turn, a Scheduled Task Turn, and a Turn for an untrusted Event have no `stay_silent`. In the local fake model, `ok` stays silent. Example: `pnpm control request --message "keep: buy milk" --message "ok"` shows the reply to the first message and no send for the second.
 
 ## Open Loops in the chat
 

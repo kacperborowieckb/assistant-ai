@@ -88,7 +88,7 @@ export const settleWithTurn = Effect.fnUntraced(function* settleWithTurn(
   if (state._tag === "Unsent") {
     return "unanswered" as const;
   }
-  yield* state._tag === "Sent"
+  yield* state._tag === "Sent" || state._tag === "Silent"
     ? inbox.markDone(events)
     : inbox.markFailed(events);
   return "settled" as const;

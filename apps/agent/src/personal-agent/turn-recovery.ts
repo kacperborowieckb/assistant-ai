@@ -36,7 +36,7 @@ const recordConversation = Effect.fnUntraced(function* recordConversation(
       ? [{ role: "assistant", content: state.text } as const]
       : [];
 
-  if (earlier.length + reply.length > 0) {
+  if (state._tag === "Silent" || earlier.length + reply.length > 0) {
     yield* conversation.append(event.eventId, [
       ...(inputs ?? [yield* inputMessageOf(event)]).map((input) =>
         redactor.redactMessage(input)
@@ -103,7 +103,8 @@ const settleState = Effect.fnUntraced(function* settleState<
     case "Unsent": {
       return yield* recovery.resumeUnsent(skippedPointOf(entries));
     }
-    case "Sent": {
+    case "Sent":
+    case "Silent": {
       yield* inbox.markDone([event]);
       return "settled" as const;
     }

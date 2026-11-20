@@ -8,6 +8,7 @@ import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
 import { turnTraces } from "../personal-agent/storage-schema.ts";
 import {
+  outcomeKinds,
   proactiveFoldReasons,
   proactiveHoldReasons,
   turnResults,
@@ -49,6 +50,12 @@ const modelTraceFields = {
   error: Schema.NullOr(Schema.String),
   usage: TraceUsageSchema,
   modelLatencyMillis: Schema.Number,
+  outcome: Schema.NullOr(
+    Schema.Struct({ kind: Schema.Literals(outcomeKinds) })
+  ).pipe(Schema.withDecodingDefaultKey(Effect.succeed(null))),
+  refusedOutcomeTools: Schema.Array(Schema.String).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed([]))
+  ),
 };
 
 const ReplyTraceBodySchema = Schema.Struct({

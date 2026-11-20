@@ -15,6 +15,8 @@ import { fakeChatActions, isSendChatAction } from "./fake-chat-actions.ts";
 import { fakeJudgeMessage, fakeJudgeModel } from "./fake-judge.ts";
 import type { FakeJudgeVerdict } from "./fake-judge.ts";
 import { fakeKeepMessage, fakeKeepPrefix } from "./fake-keep.ts";
+import { toolCallNamesOf } from "./fake-model-call.ts";
+import type { FakeModelCall } from "./fake-model-call.ts";
 import { fakeNoteEditMessage, isFakeNoteEdit } from "./fake-note-edits.ts";
 import {
   fakeOpenLoopMessage,
@@ -30,10 +32,13 @@ import {
   fakeScheduledTaskMessage,
   isFakeScheduleRequest,
 } from "./fake-schedule.ts";
+import { fakeSmallTalkMessage, isFakeSmallTalk } from "./fake-small-talk.ts";
 import {
   fakeTimeZoneMessage,
   isFakeTimeZoneMessage,
 } from "./fake-time-zone.ts";
+
+export type { FakeModelCall } from "./fake-model-call.ts";
 
 export const fakeReplyPrefix = "You said: ";
 
@@ -42,14 +47,6 @@ export interface FakeTelegramMessage {
   readonly text: string;
   readonly replyToMessageId: number | undefined;
   readonly chatActionsBefore?: number;
-}
-
-export interface FakeModelCall {
-  readonly model: string;
-  readonly gatewayId: string | undefined;
-  readonly metadata: string | undefined;
-  readonly collectLogPayload: string | undefined;
-  readonly lastUserMessage: string;
 }
 
 const SendMessageBodySchema = Schema.Struct({
@@ -117,6 +114,9 @@ const fakeAssistantMessage = (
   }
   if (systemText.includes(scheduledTaskMarker)) {
     return fakeScheduledTaskMessage(ownerText);
+  }
+  if (isFakeSmallTalk(ownerText)) {
+    return fakeSmallTalkMessage(toolResult);
   }
   if (isFakeBriefMove(ownerText)) {
     return fakeBriefMoveMessage(toolResult, systemText);
@@ -189,13 +189,6 @@ export const startLocalFakes = Effect.fnUntraced(function* startLocalFakes({
     response: ServerResponse
   ) => {
     const completion = Schema.decodeUnknownSync(ChatCompletionBodySchema)(body);
-    modelCalls.push({
-      model: completion.model,
-      gatewayId: headerValue(request, "cf-aig-gateway-id"),
-      metadata: headerValue(request, "cf-aig-metadata"),
-      collectLogPayload: headerValue(request, "cf-aig-collect-log-payload"),
-      lastUserMessage: lastOwnerText(completion.messages),
-    });
     const message =
       completion.model === fakeJudgeModel
         ? fakeJudgeMessage(pendingJudgeVerdicts.shift() ?? "pass")
@@ -204,6 +197,14 @@ export const startLocalFakes = Effect.fnUntraced(function* startLocalFakes({
             toolResultOf(completion.messages),
             systemTextOf(completion.messages)
           );
+    modelCalls.push({
+      model: completion.model,
+      gatewayId: headerValue(request, "cf-aig-gateway-id"),
+      metadata: headerValue(request, "cf-aig-metadata"),
+      collectLogPayload: headerValue(request, "cf-aig-collect-log-payload"),
+      lastUserMessage: lastOwnerText(completion.messages),
+      toolCalls: toolCallNamesOf(message),
+    });
     sendJson(response, 200, {
       id: `fake-completion-${modelCalls.length}`,
       object: "chat.completion",

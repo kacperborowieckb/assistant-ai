@@ -10,6 +10,12 @@ export interface ModelToolCall {
   readonly failed: boolean;
 }
 
+export interface PendingToolCall {
+  readonly callId: string;
+  readonly name: string;
+  readonly input: string;
+}
+
 export interface ModelStep {
   readonly usage: Usage;
   readonly toolCalls: readonly ModelToolCall[];

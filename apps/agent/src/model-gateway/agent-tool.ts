@@ -14,6 +14,7 @@ export type RunToolEffect = <Output>(
 
 export interface AgentTool {
   readonly toAiSdkTool: (runEffect: RunToolEffect) => Tool;
+  readonly readsOnly?: boolean;
 }
 
 export type AgentTools = Readonly<Record<string, AgentTool>>;
@@ -37,6 +38,7 @@ export const noTools: AgentTools = {};
 interface AgentToolDefinition<Input, Output> {
   readonly description: string;
   readonly inputSchema: FlexibleSchema<Input>;
+  readonly readsOnly?: boolean;
   readonly execute: (
     input: Input,
     call: { readonly toolCallId: string; readonly modelStepKey: number }
@@ -46,6 +48,7 @@ interface AgentToolDefinition<Input, Output> {
 export const agentTool = <Input, Output>(
   definition: AgentToolDefinition<Input, Output>
 ): AgentTool => ({
+  ...(definition.readsOnly === true ? { readsOnly: true } : {}),
   toAiSdkTool: (runEffect) =>
     tool<Input, unknown, Record<string, unknown>>({
       description: definition.description,
@@ -84,3 +87,20 @@ export const runToolEffect =
     }
     return outcome.value;
   };
+
+interface OutcomeToolDefinition<Input> {
+  readonly description: string;
+  readonly inputSchema: FlexibleSchema<Input>;
+}
+
+export const outcomeTool = <Input>(
+  definition: OutcomeToolDefinition<Input>
+): AgentTool => ({
+  readsOnly: true,
+  toAiSdkTool: () =>
+    tool<Input, unknown, Record<string, unknown>>({
+      description: definition.description,
+      inputSchema: definition.inputSchema,
+      outputSchema: jsonSchema<unknown>({}),
+    }),
+});

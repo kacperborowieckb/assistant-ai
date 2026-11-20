@@ -13,6 +13,7 @@ import { Inbox } from "../src/personal-agent/inbox.ts";
 import { OwnerChannelConversation } from "../src/personal-agent/owner-channel-conversation.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 import { receiveEvent } from "../src/personal-agent/receive-event.ts";
+import { staySilentToolName } from "../src/personal-agent/stay-silent-tool.ts";
 import { setTimeZoneToolName } from "../src/preferences/set-time-zone-tool.ts";
 import { ProactiveMessages } from "../src/proactive/proactive-messages.ts";
 import { Schedules } from "../src/schedule/schedules.ts";
@@ -205,6 +206,21 @@ describe("the Outcome of a Proactive Message in a connected Turn", () => {
       expect(await outcomeOf(ownerId)).toBe("replied")
     );
     expect(await outcomesRecordedFor(ownerId)).toEqual(["replied"]);
+  });
+
+  it("records replied when the connected Turn stays silent", async () => {
+    const ownerId = await ownerWithBrief(9809);
+    await keepOpenLoop(ownerId, "Call the bank");
+    await sendBrief(ownerId, 1);
+    scriptModel([{ callTool: staySilentToolName, input: {} }]);
+
+    await ownerWrites(9809, "ok");
+
+    await vi.waitFor(async () =>
+      expect(await outcomeOf(ownerId)).toBe("replied")
+    );
+    expect(await outcomesRecordedFor(ownerId)).toEqual(["replied"]);
+    expect(fakeTelegram.sent).toHaveLength(2);
   });
 
   it("connects only the next Owner message, so the first Outcome stays", async () => {

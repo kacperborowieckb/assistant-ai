@@ -24,6 +24,7 @@ export const unconfirmedSendReason =
 
 export type DeliveryState =
   | { readonly _tag: "Unsent" }
+  | { readonly _tag: "Silent" }
   | {
       readonly _tag: "Sent";
       readonly text: string | undefined;
@@ -109,6 +110,9 @@ export const deliveryStateOfEntries = (
   if (hasTag("TurnFailed")) {
     return failedStateOf(entries);
   }
+  if (hasTag("StayedSilent")) {
+    return { _tag: "Silent" };
+  }
   if (sent !== undefined) {
     return {
       _tag: "Sent",
@@ -193,12 +197,14 @@ export const send = Effect.fnUntraced(function* send(
   return delivery;
 });
 
+const appendEntry = (record: JournalEntry["record"]) =>
+  Journal.pipe(Effect.flatMap((journal) => journal.append(record)));
+
+export const staySilent = (event: InboxEvent) =>
+  appendEntry({ _tag: "StayedSilent", eventId: event.eventId });
+
 export const recordFailure = (event: InboxEvent, reason: string) =>
-  Journal.pipe(
-    Effect.flatMap((journal) =>
-      journal.append({ _tag: "TurnFailed", eventId: event.eventId, reason })
-    )
-  );
+  appendEntry({ _tag: "TurnFailed", eventId: event.eventId, reason });
 
 export const fail = Effect.fnUntraced(function* fail(
   event: InboxEvent,
@@ -245,15 +251,11 @@ export const failWithNotice = Effect.fnUntraced(function* failWithNotice(
 });
 
 export const recordUnconfirmedSend = (event: InboxEvent) =>
-  Journal.pipe(
-    Effect.flatMap((journal) =>
-      journal.append({
-        _tag: "ReplyFailed",
-        eventId: event.eventId,
-        reason: unconfirmedSendReason,
-      })
-    )
-  );
+  appendEntry({
+    _tag: "ReplyFailed",
+    eventId: event.eventId,
+    reason: unconfirmedSendReason,
+  });
 
 interface EventOutcome {
   readonly trace: TurnTrace;

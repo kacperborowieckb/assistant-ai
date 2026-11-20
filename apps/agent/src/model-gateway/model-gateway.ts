@@ -12,7 +12,11 @@ import type {
   ReasoningEffort,
   ResolvedRoute,
 } from "./model-provider.ts";
-import type { ModelStep, ModelToolCall } from "./model-step.ts";
+import type {
+  ModelStep,
+  ModelToolCall,
+  PendingToolCall,
+} from "./model-step.ts";
 import { ModelUnavailable } from "./model-unavailable.ts";
 import { StepLimitReached } from "./step-limit-reached.ts";
 import { sumUsage, UsageLedger } from "./usage-ledger.ts";
@@ -32,6 +36,7 @@ export interface ModelReply {
   readonly text: string;
   readonly usage: Usage;
   readonly steps: readonly ModelStep[];
+  readonly endedWith: readonly PendingToolCall[];
 }
 
 const attemptTimeout = `${attemptTimeoutMillis} millis` as const;
@@ -76,6 +81,29 @@ const toolCallsOf = (step: StepResult<ToolSet>): readonly ModelToolCall[] =>
     }
     return [];
   });
+
+const pendingToolCallsOf = (
+  step: StepResult<ToolSet>
+): readonly PendingToolCall[] => {
+  const answered = new Set(
+    step.content.flatMap((part) =>
+      part.type === "tool-result" || part.type === "tool-error"
+        ? [part.toolCallId]
+        : []
+    )
+  );
+  return step.content.flatMap((part) =>
+    part.type === "tool-call" && !answered.has(part.toolCallId)
+      ? [
+          {
+            callId: part.toolCallId,
+            name: part.toolName,
+            input: stringify(part.input),
+          },
+        ]
+      : []
+  );
+};
 
 const modelStepOf = (step: StepResult<ToolSet>): ModelStep => ({
   usage: usageOf(step.usage),
@@ -146,7 +174,7 @@ const replyOf = (
   route: ResolvedRoute,
   text: string,
   steps: readonly ModelStep[]
-): ModelReply => ({
+): Omit<ModelReply, "endedWith"> => ({
   modelId: route.model.modelId,
   reasoningEffort: route.reasoningEffort,
   text,
@@ -202,7 +230,10 @@ const makeModelGateway = Effect.gen(function* makeModelGatewayEffect() {
       const steps = result.steps.map(modelStepOf);
       yield* recordUsage(request.task, modelId, steps);
 
-      if (result.steps.at(-1)?.finishReason === "tool-calls") {
+      const lastStep = result.steps.at(-1);
+      const endedWith =
+        lastStep === undefined ? [] : pendingToolCallsOf(lastStep);
+      if (lastStep?.finishReason === "tool-calls" && endedWith.length === 0) {
         return yield* new StepLimitReached({
           modelId,
           reasoningEffort,
@@ -210,7 +241,10 @@ const makeModelGateway = Effect.gen(function* makeModelGatewayEffect() {
           steps,
         });
       }
-      return replyOf(route, result.text, steps);
+      return {
+        ...replyOf(route, result.text, steps),
+        endedWith,
+      } satisfies ModelReply;
     });
 
   return { generate };

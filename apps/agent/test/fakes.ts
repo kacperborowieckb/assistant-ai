@@ -147,6 +147,7 @@ export type ScriptedModelStep =
   | { readonly error: string }
   | {
       readonly callTool: string;
+      readonly times?: number;
       readonly input:
         | Record<string, unknown>
         | ((
@@ -182,18 +183,16 @@ const scriptedContent = (
 ) =>
   "say" in step
     ? ([{ type: "text", text: step.say }] as const)
-    : ([
-        {
-          type: "tool-call",
-          toolCallId: `call-${modelScript.length}`,
-          toolName: step.callTool,
-          input: JSON.stringify(
-            typeof step.input === "function"
-              ? step.input(lastToolOutput(prompt))
-              : step.input
-          ),
-        },
-      ] as const);
+    : Array.from({ length: step.times ?? 1 }, (_, index) => ({
+        type: "tool-call" as const,
+        toolCallId: `call-${modelScript.length}${index === 0 ? "" : `-${index}`}`,
+        toolName: step.callTool,
+        input: JSON.stringify(
+          typeof step.input === "function"
+            ? step.input(lastToolOutput(prompt))
+            : step.input
+        ),
+      }));
 
 const defaultModelFailureMessage = "The model provider is down";
 
