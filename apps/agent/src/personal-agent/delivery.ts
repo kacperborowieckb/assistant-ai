@@ -156,7 +156,8 @@ const destinationOf = Effect.fnUntraced(function* destinationOf(
 
 export const send = Effect.fnUntraced(function* send(
   event: InboxEvent,
-  text: string
+  text: string,
+  replyTo: InboxEvent = event
 ) {
   const journal = yield* Journal;
   const channel = yield* Channel;
@@ -167,7 +168,7 @@ export const send = Effect.fnUntraced(function* send(
     eventId: event.eventId,
     text,
   });
-  const destination = yield* destinationOf(event);
+  const destination = yield* destinationOf(replyTo);
   if (destination === undefined) {
     yield* journal.append({
       _tag: "ReplyFailed",
@@ -228,11 +229,12 @@ export const rememberFailureNotice = (event: InboxEvent, text: string) =>
 
 export const sendFailureNotice = Effect.fnUntraced(function* sendFailureNotice(
   event: InboxEvent,
-  text: string = honestFailureText
+  text: string = honestFailureText,
+  replyTo: InboxEvent = event
 ) {
   const inbox = yield* Inbox;
 
-  const delivery = yield* send(event, text);
+  const delivery = yield* send(event, text, replyTo);
   if (delivery._tag !== "Failed") {
     yield* rememberFailureNotice(event, text);
   }
@@ -241,10 +243,11 @@ export const sendFailureNotice = Effect.fnUntraced(function* sendFailureNotice(
 
 export const failWithNotice = Effect.fnUntraced(function* failWithNotice(
   event: InboxEvent,
-  reason: string
+  reason: string,
+  replyTo: InboxEvent = event
 ) {
   yield* recordFailure(event, reason);
-  yield* sendFailureNotice(event);
+  yield* sendFailureNotice(event, honestFailureText, replyTo);
 });
 
 export const recordUnconfirmedSend = (event: InboxEvent) =>

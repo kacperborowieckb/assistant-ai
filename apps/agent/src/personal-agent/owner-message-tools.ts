@@ -47,8 +47,8 @@ import {
   setScheduleToolName,
 } from "../schedule/set-schedule-tool.ts";
 import { ownerTimeZone } from "../time/owner-current-time.ts";
-import { trustLevelOfEvent } from "./event-trust.ts";
-import type { OwnerMessageEvent } from "./inbox.ts";
+import { trustLevelOfBurst, turnEventOf } from "./burst.ts";
+import type { Burst } from "./burst.ts";
 import { staySilentTool, staySilentToolName } from "./stay-silent-tool.ts";
 
 export interface OwnerMessageToolServices extends Omit<
@@ -91,7 +91,7 @@ export const scheduleToolServicesOf = (
 });
 
 export const ownerMessageTools = (
-  event: OwnerMessageEvent,
+  burst: Burst,
   {
     journal,
     profile,
@@ -103,6 +103,7 @@ export const ownerMessageTools = (
   }: OwnerMessageToolServices
 ) => {
   const { progress, redactor } = noteServices;
+  const { eventId } = turnEventOf(burst);
   const scheduleServices = scheduleToolServicesOf(
     {
       schedules,
@@ -117,9 +118,9 @@ export const ownerMessageTools = (
   return {
     ...noteToolsFor(
       { ...noteServices, ownerTimeZone: scheduleServices.ownerTimeZone },
-      event
+      burst
     ),
-    ...(trustLevelOfEvent(event) === "owner"
+    ...(trustLevelOfBurst(burst) === "owner"
       ? {
           [updateProfileToolName]: updateProfileTool(
             {
@@ -128,7 +129,7 @@ export const ownerMessageTools = (
               redactor,
               characterLimit: behavior.maxProfileCharacters,
             },
-            event.eventId
+            eventId
           ),
           [setTimeZoneToolName]: setTimeZoneTool(
             {
@@ -139,7 +140,7 @@ export const ownerMessageTools = (
               redactor,
               defaultQuietHours: behavior.quietHours,
             },
-            event.eventId
+            eventId
           ),
           [quietHoursToolName]: quietHoursTool(
             {
@@ -150,7 +151,7 @@ export const ownerMessageTools = (
               redactor,
               defaultQuietHours: behavior.quietHours,
             },
-            event.eventId
+            eventId
           ),
           [proactiveMessageBudgetToolName]: proactiveMessageBudgetTool(
             {
@@ -159,7 +160,7 @@ export const ownerMessageTools = (
               redactor,
               defaultSends: behavior.proactiveMessageBudget,
             },
-            event.eventId
+            eventId
           ),
           [muteProactiveMessageToolName]: muteProactiveMessageTool(
             {
@@ -169,23 +170,18 @@ export const ownerMessageTools = (
               progress,
               redactor,
             },
-            event.eventId
+            eventId,
+            burst.map((event) => event.eventId)
           ),
-          [setScheduleToolName]: setScheduleTool(
-            scheduleServices,
-            event.eventId
-          ),
-          [listSchedulesToolName]: listSchedulesTool(
-            scheduleServices,
-            event.eventId
-          ),
+          [setScheduleToolName]: setScheduleTool(scheduleServices, eventId),
+          [listSchedulesToolName]: listSchedulesTool(scheduleServices, eventId),
           [changeScheduleToolName]: changeScheduleTool(
             scheduleServices,
-            event.eventId
+            eventId
           ),
           [cancelScheduleToolName]: cancelScheduleTool(
             scheduleServices,
-            event.eventId
+            eventId
           ),
           [staySilentToolName]: staySilentTool,
         }

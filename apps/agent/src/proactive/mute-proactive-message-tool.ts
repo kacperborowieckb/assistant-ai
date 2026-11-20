@@ -78,12 +78,24 @@ export const muteProactiveMessageTool = (
     progress,
     redactor,
   }: MuteProactiveMessageToolServices,
-  eventId: string
+  eventId: string,
+  ownerMessageEventIds: readonly string[] = [eventId]
 ) => {
+  const connectedProactiveMessage = Effect.fnUntraced(
+    function* connectedProactiveMessage() {
+      const connections = yield* Effect.all(
+        ownerMessageEventIds.map((ownerMessageEventId) =>
+          proactiveMessages.connectedTo(ownerMessageEventId)
+        )
+      );
+      return connections.find((connection) => connection !== undefined);
+    }
+  );
+
   const targetsOf = Effect.fnUntraced(function* targetsOf(
     input: typeof MuteInput.Type
   ) {
-    const connected = yield* proactiveMessages.connectedTo(eventId);
+    const connected = yield* connectedProactiveMessage();
     const noteIds = input.openLoopIds ?? connected?.openLoopIds ?? [];
     const loops = yield* notes.byIds(noteIds);
     const found = new Set(loops.map(({ noteId }) => noteId));

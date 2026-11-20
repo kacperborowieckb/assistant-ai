@@ -22,6 +22,8 @@ import type { OperatorMetrics } from "../tracing/operator-metrics.ts";
 import type { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
 import { AgentStorage } from "./agent-storage.ts";
+import { oneEventBursts } from "./burst.ts";
+import type { FormBursts } from "./burst.ts";
 import { Conversation } from "./conversation.ts";
 import { fireDueSchedulesThen } from "./due-schedule-events.ts";
 import { Inbox } from "./inbox.ts";
@@ -74,6 +76,8 @@ export class PersonalAgent extends Agent<Env> {
   ) => TurnServices = liveTurnServices;
 
   protected readonly turnTools: AgentTools = noTools;
+
+  protected readonly formBursts: FormBursts = oneEventBursts;
 
   protected readonly behavior: BehaviorConfig = defaultBehaviorConfig;
 
@@ -150,9 +154,10 @@ export class PersonalAgent extends Agent<Env> {
 
   async runTurn(): Promise<void> {
     await this.runtime.runPromise(
-      takeTurn(this.ownerId, this.behavior, this.turnTools).pipe(
-        Effect.provide(this.turnServices(this.env, this.ownerId))
-      )
+      takeTurn(this.ownerId, this.behavior, {
+        tools: this.turnTools,
+        formBursts: this.formBursts,
+      }).pipe(Effect.provide(this.turnServices(this.env, this.ownerId)))
     );
   }
 }

@@ -17,6 +17,7 @@ import {
 
 export const JournalRecordSchema = Schema.TaggedUnion({
   EventReceived: { eventId: Schema.String },
+  AnsweredByTurn: { eventId: Schema.String, turnEventId: Schema.String },
   TurnFailed: { eventId: Schema.String, reason: Schema.String },
   ReplyPlanned: { eventId: Schema.String, text: Schema.String },
   SendStarted: { eventId: Schema.String },
@@ -132,6 +133,13 @@ export interface JournalEntry {
   readonly recordedAt: string;
   readonly record: JournalRecord;
 }
+
+export const answeringTurnEventIdOf = (entries: readonly JournalEntry[]) => {
+  const link = entries.find((entry) => entry.record._tag === "AnsweredByTurn");
+  return link?.record._tag === "AnsweredByTurn"
+    ? link.record.turnEventId
+    : undefined;
+};
 
 const RecordJsonSchema = Schema.fromJsonString(JournalRecordSchema);
 

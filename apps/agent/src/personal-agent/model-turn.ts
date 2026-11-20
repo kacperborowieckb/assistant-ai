@@ -41,7 +41,8 @@ const unpreparedTurn: TurnPreparation = {
 export interface ModelTurnKind<Failure, Requirements> {
   readonly task: "reply" | "scheduled_task" | "proactive";
   readonly event: InboxEvent;
-  readonly input: ModelMessage;
+  readonly replyTo?: InboxEvent;
+  readonly inputs: readonly ModelMessage[];
   readonly tools: AgentTools;
   readonly traceOf: (model: ModelTraceInput) => TurnTrace;
   readonly checkBeforeFirstStep?: (
@@ -94,15 +95,17 @@ export const runModelTurn = <Failure, Requirements>({
       currentTime: yield* ownerCurrentTimeText(behavior),
       situation: preparation.situation,
     });
-    const savedInput = redactor.redactMessage(kind.input);
+    const savedInputs = kind.inputs.map((input) =>
+      redactor.redactMessage(input)
+    );
     const earlier = yield* progress.completedFor(event.eventId);
     const stepsLeft = behavior.maxToolSteps - stepsUsed;
     if (stepsLeft <= 0) {
-      yield* conversation.append(event.eventId, [savedInput, ...earlier]);
+      yield* conversation.append(event.eventId, [...savedInputs, ...earlier]);
       yield* kind.whenFailed(stepLimitReason(behavior.maxToolSteps));
       return;
     }
-    const messages = [...history, kind.input, ...earlier];
+    const messages = [...history, ...kind.inputs, ...earlier];
     const decided = yield* generateWithOutcomeTools({
       eventId: event.eventId,
       earlierMessages: earlier,
@@ -134,7 +137,7 @@ export const runModelTurn = <Failure, Requirements>({
 
     const remember = rememberCompletedSteps({
       eventId: event.eventId,
-      input: savedInput,
+      inputs: savedInputs,
       earlier,
       outcome,
     });
@@ -154,7 +157,7 @@ export const runModelTurn = <Failure, Requirements>({
       yield* database.transaction(() =>
         conversation
           .append(event.eventId, [
-            savedInput,
+            ...savedInputs,
             ...earlier,
             ...responseMessagesOf(outcome).map((message) =>
               redactor.redactMessage(message)
@@ -176,7 +179,11 @@ export const runModelTurn = <Failure, Requirements>({
       return;
     }
     const replyText = redactor.redact(outcome.reply.text);
-    const delivery = yield* send(event, preparation.lateText(replyText));
+    const delivery = yield* send(
+      event,
+      preparation.lateText(replyText),
+      kind.replyTo
+    );
     if (delivery._tag === "Failed") {
       yield* remember;
       if (kind.tracesSendFailure === true) {
@@ -200,7 +207,7 @@ export const runModelTurn = <Failure, Requirements>({
       yield* kind.whenSent;
     }
     yield* conversation.append(event.eventId, [
-      savedInput,
+      ...savedInputs,
       ...earlier,
       ...responseMessagesOf(outcome).map((message) =>
         redactor.redactMessage(message)

@@ -8,7 +8,7 @@ import type { ModelOutcome } from "./turn-record.ts";
 
 interface CompletedSteps {
   readonly eventId: string;
-  readonly input: ModelMessage;
+  readonly inputs: readonly ModelMessage[];
   readonly earlier: readonly ModelMessage[];
   readonly outcome: ModelOutcome;
 }
@@ -16,7 +16,7 @@ interface CompletedSteps {
 export const rememberCompletedSteps = Effect.fnUntraced(
   function* rememberCompletedSteps({
     eventId,
-    input,
+    inputs,
     earlier,
     outcome,
   }: CompletedSteps) {
@@ -26,7 +26,7 @@ export const rememberCompletedSteps = Effect.fnUntraced(
 
     if (earlier.length + completed.length > 0) {
       yield* conversation.append(eventId, [
-        input,
+        ...inputs,
         ...earlier,
         ...completed.map((message) => redactor.redactMessage(message)),
       ]);
