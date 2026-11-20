@@ -267,7 +267,7 @@ describe("Telegram reaction", () => {
     ]);
   });
 
-  it("fails with the reason when Telegram refuses or cannot be reached", async () => {
+  it("fails with the reason when Telegram refuses the reaction", async () => {
     const refused = await reactWith(() =>
       Promise.resolve(
         Response.json(
@@ -276,18 +276,29 @@ describe("Telegram reaction", () => {
         )
       )
     );
-    const unreachable = await reactWith(() =>
-      Promise.reject(new TypeError("offline"))
-    );
 
     expect(refused).toEqual({
       _tag: "Failed",
       reason:
         "Telegram refused the reaction (400): Bad Request: REACTION_INVALID",
     });
+  });
+
+  it("reports the reaction unconfirmed when Telegram cannot be reached or answers with an unreadable body", async () => {
+    const unreachable = await reactWith(() =>
+      Promise.reject(new TypeError("offline"))
+    );
+    const unreadable = await reactWith(() =>
+      Promise.resolve(new Response("<html>Bad Gateway</html>", { status: 502 }))
+    );
+
     expect(unreachable).toEqual({
-      _tag: "Failed",
+      _tag: "Unconfirmed",
       reason: "Telegram could not be reached",
+    });
+    expect(unreadable).toEqual({
+      _tag: "Unconfirmed",
+      reason: "Telegram answered 502 without a result",
     });
   });
 });

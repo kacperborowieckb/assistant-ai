@@ -5,6 +5,7 @@ import type {
   Delivery,
   OutgoingMessage,
   OutgoingReaction,
+  ReactionDelivery,
 } from "../channel.ts";
 import { TypingNotShown } from "../typing-not-shown.ts";
 import { telegramReactionFor } from "./telegram-reactions.ts";
@@ -186,16 +187,17 @@ const setMessageReactionRequest = (
 const reactionDeliveryFrom = (response: Response, reaction: OutgoingReaction) =>
   Effect.tryPromise(() => response.json()).pipe(
     Effect.flatMap(Schema.decodeUnknownEffect(TrueResponseSchema)),
-    Effect.map((answer): Delivery =>
+    Effect.map((answer): ReactionDelivery =>
       answer.ok
         ? { _tag: "Confirmed", channelMessageId: reaction.channelMessageId }
         : failed(
             `Telegram refused the reaction (${response.status}): ${answer.description ?? "no description"}`
           )
     ),
-    Effect.orElseSucceed(() =>
-      failed(`Telegram answered ${response.status} without a result`)
-    )
+    Effect.orElseSucceed((): ReactionDelivery => ({
+      _tag: "Unconfirmed",
+      reason: `Telegram answered ${response.status} without a result`,
+    }))
   );
 
 const react = (config: TelegramConfig) => (reaction: OutgoingReaction) =>
@@ -203,7 +205,11 @@ const react = (config: TelegramConfig) => (reaction: OutgoingReaction) =>
     (config.fetch ?? fetch)(setMessageReactionRequest(config, reaction))
   ).pipe(
     Effect.matchEffect({
-      onFailure: () => Effect.succeed(failed("Telegram could not be reached")),
+      onFailure: () =>
+        Effect.succeed<ReactionDelivery>({
+          _tag: "Unconfirmed",
+          reason: "Telegram could not be reached",
+        }),
       onSuccess: (response) => reactionDeliveryFrom(response, reaction),
     })
   );

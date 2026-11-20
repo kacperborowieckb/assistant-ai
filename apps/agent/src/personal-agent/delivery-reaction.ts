@@ -1,28 +1,40 @@
 import { Effect } from "effect";
 
 import { Channel } from "../channels/channel.ts";
+import type { ReactionDelivery } from "../channels/channel.ts";
 import { Journal } from "../journal/journal.ts";
+import { Redactor } from "../tracing/redactor.ts";
 import { recordSend } from "./delivery-send.ts";
 import type { InboxEvent } from "./inbox.ts";
 
 export const noReactionTargetReason =
   "The Turn has no Owner message to react to";
 
-export const sendReaction = Effect.fnUntraced(function* sendReaction(
+const recordReactionFailure = Effect.fnUntraced(function* recordReactionFailure(
   event: InboxEvent,
-  emoji: string,
-  replyTo: InboxEvent = event
+  reason: string
 ) {
   const journal = yield* Journal;
+  const redactor = yield* Redactor;
+  const redacted = redactor.redact(reason);
+
+  yield* journal.append({
+    _tag: "ReplyFailed",
+    eventId: event.eventId,
+    reason: redacted,
+  });
+  return { _tag: "Failed", reason: redacted } as const;
+});
+
+const attemptReaction = Effect.fnUntraced(function* attemptReaction(
+  event: InboxEvent,
+  emoji: string,
+  replyTo: InboxEvent
+) {
   const channel = yield* Channel;
 
   if (replyTo._tag !== "OwnerMessage") {
-    yield* journal.append({
-      _tag: "ReplyFailed",
-      eventId: event.eventId,
-      reason: noReactionTargetReason,
-    });
-    return { _tag: "Failed", reason: noReactionTargetReason } as const;
+    return yield* recordReactionFailure(event, noReactionTargetReason);
   }
   return yield* recordSend(
     event,
@@ -32,6 +44,20 @@ export const sendReaction = Effect.fnUntraced(function* sendReaction(
       emoji,
     })
   );
+});
+
+const settledReaction = (event: InboxEvent, delivery: ReactionDelivery) =>
+  delivery._tag === "Unconfirmed"
+    ? recordReactionFailure(event, delivery.reason)
+    : Effect.succeed(delivery);
+
+export const sendReaction = Effect.fnUntraced(function* sendReaction(
+  event: InboxEvent,
+  emoji: string,
+  replyTo: InboxEvent = event
+) {
+  const delivery = yield* attemptReaction(event, emoji, replyTo);
+  return yield* settledReaction(event, delivery);
 });
 
 export const react = Effect.fnUntraced(function* react(
@@ -46,5 +72,10 @@ export const react = Effect.fnUntraced(function* react(
     eventId: event.eventId,
     emoji,
   });
-  return yield* sendReaction(event, emoji, replyTo);
+  const first = yield* attemptReaction(event, emoji, replyTo);
+  const delivery =
+    first._tag === "Unconfirmed"
+      ? yield* attemptReaction(event, emoji, replyTo)
+      : first;
+  return yield* settledReaction(event, delivery);
 });

@@ -129,6 +129,35 @@ describe("the Delivery state of an Event", () => {
     });
   });
 
+  it("follows the newest plan when a reaction plan and a text plan are both in the Journal", () => {
+    const reaction: JournalRecord = {
+      _tag: "ReactionPlanned",
+      eventId,
+      emoji: "✍",
+    };
+
+    expect(stateAfter(reaction, planned, started)).toEqual({
+      _tag: "Unconfirmed",
+      text: "planned text",
+    });
+    expect(stateAfter(reaction, planned, started, sent)).toEqual({
+      _tag: "Sent",
+      text: "planned text",
+      reaction: undefined,
+      channelMessageId: "9100",
+    });
+    expect(stateAfter(planned, reaction, started)).toEqual({
+      _tag: "ReactionUnconfirmed",
+      emoji: "✍",
+    });
+    expect(stateAfter(planned, reaction, started, sent)).toEqual({
+      _tag: "Sent",
+      text: undefined,
+      reaction: "✍",
+      channelMessageId: "9100",
+    });
+  });
+
   it("is Silent after StayedSilent, so recovery never sends for the Event", () => {
     expect(stateAfter({ _tag: "StayedSilent", eventId })).toEqual({
       _tag: "Silent",

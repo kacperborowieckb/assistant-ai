@@ -21,7 +21,11 @@ export interface TelegramReaction {
   readonly chatActionsBefore: number;
 }
 
-export type TelegramAnswer = "confirm" | "refuse" | "lose-confirmation";
+export type TelegramAnswer =
+  | "confirm"
+  | "refuse"
+  | "lose-confirmation"
+  | "lose-first-reaction-confirmation";
 
 export interface TelegramChatAction {
   readonly chatId: number;
@@ -79,7 +83,11 @@ const answerReaction = async (request: Request) => {
   if (fakeTelegramState.sendDelayMillis > 0) {
     await scheduler.wait(fakeTelegramState.sendDelayMillis);
   }
-  if (fakeTelegramState.answer === "lose-confirmation") {
+  if (
+    fakeTelegramState.answer === "lose-confirmation" ||
+    (fakeTelegramState.answer === "lose-first-reaction-confirmation" &&
+      fakeTelegramState.reactions.length === 1)
+  ) {
     throw new TypeError("The connection dropped before Telegram answered");
   }
   if (fakeTelegramState.answer === "refuse") {

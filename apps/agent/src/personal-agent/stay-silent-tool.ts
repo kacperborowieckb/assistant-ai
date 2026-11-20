@@ -14,8 +14,8 @@ export const silenceAcceptedOutput = { outcome: "silent" } as const;
 
 export const staySilentTool = outcomeTool({
   description:
-    'End the Turn without sending anything. Use it only for small talk that needs no answer, such as "ok", "thanks", or a thumbs up. Never use it when you changed something in this Turn, when something failed, or when the Owner asked a question or asked for something. Code refuses it in those cases, and then you answer with a text or a reaction.',
+    'End the Turn without sending anything. Use it only for small talk that needs no answer, such as "ok", "thanks", or a thumbs up. Never use it when you changed something in this Turn, when something failed, or when the Owner asked a question or asked for something. Code refuses it in those cases. Then answer with a text, or with a reaction only when a change succeeded and the Owner asked no question.',
   inputSchema: effectInputSchema(Schema.Struct({})),
 });
 
-export const staySilentSection = `When a message of the Owner is only small talk that needs no answer, such as "ok", "thanks", "got it", or a thumbs up, call ${staySilentToolName} instead of writing a reply, and write nothing else. Do not reply just to reply. Never call ${staySilentToolName} when you changed or tried to change something in this Turn, when the Owner asked a question or asked for something, or when something failed: then answer with a text or a reaction.`;
+export const staySilentSection = `When a message of the Owner is only small talk that needs no answer, such as "ok", "thanks", "got it", or a thumbs up, call ${staySilentToolName} instead of writing a reply, and write nothing else. Do not reply just to reply. Never call ${staySilentToolName} when you changed or tried to change something in this Turn, when the Owner asked a question or asked for something, or when something failed. Answer a question or a failure with a text. After a change that succeeded, a reaction is enough.`;

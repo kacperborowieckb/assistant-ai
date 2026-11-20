@@ -65,6 +65,10 @@ const lastOf = <Tag extends JournalEntry["record"]["_tag"]>(
     | undefined;
 };
 
+const isPlan = (entry: JournalEntry) =>
+  entry.record._tag === "ReplyPlanned" ||
+  entry.record._tag === "ReactionPlanned";
+
 const failedStateOf = (entries: readonly JournalEntry[]): DeliveryState => {
   const hasSendStarted = entries.some(
     (entry) => entry.record._tag === "SendStarted"
@@ -73,11 +77,7 @@ const failedStateOf = (entries: readonly JournalEntry[]): DeliveryState => {
   const sent = lastOf(entries, "ReplySent");
   const sendFailed = lastOf(entries, "ReplyFailed");
   const turnFailed = lastOf(entries, "TurnFailed");
-  const firstPlanned = entries.find(
-    (entry) =>
-      entry.record._tag === "ReplyPlanned" ||
-      entry.record._tag === "ReactionPlanned"
-  );
+  const firstPlanned = entries.find(isPlan);
   const lastTurnFailed = entries.findLast(
     (entry) => entry.record._tag === "TurnFailed"
   );
@@ -102,13 +102,20 @@ const failedStateOf = (entries: readonly JournalEntry[]): DeliveryState => {
     : { _tag: "FailedNoticeRefused", text: planned?.text, reason };
 };
 
+const latestPlanOf = (entries: readonly JournalEntry[]) => {
+  const latest = entries.findLast(isPlan)?.record;
+  return {
+    planned: latest?._tag === "ReplyPlanned" ? latest : undefined,
+    reaction: latest?._tag === "ReactionPlanned" ? latest : undefined,
+  };
+};
+
 export const deliveryStateOfEntries = (
   entries: readonly JournalEntry[]
 ): DeliveryState => {
   const hasTag = (tag: JournalEntry["record"]["_tag"]) =>
     entries.some((entry) => entry.record._tag === tag);
-  const planned = lastOf(entries, "ReplyPlanned");
-  const reaction = lastOf(entries, "ReactionPlanned");
+  const { planned, reaction } = latestPlanOf(entries);
   const sent = lastOf(entries, "ReplySent");
   const sendFailed = lastOf(entries, "ReplyFailed");
 

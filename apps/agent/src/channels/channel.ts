@@ -19,11 +19,17 @@ export type Delivery =
   | { readonly _tag: "Confirmed"; readonly channelMessageId: string }
   | { readonly _tag: "Failed"; readonly reason: string };
 
+export type ReactionDelivery =
+  | Delivery
+  | { readonly _tag: "Unconfirmed"; readonly reason: string };
+
 export class Channel extends Context.Service<
   Channel,
   {
     readonly send: (message: OutgoingMessage) => Effect.Effect<Delivery>;
-    readonly react: (reaction: OutgoingReaction) => Effect.Effect<Delivery>;
+    readonly react: (
+      reaction: OutgoingReaction
+    ) => Effect.Effect<ReactionDelivery>;
     readonly allowedReaction: (emoji: string) => string | undefined;
     readonly showTyping: (
       conversationId: string

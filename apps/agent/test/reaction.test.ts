@@ -332,6 +332,56 @@ describe("One outcome for each Event: a reaction", () => {
     expect(tags.slice(-2)).toEqual(["ReplyFailed", "TurnFailed"]);
   });
 
+  it("sends the reaction once more in the same Turn when Telegram's confirmation is lost", async () => {
+    fakeTelegram.answerWith("lose-first-reaction-confirmation");
+    scriptModel([reactWith("🔥")]);
+
+    const ownerId = await ownerSays(6215, "done with the report");
+
+    expect(fakeTelegram.sent).toEqual([]);
+    expect(fakeTelegram.reactions).toMatchObject([
+      { chatId: 6215, messageId: 77, emoji: "🔥" },
+      { chatId: 6215, messageId: 77, emoji: "🔥" },
+    ]);
+    expect(await eventStates(ownerId)).toEqual(["done"]);
+    const tags = await journalTags(ownerId);
+    expect(tags.slice(-3)).toEqual(["SendStarted", "SendStarted", "ReplySent"]);
+  });
+
+  it("marks the Event failed when Telegram's confirmation of the reaction is lost twice", async () => {
+    fakeTelegram.answerWith("lose-confirmation");
+    scriptModel([reactWith("🔥")]);
+
+    const ownerId = await ownerSays(6216, "done with the report");
+
+    expect(fakeTelegram.sent).toEqual([]);
+    expect(fakeTelegram.reactions).toHaveLength(2);
+    expect(await eventStates(ownerId)).toEqual(["failed"]);
+    const records = await journalRecords(ownerId);
+    expect(records.filter((record) => record._tag === "ReplyFailed")).toEqual([
+      expect.objectContaining({ reason: "Telegram could not be reached" }),
+    ]);
+  });
+
+  it("marks the Event failed when the reaction sent again after a reset is not confirmed either", async () => {
+    const ownerId = await addOwner(6217);
+    await storeOwnerMessages({
+      ownerId,
+      telegramUserId: 6217,
+      texts: ["buy milk"],
+      records: ([eventId = ""]) => [
+        { _tag: "ReactionPlanned", eventId, emoji: "✍" },
+        { _tag: "SendStarted", eventId },
+      ],
+    });
+    fakeTelegram.answerWith("lose-confirmation");
+
+    await runTurn(ownerId);
+
+    expect(fakeTelegram.reactions).toHaveLength(1);
+    expect(await eventStates(ownerId)).toEqual(["failed"]);
+  });
+
   it("refuses a reaction after a changing tool call failed, and the model answers with text", async () => {
     fakeTool.failWith = "The store is down";
     scriptModel([
