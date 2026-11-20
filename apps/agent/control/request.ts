@@ -102,7 +102,9 @@ export const requestReply = ({
       unprompted.push(...selection.unprompted);
       replyParts = selection.replyParts.map((part) => part.text);
       lines.push(
-        renderChatActions(fakes.chatActions().slice(chatActionsBefore)),
+        renderChatActions(
+          fakes.chatActions().slice(chatActionsBefore, sent.chatActionsBefore)
+        ),
         `Telegram sendMessage to chat ${sent.chatId}, reply to message ${sent.replyToMessageId ?? "none"}: "${replyParts.join("")}"`
       );
     }

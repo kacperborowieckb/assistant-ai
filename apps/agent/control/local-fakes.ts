@@ -41,6 +41,7 @@ export interface FakeTelegramMessage {
   readonly chatId: number;
   readonly text: string;
   readonly replyToMessageId: number | undefined;
+  readonly chatActionsBefore?: number;
 }
 
 export interface FakeModelCall {
@@ -171,6 +172,7 @@ export const startLocalFakes = Effect.fnUntraced(function* startLocalFakes({
       chatId: message.chat_id,
       text: message.text,
       replyToMessageId: message.reply_parameters?.message_id,
+      chatActionsBefore: chatActions.list().length,
     };
     sentTelegramMessages.push(sent);
     Queue.offerUnsafe(telegramMessages, sent);

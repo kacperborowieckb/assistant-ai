@@ -1,4 +1,4 @@
-import { Effect, Schedule } from "effect";
+import { Effect, Fiber, Schedule } from "effect";
 
 import { Channel } from "../channels/channel.ts";
 import { Redactor } from "../tracing/redactor.ts";
@@ -21,21 +21,18 @@ const showTypingOnce = Effect.fnUntraced(function* showTypingOnce(
 });
 
 /**
- * Acknowledge: shows "typing" in the Owner's conversation while the effect
- * runs, at once and then every `repeatMillis`, until the effect ends. It is
- * best-effort: a failed signal is logged and never fails or delays the effect.
+ * Acknowledge: shows "typing" in the Owner's conversation at once and then
+ * every `repeatMillis`, until `stop` runs or the scope closes. It is
+ * best-effort: a failed signal is logged and never fails or delays the Turn.
  */
-export const whileAcknowledging =
-  (conversationId: string, repeatMillis: number) =>
-  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-    Effect.scoped(
-      Effect.gen(function* whileAcknowledgingEffect() {
-        yield* Effect.forkScoped(
-          showTypingOnce(conversationId).pipe(
-            Effect.repeat(Schedule.spaced(repeatMillis))
-          ),
-          { startImmediately: true }
-        );
-        return yield* effect;
-      })
+export const startAcknowledging = Effect.fnUntraced(
+  function* startAcknowledging(conversationId: string, repeatMillis: number) {
+    const typing = yield* Effect.forkScoped(
+      showTypingOnce(conversationId).pipe(
+        Effect.repeat(Schedule.spaced(repeatMillis))
+      ),
+      { startImmediately: true }
     );
+    return { stop: Fiber.interrupt(typing) };
+  }
+);
