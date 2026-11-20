@@ -24,7 +24,9 @@ import { AgentStorage } from "./agent-storage.ts";
 import { Conversation } from "./conversation.ts";
 import { fireDueSchedulesThen } from "./due-schedule-events.ts";
 import { Inbox } from "./inbox.ts";
+import { recordOutcomesDueAtAlarm } from "./outcome-records.ts";
 import { OwnerChannelConversation } from "./owner-channel-conversation.ts";
+import { receiveEvent } from "./receive-event.ts";
 import { TurnProgress } from "./turn-progress.ts";
 import { liveTurnServices } from "./turn-services.ts";
 import { takeTurn } from "./turn.ts";
@@ -45,7 +47,7 @@ const personalAgentLayer = (
     Notes.layer(ownerId).pipe(Layer.provide(journal)),
     Profile.layer(ownerId).pipe(Layer.provide(journal)),
     OwnerPreferences.layer.pipe(Layer.provide(journal)),
-    ProactiveMessages.layer,
+    ProactiveMessages.layer.pipe(Layer.provide(journal)),
     Conversation.layer,
     OwnerChannelConversation.layer,
     TurnProgress.layer,
@@ -81,21 +83,18 @@ export class PersonalAgent extends Agent<Env> {
   );
 
   async receive(event: Event): Promise<StoreConfirmation> {
-    await this.runtime.runPromise(
-      Effect.gen(function* receiveEffect() {
-        const inbox = yield* Inbox;
-        const ownerConversation = yield* OwnerChannelConversation;
-        if (event._tag === "OwnerMessage") {
-          yield* ownerConversation.remember(event);
-        }
-        yield* inbox.store(event);
-      })
-    );
+    await this.runtime.runPromise(receiveEvent(event));
     await this.runTurnWhenEventsArePending();
     return "stored";
   }
 
   async fireDueSchedules(): Promise<void> {
+    await this.runtime.runPromise(
+      recordOutcomesDueAtAlarm(
+        this.ownerId,
+        this.turnServices(this.env, this.ownerId)
+      )
+    );
     await this.runtime.runPromise(
       fireDueSchedulesThen(
         Effect.promise(() => this.runTurnWhenEventsArePending())

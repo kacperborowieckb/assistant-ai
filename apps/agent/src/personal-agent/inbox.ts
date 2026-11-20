@@ -1,5 +1,5 @@
 import { asc, eq } from "drizzle-orm";
-import { Context, DateTime, Effect, Layer, Schema } from "effect";
+import { Context, DateTime, Effect, Layer, Option, Schema } from "effect";
 
 import { ownerMessageFields, scheduleFiredFields } from "../event.ts";
 import type { Event, OwnerMessage, ScheduleFired } from "../event.ts";
@@ -92,11 +92,11 @@ const makeInbox = Effect.gen(function* makeInboxEffect() {
       : insertScheduleFired(event)
     ).pipe(Effect.map((rows) => rows.at(0)?.eventId));
 
-  const store = (event: Event) =>
-    Effect.gen(function* storeEffect() {
+  const storeEvent = (event: Event) =>
+    Effect.gen(function* storeEventEffect() {
       const eventId = yield* insert(event);
       if (eventId === undefined) {
-        return "duplicate" satisfies StoreResult;
+        return Option.none<string>();
       }
       yield* journal.append({ _tag: "EventReceived", eventId });
       if (event._tag === "ScheduleFired") {
@@ -107,8 +107,15 @@ const makeInbox = Effect.gen(function* makeInboxEffect() {
           dueAt: event.dueAt,
         });
       }
-      return "stored" satisfies StoreResult;
+      return Option.some(eventId);
     });
+
+  const store = (event: Event) =>
+    storeEvent(event).pipe(
+      Effect.map((eventId): StoreResult =>
+        Option.isSome(eventId) ? "stored" : "duplicate"
+      )
+    );
 
   const pending = database
     .select()
@@ -131,6 +138,7 @@ const makeInbox = Effect.gen(function* makeInboxEffect() {
 
   return {
     store,
+    storeEvent,
     pending,
     markDone: settle("done"),
     markFailed: settle("failed"),

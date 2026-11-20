@@ -6,6 +6,7 @@ export interface BehaviorConfig {
   readonly scheduledTaskDailyTokenBudget: number;
   readonly maxActiveScheduledTasks: number;
   readonly proactiveDailyTokenBudget: number;
+  readonly proactiveResponseWindowMillis: number;
   readonly quietHours: { readonly start: string; readonly end: string };
   readonly defaultTimeZone?: string | undefined;
 }
@@ -19,5 +20,6 @@ export const defaultBehaviorConfig: BehaviorConfig = {
   scheduledTaskDailyTokenBudget: 200_000,
   maxActiveScheduledTasks: 10,
   proactiveDailyTokenBudget: 200_000,
+  proactiveResponseWindowMillis: 24 * 60 * 60 * 1000,
   quietHours: { start: "22:00", end: "08:00" },
 };

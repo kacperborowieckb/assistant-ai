@@ -1,19 +1,22 @@
 import { eq, isNull, and } from "drizzle-orm";
-import { Context, DateTime, Effect, Layer, Schema } from "effect";
+import { Context, DateTime, Effect, Layer } from "effect";
 
+import { Journal } from "../journal/journal.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
+import {
+  decodeOpenLoopIds,
+  encodeOpenLoopIds,
+  makeProactiveOutcomes,
+} from "./proactive-outcomes.ts";
 import { proactiveMessages } from "./proactive-schema.ts";
 
-const OpenLoopIdsJsonSchema = Schema.fromJsonString(
-  Schema.Array(Schema.String)
-);
-
-const encodeIds = Schema.encodeSync(OpenLoopIdsJsonSchema);
-const decodeIds = Schema.decodeUnknownSync(OpenLoopIdsJsonSchema);
+const encodeIds = encodeOpenLoopIds;
+const decodeIds = decodeOpenLoopIds;
 
 const makeProactiveMessages = Effect.gen(
   function* makeProactiveMessagesEffect() {
     const { database } = yield* AgentStorage;
+    const journal = yield* Journal;
 
     const forEvent = Effect.fnUntraced(function* forEvent(eventId: string) {
       const [row] = yield* database
@@ -46,19 +49,42 @@ const makeProactiveMessages = Effect.gen(
       return planned?.openLoopIds ?? openLoopIds;
     });
 
-    const recordSent = (eventId: string, sentMessageId: string) =>
-      database
+    const recordSent = Effect.fnUntraced(function* recordSent(
+      eventId: string,
+      sentMessageId: string,
+      responseWindowMillis: number
+    ) {
+      const entries = yield* journal.readForEvent(eventId);
+      const delivered = entries.findLast(
+        (entry) => entry.record._tag === "ReplySent"
+      );
+      const sentAt =
+        delivered === undefined
+          ? yield* DateTime.now
+          : DateTime.makeUnsafe(delivered.recordedAt);
+      yield* database
         .update(proactiveMessages)
-        .set({ sentMessageId })
+        .set({
+          sentMessageId,
+          sentAt: DateTime.formatIso(sentAt),
+          windowEndsAt: DateTime.formatIso(
+            DateTime.add(sentAt, { milliseconds: responseWindowMillis })
+          ),
+        })
         .where(
           and(
             eq(proactiveMessages.eventId, eventId),
             isNull(proactiveMessages.sentMessageId)
           )
-        )
-        .pipe(Effect.asVoid);
+        );
+    });
 
-    return { plan, recordSent, forEvent };
+    return {
+      plan,
+      recordSent,
+      forEvent,
+      ...makeProactiveOutcomes(database, journal),
+    };
   }
 );
 

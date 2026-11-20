@@ -2,6 +2,7 @@ import { Context, Effect, Layer } from "effect";
 
 import type { Usage } from "../model-gateway/usage-ledger.ts";
 import type { OwnerId } from "../owner-id.ts";
+import { proactiveOutcomes } from "../personal-agent/storage-values.ts";
 
 export const turnMetricResults = [
   "replied",
@@ -14,6 +15,8 @@ export const reminderMetricResults = ["delivered", "delivery_failed"] as const;
 export const skipMetricResults = ["daily_token_budget_spent"] as const;
 
 export const proactiveMetricResults = ["sent"] as const;
+
+export const outcomeMetricResults = proactiveOutcomes;
 
 export const refusalReasons = [
   "bad_secret_token",
@@ -52,6 +55,13 @@ export type OperatorMetric =
       readonly ownerId: OwnerId;
       readonly eventId: string;
       readonly result: (typeof proactiveMetricResults)[number];
+      readonly latencyMillis: number;
+    }
+  | {
+      readonly kind: "outcome";
+      readonly ownerId: OwnerId;
+      readonly eventId: string;
+      readonly result: (typeof outcomeMetricResults)[number];
       readonly latencyMillis: number;
     }
   | {

@@ -39,11 +39,13 @@ const proactivePreparation = Effect.fnUntraced(function* proactivePreparation(
     event.eventId,
     page.notes.map((note) => note.noteId)
   );
+  const recentOutcomes = yield* proactiveMessages.recentOutcomesOf(plannedIds);
   return {
     situation: [
       proactiveSection(
         page.notes.filter((note) => plannedIds.includes(note.noteId)),
-        timeZone
+        timeZone,
+        recentOutcomes
       ),
     ],
     lateText: (text: string) =>
@@ -59,6 +61,7 @@ const proactivePreparation = Effect.fnUntraced(function* proactivePreparation(
 
 interface SentProactiveMessage {
   readonly ownerId: OwnerId;
+  readonly behavior: BehaviorConfig;
   readonly event: ScheduleFiredEvent;
   readonly startedAt: number;
 }
@@ -83,6 +86,7 @@ export const recordProactiveMessageSent = Effect.fnUntraced(
 const finishSentProactiveMessage = Effect.fnUntraced(
   function* finishSentProactiveMessage({
     ownerId,
+    behavior,
     event,
     startedAt,
   }: SentProactiveMessage) {
@@ -93,7 +97,8 @@ const finishSentProactiveMessage = Effect.fnUntraced(
     if (state._tag === "Sent") {
       yield* proactiveMessages.recordSent(
         event.eventId,
-        state.channelMessageId
+        state.channelMessageId,
+        behavior.proactiveResponseWindowMillis
       );
     }
     yield* schedules.complete(event.scheduleId, event.dueAt, event.eventId);
@@ -159,6 +164,7 @@ export const runProactiveMessage = Effect.fnUntraced(
           }),
         whenSent: finishSentProactiveMessage({
           ownerId,
+          behavior,
           event,
           startedAt,
         }).pipe(Effect.provideContext(hookServices)),

@@ -20,6 +20,7 @@ import m0018 from "./20261117090612_model_usage_budget_index/migration.sql";
 import m0019 from "./20261119122949_open_loops/migration.sql";
 import m0020 from "./20261119211439_proactive_messages/migration.sql";
 import m0021 from "./20261120072140_quiet_hours/migration.sql";
+import m0022 from "./20261120080149_proactive_outcomes/migration.sql";
 
 export default {
   migrations: {
@@ -45,5 +46,6 @@ export default {
     "20261119122949_open_loops": m0019,
     "20261119211439_proactive_messages": m0020,
     "20261120072140_quiet_hours": m0021,
+    "20261120080149_proactive_outcomes": m0022,
   },
 };
