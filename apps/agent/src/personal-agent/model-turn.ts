@@ -151,15 +151,19 @@ export const runModelTurn = <Failure, Requirements>({
       return;
     }
     if (decided.kind === "silent") {
-      yield* conversation.append(event.eventId, [
-        savedInput,
-        ...earlier,
-        ...responseMessagesOf(outcome).map((message) =>
-          redactor.redactMessage(message)
-        ),
-      ]);
       yield* database.transaction(() =>
-        staySilent(event).pipe(Effect.andThen(inbox.markDone([event])))
+        conversation
+          .append(event.eventId, [
+            savedInput,
+            ...earlier,
+            ...responseMessagesOf(outcome).map((message) =>
+              redactor.redactMessage(message)
+            ),
+          ])
+          .pipe(
+            Effect.andThen(staySilent(event)),
+            Effect.andThen(inbox.markDone([event]))
+          )
       );
       yield* recordTurnMetric({
         ownerId,
