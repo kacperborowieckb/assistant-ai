@@ -50,6 +50,7 @@ export const searchNotesTool = (
       name: searchNotesToolName,
       description: `Search the Owner's Notes by keywords. Returns the best matches first, each with its source, captured date, Open Loop (null when it has none), and the newest linked Notes (at most ${maxLinkedNotesPerMatch}, with the total count). An empty list means that no Note matches.`,
       inputSchema: SearchNotesInput,
+      readsOnly: true,
       failureMessage: notesNotSearchedMessage,
       work: ({ query, limit }) =>
         Effect.all({

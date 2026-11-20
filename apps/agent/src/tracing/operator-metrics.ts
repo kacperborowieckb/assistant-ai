@@ -3,9 +3,11 @@ import { Context, Effect, Layer } from "effect";
 import type { Usage } from "../model-gateway/usage-ledger.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { proactiveOutcomes } from "../personal-agent/storage-values.ts";
+import type { OutcomeKind } from "../personal-agent/storage-values.ts";
 
 export const turnMetricResults = [
   "replied",
+  "silent",
   "model_failed",
   "send_failed",
 ] as const;
@@ -30,6 +32,7 @@ export type OperatorMetric =
       readonly ownerId: OwnerId;
       readonly eventId: string;
       readonly result: (typeof turnMetricResults)[number];
+      readonly outcome: OutcomeKind | undefined;
       readonly latencyMillis: number;
       readonly modelId: string;
       readonly usage: Usage | undefined;
@@ -90,6 +93,7 @@ const dataPointOf = (metric: OperatorMetric): AnalyticsEngineDataPoint => {
       metric.kind === "turn" ? metric.modelId : "",
       costBlob(usage),
       "eventId" in metric ? metric.eventId : "",
+      ...(metric.kind === "turn" ? [metric.outcome ?? ""] : []),
     ],
     doubles: [
       metric.latencyMillis,

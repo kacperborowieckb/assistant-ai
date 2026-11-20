@@ -3,7 +3,6 @@ import { Clock, Effect } from "effect";
 
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import type { AgentTools } from "../model-gateway/agent-tool.ts";
-import { ModelGateway } from "../model-gateway/model-gateway.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { Profile } from "../profile/profile.ts";
 import { ownerCurrentTimeText } from "../time/owner-current-time.ts";
@@ -11,9 +10,10 @@ import { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
 import type { TurnTrace } from "../tracing/turn-trace.ts";
 import { Conversation } from "./conversation.ts";
-import { fail, send } from "./delivery.ts";
+import { fail, send, staySilent } from "./delivery.ts";
 import { Inbox } from "./inbox.ts";
 import type { InboxEvent } from "./inbox.ts";
+import { generateWithOutcomeTools } from "./outcome-tools.ts";
 import { rememberCompletedSteps } from "./remember-completed-steps.ts";
 import { systemPrompt } from "./system-prompt.ts";
 import { TurnProgress } from "./turn-progress.ts";
@@ -23,7 +23,7 @@ import {
   responseMessagesOf,
   stepLimitReason,
 } from "./turn-record.ts";
-import type { ModelOutcome, ModelTraceInput } from "./turn-record.ts";
+import type { ModelTraceInput } from "./turn-record.ts";
 
 export type BeforeFirstStep = "Proceed" | "Stopped";
 
@@ -70,7 +70,6 @@ export const runModelTurn = <Failure, Requirements>({
     const { event } = kind;
     const inbox = yield* Inbox;
     const conversation = yield* Conversation;
-    const modelGateway = yield* ModelGateway;
     const traces = yield* TurnTraces;
     const redactor = yield* Redactor;
     const profile = yield* Profile;
@@ -102,23 +101,18 @@ export const runModelTurn = <Failure, Requirements>({
       return;
     }
     const messages = [...history, kind.input, ...earlier];
-    const outcome: ModelOutcome = yield* modelGateway
-      .generate({
+    const decided = yield* generateWithOutcomeTools({
+      eventId: event.eventId,
+      request: {
         task: kind.task,
         system,
         messages,
         tools: kind.tools,
         stepLimit: stepsLeft,
-      })
-      .pipe(
-        Effect.map((reply): ModelOutcome => ({ _tag: "Replied", reply })),
-        Effect.catchTags({
-          ModelUnavailable: (error) =>
-            Effect.succeed<ModelOutcome>({ _tag: "ModelFailed", error }),
-          StepLimitReached: (error) =>
-            Effect.succeed<ModelOutcome>({ _tag: "ModelFailed", error }),
-        })
-      );
+      },
+      tools: kind.tools,
+    });
+    const { outcome } = decided;
     const modelLatencyMillis = (yield* Clock.currentTimeMillis) - startedAt;
     const recordTrace = (delivered: boolean) =>
       traces.record(
@@ -129,6 +123,8 @@ export const runModelTurn = <Failure, Requirements>({
           modelLatencyMillis,
           redactor,
           delivered,
+          outcomeKind: decided.kind,
+          refusedOutcomeTools: decided.refusedOutcomeTools,
         })
       );
     yield* recordTrace(true);
@@ -147,6 +143,26 @@ export const runModelTurn = <Failure, Requirements>({
         eventId: event.eventId,
         outcome,
         result: "model_failed",
+        startedAt,
+      });
+      return;
+    }
+    if (decided.kind === "silent") {
+      yield* staySilent(event);
+      yield* conversation.append(event.eventId, [
+        savedInput,
+        ...earlier,
+        ...responseMessagesOf(outcome).map((message) =>
+          redactor.redactMessage(message)
+        ),
+      ]);
+      yield* inbox.markDone([event]);
+      yield* recordTurnMetric({
+        ownerId,
+        eventId: event.eventId,
+        outcome,
+        result: "silent",
+        outcomeKind: "silent",
         startedAt,
       });
       return;
@@ -187,6 +203,7 @@ export const runModelTurn = <Failure, Requirements>({
       eventId: event.eventId,
       outcome,
       result: "replied",
+      outcomeKind: "reply",
       startedAt,
     });
   });

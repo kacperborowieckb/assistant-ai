@@ -29,6 +29,7 @@ import {
   fakeScheduledTaskMessage,
   isFakeScheduleRequest,
 } from "./fake-schedule.ts";
+import { fakeSmallTalkMessage, isFakeSmallTalk } from "./fake-small-talk.ts";
 import {
   fakeTimeZoneMessage,
   isFakeTimeZoneMessage,
@@ -48,6 +49,7 @@ export interface FakeModelCall {
   readonly metadata: string | undefined;
   readonly collectLogPayload: string | undefined;
   readonly lastUserMessage: string;
+  readonly toolCalls: readonly string[];
 }
 
 const SendMessageBodySchema = Schema.Struct({
@@ -115,6 +117,9 @@ const fakeAssistantMessage = (
   }
   if (systemText.includes(scheduledTaskMarker)) {
     return fakeScheduledTaskMessage(ownerText);
+  }
+  if (isFakeSmallTalk(ownerText)) {
+    return fakeSmallTalkMessage(toolResult);
   }
   if (isFakeBriefMove(ownerText)) {
     return fakeBriefMoveMessage(toolResult, systemText);
@@ -185,13 +190,6 @@ export const startLocalFakes = Effect.fnUntraced(function* startLocalFakes({
     response: ServerResponse
   ) => {
     const completion = Schema.decodeUnknownSync(ChatCompletionBodySchema)(body);
-    modelCalls.push({
-      model: completion.model,
-      gatewayId: headerValue(request, "cf-aig-gateway-id"),
-      metadata: headerValue(request, "cf-aig-metadata"),
-      collectLogPayload: headerValue(request, "cf-aig-collect-log-payload"),
-      lastUserMessage: lastOwnerText(completion.messages),
-    });
     const message =
       completion.model === fakeJudgeModel
         ? fakeJudgeMessage(pendingJudgeVerdicts.shift() ?? "pass")
@@ -200,6 +198,19 @@ export const startLocalFakes = Effect.fnUntraced(function* startLocalFakes({
             toolResultOf(completion.messages),
             systemTextOf(completion.messages)
           );
+    modelCalls.push({
+      model: completion.model,
+      gatewayId: headerValue(request, "cf-aig-gateway-id"),
+      metadata: headerValue(request, "cf-aig-metadata"),
+      collectLogPayload: headerValue(request, "cf-aig-collect-log-payload"),
+      lastUserMessage: lastOwnerText(completion.messages),
+      toolCalls:
+        "tool_calls" in message && Array.isArray(message.tool_calls)
+          ? message.tool_calls.map(
+              (call: { function: { name: string } }) => call.function.name
+            )
+          : [],
+    });
     sendJson(response, 200, {
       id: `fake-completion-${modelCalls.length}`,
       object: "chat.completion",

@@ -17,6 +17,7 @@ import {
   recordOutcomesOfFinishedTurns,
 } from "./outcome-records.ts";
 import { ownerMessageTools } from "./owner-message-tools.ts";
+import { staySilentSection, staySilentToolName } from "./stay-silent-tool.ts";
 import { traceOf } from "./turn-record.ts";
 import { ownerMessageRecovery, settleFromJournal } from "./turn-recovery.ts";
 
@@ -33,6 +34,7 @@ const answer = (
   Effect.gen(function* answerEffect() {
     const toolServices = yield* agentToolServices;
     const preparation = yield* connectedProactivePreparation(behavior, event);
+    const ownerTools = ownerMessageTools(event, { ...toolServices, behavior });
 
     yield* runModelTurn({
       ownerId,
@@ -41,11 +43,14 @@ const answer = (
         task: "reply",
         event,
         input: eventMessage(event),
-        tools: {
-          ...tools,
-          ...ownerMessageTools(event, { ...toolServices, behavior }),
-        },
-        prepare: Effect.succeed(preparation),
+        tools: { ...tools, ...ownerTools },
+        prepare: Effect.succeed({
+          ...preparation,
+          situation: [
+            ...(staySilentToolName in ownerTools ? [staySilentSection] : []),
+            ...preparation.situation,
+          ],
+        }),
         traceOf: (model) => traceOf({ event, ...model }),
         whenFailed: (reason) => failWithNotice(event, reason),
       },

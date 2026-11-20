@@ -38,6 +38,7 @@ export const listOpenLoopsTool = (
       name: listOpenLoopsToolName,
       description: `List the Notes with an open Open Loop: the earliest due first, then the ones with no due date, oldest first. Returns ${openLoopsPerPage} at a time, with the total count and nextOffset: call it again with that offset for the next page, or stop when it is null. Closed Open Loops are not listed. An empty list means that nothing is open.`,
       inputSchema: ListOpenLoopsInput,
+      readsOnly: true,
       failureMessage: openLoopsNotListedMessage,
       work: ({ offset = 0 }) =>
         Effect.all({

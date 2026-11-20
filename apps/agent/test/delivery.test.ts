@@ -129,6 +129,12 @@ describe("the Delivery state of an Event", () => {
     });
   });
 
+  it("is Silent after StayedSilent, so recovery never sends for the Event", () => {
+    expect(stateAfter({ _tag: "StayedSilent", eventId })).toEqual({
+      _tag: "Silent",
+    });
+  });
+
   it("is FailedNoticeUnconfirmed after a reset that follows the start of the notice send", () => {
     expect(stateAfter(turnFailed, planned, started)).toEqual({
       _tag: "FailedNoticeUnconfirmed",

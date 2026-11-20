@@ -23,13 +23,17 @@ const replyPartsContain = (parts: readonly string[], contains: string) => {
 };
 
 export class ReplyMissing extends Data.TaggedError("ReplyMissing")<{
-  readonly contains: string;
+  readonly contains: string | undefined;
   readonly reply: string;
 }> {
   override get message() {
-    return `The reply does not contain "${this.contains}". Reply: "${this.reply}"`;
+    return this.contains === undefined
+      ? `The agent sent no reply. Reply: "${this.reply}"`
+      : `The reply does not contain "${this.contains}". Reply: "${this.reply}"`;
   }
 }
+
+const staySilentToolName = "stay_silent";
 
 export const requestReply = ({
   messages,
@@ -37,7 +41,7 @@ export const requestReply = ({
   waitForLaterMessage,
 }: {
   readonly messages: readonly string[];
-  readonly contains: string;
+  readonly contains: string | undefined;
   readonly waitForLaterMessage: boolean;
 }) =>
   Effect.gen(function* requestReplyEffect() {
@@ -83,16 +87,46 @@ export const requestReply = ({
           fakes.nextTelegramMessage.pipe(Effect.timeoutOption(timeout)),
         firstReplyTimeout: replyTimeout,
         nextPartTimeout,
+        stayedSilent: Effect.sync(() =>
+          (
+            fakes
+              .modelCalls()
+              .findLast((call) => call.lastUserMessage === message)
+              ?.toolCalls ?? []
+          ).includes(staySilentToolName)
+        ),
       });
+      unprompted.push(...selection.unprompted);
       const [sent] = selection.replyParts;
       if (sent === undefined) {
-        return yield* new ReplyMissing({ contains, reply: "" });
+        const silent = fakes
+          .modelCalls()
+          .findLast((call) => call.lastUserMessage === message)
+          ?.toolCalls.includes(staySilentToolName);
+        if (silent !== true) {
+          return yield* new ReplyMissing({ contains, reply: "" });
+        }
+        replyParts = [];
+        lines.push(
+          `No Telegram send for the message "${message}": the agent stayed silent (${staySilentToolName})`
+        );
+        continue;
       }
-      unprompted.push(...selection.unprompted);
       replyParts = selection.replyParts.map((part) => part.text);
       lines.push(
         `Telegram sendMessage to chat ${sent.chatId}, reply to message ${sent.replyToMessageId ?? "none"}: "${replyParts.join("")}"`
       );
+    }
+    if (contains === undefined) {
+      for (const call of fakes.modelCalls()) {
+        lines.push(
+          `AI Gateway call: gateway ${call.gatewayId ?? "missing"}, metadata ${call.metadata ?? "missing"}, collect log payload ${call.collectLogPayload ?? "missing"}`
+        );
+      }
+      lines.push(
+        `Telegram sendMessage calls in total: ${fakes.sentTelegramMessages().length}`
+      );
+      return lines.join("\n");
     }
     let waiting =
       waitForLaterMessage && !replyPartsContain(replyParts, contains);

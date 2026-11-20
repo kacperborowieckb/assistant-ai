@@ -22,6 +22,7 @@ export const JournalRecordSchema = Schema.TaggedUnion({
   SendStarted: { eventId: Schema.String },
   ReplySent: { eventId: Schema.String, channelMessageId: Schema.String },
   ReplyFailed: { eventId: Schema.String, reason: Schema.String },
+  StayedSilent: { eventId: Schema.String },
   NoteCaptured: { eventId: Schema.String, noteId: Schema.String },
   NoteUpdated: {
     eventId: Schema.String,

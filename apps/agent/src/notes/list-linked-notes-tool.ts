@@ -39,6 +39,7 @@ export const listLinkedNotesTool = (
       name: listLinkedNotesToolName,
       description: `List the Notes linked to one Note, newest link first, ${maxLinkedNotesPerMatch} at a time, with the total count. Use it when search_notes shows more linked Notes than it returned.`,
       inputSchema: ListLinkedNotesInput,
+      readsOnly: true,
       failureMessage: (cause) =>
         noteToolFailureMessage(cause, {
           unknownNotesConsequence: "Nothing was listed.",

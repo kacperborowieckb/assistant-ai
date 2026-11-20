@@ -49,6 +49,7 @@ import {
 import { ownerTimeZone } from "../time/owner-current-time.ts";
 import { trustLevelOfEvent } from "./event-trust.ts";
 import type { OwnerMessageEvent } from "./inbox.ts";
+import { staySilentTool, staySilentToolName } from "./stay-silent-tool.ts";
 
 export interface OwnerMessageToolServices extends Omit<
   NoteToolServices,
@@ -186,6 +187,7 @@ export const ownerMessageTools = (
             scheduleServices,
             event.eventId
           ),
+          [staySilentToolName]: staySilentTool,
         }
       : {}),
   };

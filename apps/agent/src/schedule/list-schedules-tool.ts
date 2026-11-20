@@ -24,6 +24,7 @@ export const listSchedulesTool = (
       description:
         "List the active Schedules of the Owner, the earliest first. Each has its id, its Action (SendText with its text, or RunPrompt with its prompt), optional Note id, and local due weekday, date, and time. A Schedule that is done or cancelled is not listed. An empty list means that the Owner has no active Schedule.",
       inputSchema: Schema.Struct({}),
+      readsOnly: true,
       failureMessage: schedulesNotListedMessage,
       work: Effect.fnUntraced(function* listActiveEffect() {
         const timeZone = yield* ownerTimeZone;

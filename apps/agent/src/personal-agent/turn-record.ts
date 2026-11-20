@@ -21,6 +21,7 @@ import type {
   ScheduledTaskTurnTrace,
 } from "../tracing/turn-trace.ts";
 import type { InboxEvent, ScheduleFiredEvent } from "./inbox.ts";
+import type { OutcomeKind } from "./outcome-tools.ts";
 
 export type ModelFailure = ModelUnavailable | StepLimitReached;
 
@@ -89,6 +90,8 @@ export interface ModelTraceInput {
   readonly modelLatencyMillis: number;
   readonly redactor: Redactor["Service"];
   readonly delivered?: boolean;
+  readonly outcomeKind?: OutcomeKind | undefined;
+  readonly refusedOutcomeTools?: readonly string[];
 }
 
 const modelTraceOf = ({
@@ -97,6 +100,8 @@ const modelTraceOf = ({
   outcome,
   modelLatencyMillis,
   redactor,
+  outcomeKind,
+  refusedOutcomeTools = [],
 }: ModelTraceInput) => {
   const reasoningEffort =
     outcome._tag === "Replied"
@@ -112,6 +117,8 @@ const modelTraceOf = ({
     messages: messages.map((message) => redactor.redactMessage(message)),
     steps: traceStepsOf(outcome, redactor),
     modelLatencyMillis,
+    outcome: outcomeKind === undefined ? null : { kind: outcomeKind },
+    refusedOutcomeTools: [...refusedOutcomeTools],
   } as const;
   if (outcome._tag === "Replied") {
     return {
@@ -192,6 +199,7 @@ interface TurnMetricInput {
   readonly eventId: string;
   readonly outcome: ModelOutcome;
   readonly result: Extract<OperatorMetric, { kind: "turn" }>["result"];
+  readonly outcomeKind?: OutcomeKind | undefined;
   readonly startedAt: number;
 }
 
@@ -200,6 +208,7 @@ export const recordTurnMetric = ({
   eventId,
   outcome,
   result,
+  outcomeKind,
   startedAt,
 }: TurnMetricInput) =>
   Effect.gen(function* recordTurnMetricEffect() {
@@ -210,6 +219,7 @@ export const recordTurnMetric = ({
       ownerId,
       eventId,
       result,
+      outcome: outcomeKind,
       latencyMillis: now - startedAt,
       modelId:
         outcome._tag === "Replied"

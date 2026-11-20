@@ -27,6 +27,7 @@ export interface RecordedToolDefinition<
   readonly inputSchema: Schema.Codec<Input, unknown>;
   readonly failureMessage: string | ((cause: Cause.Cause<unknown>) => string);
   readonly recordedInput?: (input: Input) => JSONValue;
+  readonly readsOnly?: boolean;
   readonly work: (input: Input) => Effect.Effect<Output, Failure>;
 }
 
@@ -62,6 +63,7 @@ export const recordedTool = <
 ): AgentTool =>
   agentTool({
     description: definition.description,
+    ...(definition.readsOnly === true ? { readsOnly: true } : {}),
     inputSchema: effectInputSchema(definition.inputSchema),
     execute: Effect.fnUntraced(
       function* recordedToolEffect(input, { toolCallId, modelStepKey }) {

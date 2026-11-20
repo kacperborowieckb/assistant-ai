@@ -93,7 +93,8 @@ const settleState = Effect.fnUntraced(function* settleState<
     case "Unsent": {
       return yield* recovery.resumeUnsent(skippedPointOf(entries));
     }
-    case "Sent": {
+    case "Sent":
+    case "Silent": {
       yield* inbox.markDone([event]);
       return "settled" as const;
     }

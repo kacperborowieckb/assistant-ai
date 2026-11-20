@@ -9,22 +9,37 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { JournalRecord } from "../src/journal/journal.ts";
 import { Journal } from "../src/journal/journal.ts";
+import { captureNoteToolName } from "../src/notes/capture-note-tool.ts";
+import { searchNotesToolName } from "../src/notes/search-notes-tool.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
-import { unconfirmedSendReason } from "../src/personal-agent/delivery.ts";
+import {
+  honestFailureText,
+  unconfirmedSendReason,
+} from "../src/personal-agent/delivery.ts";
 import { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 import {
+  silenceAfterChangeMessage,
+  silenceAfterFailureMessage,
+  staySilentToolName,
+} from "../src/personal-agent/stay-silent-tool.ts";
+import { TurnTraces } from "../src/tracing/turn-trace.ts";
+import {
+  failModel,
+  fakeMetrics,
   fakeModel,
   fakeReplyPrefix,
   fakeTelegram,
+  fakeTool,
   holdModel,
   resetFakes,
+  scriptModel,
 } from "./fakes.ts";
 import { addOwner, telegramWebhook, textUpdate } from "./telegram-requests.ts";
 
 const inPersonalAgent = async <A, E>(
   ownerId: string,
-  effect: Effect.Effect<A, E, Inbox | Journal>
+  effect: Effect.Effect<A, E, Inbox | Journal | TurnTraces>
 ) =>
   runInDurableObject(
     await personalAgentFor(env.PERSONAL_AGENT, OwnerIdSchema.make(ownerId)),
@@ -89,7 +104,7 @@ beforeEach(() => {
   resetFakes();
 });
 
-describe("Exactly one reply", () => {
+describe("One outcome for each Event: a reply", () => {
   it("gives no second reply when Telegram sends the same update again", async () => {
     const ownerId = await addOwner(6001);
     const update = textUpdate({ fromUserId: 6001, text: "once" });
@@ -267,5 +282,197 @@ describe("Exactly one reply", () => {
       expect(await stateOfOnlyEvent(ownerId)).toBe("done")
     );
     expect(fakeTelegram.sent).toHaveLength(1);
+  });
+});
+
+const staySilent = { callTool: staySilentToolName, input: {} } as const;
+
+const replyTraceOf = async (ownerId: string) => {
+  const traces = await inPersonalAgent(
+    ownerId,
+    TurnTraces.pipe(Effect.flatMap((turnTraces) => turnTraces.readReplies))
+  );
+  expect(traces).toHaveLength(1);
+  return traces[0]?.trace;
+};
+
+const turnMetricBlobs = () =>
+  fakeMetrics.dataPoints
+    .filter((point) => point.blobs?.[0] === "turn")
+    .map((point) => point.blobs);
+
+const toolResultTexts = () =>
+  fakeModel.doGenerateCalls.flatMap((call) =>
+    call.prompt.flatMap((message) =>
+      message.role === "tool"
+        ? message.content.flatMap((part) =>
+            part.type === "tool-result" && part.output.type === "text"
+              ? [part.output.value]
+              : []
+          )
+        : []
+    )
+  );
+
+const ownerSays = async (telegramUserId: number, text: string) => {
+  const ownerId = await addOwner(telegramUserId);
+  await telegramWebhook(textUpdate({ fromUserId: telegramUserId, text }));
+  await vi.waitFor(
+    async () => expect(await stateOfOnlyEvent(ownerId)).not.toBe("pending"),
+    { timeout: 10_000 }
+  );
+  return ownerId;
+};
+
+describe("One outcome for each Event: silence", () => {
+  it("makes no Channel call for small talk and records the silent outcome", async () => {
+    scriptModel([staySilent]);
+
+    const ownerId = await ownerSays(6101, "ok");
+
+    expect(fakeTelegram.sent).toEqual([]);
+    expect(await stateOfOnlyEvent(ownerId)).toBe("done");
+    expect(await journalTags(ownerId)).toEqual([
+      "EventReceived",
+      "StayedSilent",
+    ]);
+    const trace = await replyTraceOf(ownerId);
+    expect(trace?.outcome).toEqual({ kind: "silent" });
+    expect(trace?.refusedOutcomeTools).toEqual([]);
+    expect(trace?.steps.at(-1)?.toolCalls).toMatchObject([
+      { name: staySilentToolName, failed: false },
+    ]);
+    expect(turnMetricBlobs()).toEqual([
+      [
+        "turn",
+        "silent",
+        "fake-reply-model",
+        "cost_unknown",
+        trace?.eventId,
+        "silent",
+      ],
+    ]);
+  });
+
+  it("sends nothing later, also after the Durable Object is reset and the Turn runs again", async () => {
+    scriptModel([staySilent]);
+    const ownerId = await ownerSays(6102, "thanks");
+
+    await abortAllDurableObjects();
+    const agent = await personalAgentFor(
+      env.PERSONAL_AGENT,
+      OwnerIdSchema.make(ownerId)
+    );
+    await runInDurableObject(agent, (instance) => instance.runTurn());
+
+    expect(fakeTelegram.sent).toEqual([]);
+    expect(fakeModel.doGenerateCalls).toHaveLength(1);
+    expect(await journalTags(ownerId)).toEqual([
+      "EventReceived",
+      "StayedSilent",
+    ]);
+  });
+
+  it("marks an interrupted silent Event done without sending or calling the model", async () => {
+    const ownerId = await addOwner(6103);
+
+    await interruptedAfter(ownerId, 6103, (eventId) => [
+      { _tag: "StayedSilent", eventId },
+    ]);
+
+    expect(fakeTelegram.sent).toEqual([]);
+    expect(fakeModel.doGenerateCalls).toEqual([]);
+    expect(await stateOfOnlyEvent(ownerId)).toBe("done");
+  });
+
+  it("refuses silence after a write tool changed Owner data, and the model answers with text", async () => {
+    scriptModel([
+      { callTool: captureNoteToolName, input: { text: "buy milk" } },
+      staySilent,
+      { say: "Kept: buy milk" },
+    ]);
+
+    const ownerId = await ownerSays(6104, "buy milk");
+
+    expect(fakeTelegram.sent.map((message) => message.body.text)).toEqual([
+      "Kept: buy milk",
+    ]);
+    expect(toolResultTexts()).toEqual([silenceAfterChangeMessage]);
+    expect(await journalTags(ownerId)).toEqual([
+      "EventReceived",
+      "NoteCaptured",
+      "ReplyPlanned",
+      "SendStarted",
+      "ReplySent",
+    ]);
+    const trace = await replyTraceOf(ownerId);
+    expect(trace?.outcome).toEqual({ kind: "reply" });
+    expect(trace?.refusedOutcomeTools).toEqual([staySilentToolName]);
+    expect(turnMetricBlobs()[0]?.slice(1, 2)).toEqual(["replied"]);
+    expect(turnMetricBlobs()[0]?.[5]).toBe("reply");
+  });
+
+  it("refuses silence after a changing tool call failed", async () => {
+    fakeTool.failWith = "The store is down";
+    scriptModel([
+      { callTool: fakeTool.name, input: { word: "milk" } },
+      staySilent,
+      { say: "Sorry, I could not keep that." },
+    ]);
+
+    await ownerSays(6105, "keep milk");
+
+    expect(fakeTelegram.sent.map((message) => message.body.text)).toEqual([
+      "Sorry, I could not keep that.",
+    ]);
+    expect(toolResultTexts()).toEqual([silenceAfterFailureMessage]);
+  });
+
+  it("allows silence after a read-only tool call", async () => {
+    scriptModel([
+      { callTool: searchNotesToolName, input: { query: "milk" } },
+      staySilent,
+    ]);
+
+    const ownerId = await ownerSays(6106, "ok then");
+
+    expect(fakeTelegram.sent).toEqual([]);
+    const trace = await replyTraceOf(ownerId);
+    expect(trace?.outcome).toEqual({ kind: "silent" });
+  });
+
+  it("still sends the honest failure text when the model call fails", async () => {
+    failModel(3);
+
+    const ownerId = await ownerSays(6107, "ok");
+
+    expect(fakeTelegram.sent.map((message) => message.body.text)).toEqual([
+      honestFailureText,
+    ]);
+    expect(await stateOfOnlyEvent(ownerId)).toBe("failed");
+  });
+
+  it("sends the honest failure text when the model fails after a refused silence", async () => {
+    scriptModel([
+      { callTool: captureNoteToolName, input: { text: "buy milk" } },
+      staySilent,
+      { error: "down" },
+      { error: "down" },
+      { error: "down" },
+    ]);
+
+    const ownerId = await ownerSays(6108, "buy milk");
+
+    expect(fakeTelegram.sent.map((message) => message.body.text)).toEqual([
+      honestFailureText,
+    ]);
+    expect(await stateOfOnlyEvent(ownerId)).toBe("failed");
+    const trace = await replyTraceOf(ownerId);
+    expect(trace?.outcome).toBeNull();
+    expect(trace?.refusedOutcomeTools).toEqual([staySilentToolName]);
+    expect(trace?.steps.flatMap((step) => step.toolCalls)).toMatchObject([
+      { name: captureNoteToolName, failed: false },
+      { name: staySilentToolName, failed: true },
+    ]);
   });
 });

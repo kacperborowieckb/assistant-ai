@@ -36,6 +36,10 @@ export const turnResults = [
   "proactive_message_skipped",
 ] as const;
 
+export const outcomeKinds = ["reply", "silent"] as const;
+
+export type OutcomeKind = (typeof outcomeKinds)[number];
+
 export const scheduleActions = ["send_text", "run_prompt"] as const;
 
 export const scheduleSetBy = ["owner", "agent"] as const;
