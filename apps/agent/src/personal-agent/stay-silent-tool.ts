@@ -52,7 +52,6 @@ interface OutcomeToolCall {
   readonly tools: AgentTools;
 }
 
-/** The tools whose calls failed in Turn progress from before a reset. */
 const failedToolNamesOf = (messages: readonly ModelMessage[]) =>
   messages.flatMap((message) =>
     message.role === "tool"
@@ -66,14 +65,6 @@ const failedToolNamesOf = (messages: readonly ModelMessage[]) =>
       : []
   );
 
-/**
- * Decides a call of an outcome tool. Returns undefined when the outcome is
- * accepted, or the refusal that the model gets as the tool result.
- *
- * The Journal is the record of what changed in the Turn, also across a reset.
- * A failed call of a tool that may change Owner data refuses silence too,
- * also when Turn progress kept it from before a reset.
- */
 export const refusalOfOutcomeTool = Effect.fnUntraced(
   function* refusalOfOutcomeTool({
     eventId,

@@ -88,7 +88,6 @@ const makeTurnProgress = Effect.gen(function* makeTurnProgressEffect() {
       }
     });
 
-  /** Runs after the work transaction rolled back, so it does not nest. */
   const recordFailedToolCall = (call: ToolCallProgress, message: string) =>
     database.transaction(() =>
       record(call, [

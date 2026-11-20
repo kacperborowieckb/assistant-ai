@@ -199,7 +199,6 @@ export const send = Effect.fnUntraced(function* send(
 const appendEntry = (record: JournalEntry["record"]) =>
   Journal.pipe(Effect.flatMap((journal) => journal.append(record)));
 
-// Silence makes no Channel call. Its Entry is final: recovery never sends.
 export const staySilent = (event: InboxEvent) =>
   appendEntry({ _tag: "StayedSilent", eventId: event.eventId });
 

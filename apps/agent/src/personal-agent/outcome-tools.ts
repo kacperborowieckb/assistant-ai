@@ -48,10 +48,6 @@ interface OutcomeToolResults {
   readonly refused: boolean;
 }
 
-/**
- * Gives every pending outcome tool call of the last step its result, so no
- * step is saved or sent back to the model with an unanswered call.
- */
 const closeLastStep = (
   steps: readonly ModelStep[],
   { calls, output, refused }: OutcomeToolResults
@@ -109,11 +105,6 @@ interface OutcomeGeneration {
   readonly tools: AgentTools;
 }
 
-/**
- * Runs the model until it ends the Turn with a final text or an accepted
- * outcome tool. A refused outcome tool goes back to the model as the tool
- * result, and the model continues within the same step limit.
- */
 export const generateWithOutcomeTools = Effect.fnUntraced(
   function* generateWithOutcomeTools({
     eventId,

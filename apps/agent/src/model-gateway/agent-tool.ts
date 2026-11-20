@@ -93,10 +93,6 @@ interface OutcomeToolDefinition<Input> {
   readonly inputSchema: FlexibleSchema<Input>;
 }
 
-/**
- * A tool without an execute function. A call to it ends the tool loop, and
- * code decides what the call means (see ModelReply.endedWith).
- */
 export const outcomeTool = <Input>(
   definition: OutcomeToolDefinition<Input>
 ): AgentTool => ({

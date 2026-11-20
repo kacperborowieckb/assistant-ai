@@ -36,11 +36,6 @@ export interface ModelReply {
   readonly text: string;
   readonly usage: Usage;
   readonly steps: readonly ModelStep[];
-  /**
-   * The calls of tools without an execute function (outcome tools) that
-   * ended the tool loop, empty when the model ended with text. Their results
-   * are not in the steps yet: the caller decides them.
-   */
   readonly endedWith: readonly PendingToolCall[];
 }
 

@@ -78,8 +78,6 @@ beforeEach(() => {
   resetFakes();
 });
 
-// A failed call is kept with its error result (no write), so a Turn that
-// restarts after a reset sees the failure (decision 0021).
 const failedCallMessages = (message: string) => [
   {
     role: "assistant",

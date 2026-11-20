@@ -80,8 +80,6 @@ export const recordedTool = <
           .pipe(
             Effect.catchCause((cause) => {
               const failure = toolFailedFrom(definition.failureMessage)(cause);
-              // The failed call survives a reset, so the restarted Turn sees
-              // it and silence stays refused.
               return progress
                 .recordFailedToolCall(call, failure.message)
                 .pipe(Effect.andThen(Effect.fail(failure)));

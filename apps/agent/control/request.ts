@@ -46,7 +46,6 @@ export class ReplyMissing extends Data.TaggedError("ReplyMissing")<{
   }
 }
 
-// The control project cannot import the Worker module that defines the name.
 const staySilentToolName = "stay_silent";
 
 const stayedSilentOn = (
