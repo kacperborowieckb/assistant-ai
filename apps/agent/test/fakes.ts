@@ -22,7 +22,7 @@ export interface TelegramChatAction {
   readonly at: number;
 }
 
-export type ChatActionAnswer = "confirm" | "refuse" | "hang";
+export type ChatActionAnswer = "confirm" | "refuse" | "hang" | "hang-first";
 
 const fakeTelegramState = {
   sent: [] as SentTelegramMessage[],
@@ -40,7 +40,11 @@ const answerChatAction = async (request: Request) => {
   const body = await request.json<{ chat_id: number; action: string }>();
   recorded.chatId = body.chat_id;
   recorded.action = body.action;
-  if (fakeTelegramState.chatActionAnswer === "hang") {
+  if (
+    fakeTelegramState.chatActionAnswer === "hang" ||
+    (fakeTelegramState.chatActionAnswer === "hang-first" &&
+      fakeTelegramState.chatActions.length === 1)
+  ) {
     return Promise.withResolvers<Response>().promise;
   }
   if (fakeTelegramState.chatActionAnswer === "refuse") {

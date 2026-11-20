@@ -160,6 +160,26 @@ describe("Acknowledge: typing while the agent works", () => {
     );
   }, 20_000);
 
+  it("keeps repeating when one typing signal gets no answer", async () => {
+    await addOwner(12_108);
+    fakeTelegram.answerChatActionsWith("hang-first");
+    const releaseModel = holdModel();
+
+    await telegramWebhook(
+      textUpdate({ fromUserId: 12_108, text: "unanswered" })
+    );
+    await vi.waitFor(() =>
+      expect(fakeTelegram.chatActions.length).toBeGreaterThanOrEqual(4)
+    );
+    releaseModel();
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(1));
+
+    const [hung, next] = fakeTelegram.chatActions;
+    expect((next?.at ?? 0) - (hung?.at ?? 0)).toBeLessThan(
+      testTypingRepeatMillis * 3
+    );
+  });
+
   it("keeps the Turn's outcome when Telegram refuses the typing signal", async () => {
     const ownerId = await addOwner(12_103);
     fakeTelegram.answerChatActionsWith("refuse");
