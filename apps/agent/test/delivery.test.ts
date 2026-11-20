@@ -164,7 +164,7 @@ describe("the Delivery state of an Event", () => {
     });
   });
 
-  it("stores a reaction plan as a ReplyPlanned Entry that a version without reactions still reads", () => {
+  it("stores a reaction plan as a ReplyPlanned Entry that a version without reactions reads as a text plan, settling an unconfirmed send as failed and a sent one as done", () => {
     const stored = Schema.encodeSync(
       Schema.fromJsonString(JournalRecordSchema)
     )({
@@ -179,10 +179,18 @@ describe("the Delivery state of an Event", () => {
       })
     );
 
-    expect(Schema.decodeUnknownSync(earlierReplyPlanned)(stored)).toEqual({
-      _tag: "ReplyPlanned",
-      eventId,
+    const earlierRead = Schema.decodeUnknownSync(earlierReplyPlanned)(stored);
+
+    expect(earlierRead).toEqual({ _tag: "ReplyPlanned", eventId, text: "" });
+    expect(stateAfter(earlierRead, started)).toEqual({
+      _tag: "Unconfirmed",
       text: "",
+    });
+    expect(stateAfter(earlierRead, started, sent)).toEqual({
+      _tag: "Sent",
+      text: "",
+      reaction: undefined,
+      channelMessageId: "9100",
     });
   });
 
