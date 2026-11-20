@@ -32,7 +32,7 @@ export const renderFeatureMap = () =>
     "",
     "1. Run `pnpm control dev`. It applies the Directory migrations to local D1 and starts the Worker with a fake Telegram API and a fake model.",
     "2. Run `pnpm control owner add --telegram-user <id>` to seed the Owner through `POST /operator/owners`.",
-    "3. Send a Telegram update to `POST /telegram/webhook` with the `TELEGRAM_WEBHOOK_SECRET` from `.dev.vars`. The `dev` output shows the fake `sendMessage` reply. Before the reply, the Personal Agent shows the typing signal with Telegram `sendChatAction` (`typing`), at once and about every 4 seconds until the reply is delivered; Reminders, Scheduled Tasks, and Proactive Messages show none.",
+    "3. Send a Telegram update to `POST /telegram/webhook` with the `TELEGRAM_WEBHOOK_SECRET` from `.dev.vars`. The `dev` output shows the fake `sendMessage` reply. Before the reply, the Personal Agent shows the typing signal with Telegram `sendChatAction` (`typing`), at once and about every 4 seconds until the reply is delivered or the Turn stays silent; Reminders, Scheduled Tasks, and Proactive Messages show none.",
     "",
     "`pnpm control request --contains <text>` runs steps 1 to 3 with temporary storage and checks the reply. It prints the fake `sendChatAction` calls that each message got before its reply. Without `--contains`, it shows what the agent sent, including no send.",
     "",

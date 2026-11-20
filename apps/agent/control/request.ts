@@ -23,10 +23,13 @@ const replyPartsContain = (parts: readonly string[], contains: string) => {
   );
 };
 
-const renderChatActions = (chatActions: readonly FakeTelegramChatAction[]) =>
+const renderChatActions = (
+  chatActions: readonly FakeTelegramChatAction[],
+  outcome = "the reply"
+) =>
   chatActions.length === 0
-    ? "Telegram sendChatAction: none before the reply"
-    : `Telegram sendChatAction before the reply: ${chatActions
+    ? `Telegram sendChatAction: none before ${outcome}`
+    : `Telegram sendChatAction before ${outcome}: ${chatActions
         .map(
           (chatAction) => `"${chatAction.action}" to chat ${chatAction.chatId}`
         )
@@ -121,6 +124,10 @@ export const requestReply = ({
         }
         replyParts = [];
         lines.push(
+          renderChatActions(
+            fakes.chatActions().slice(chatActionsBefore),
+            "the silence"
+          ),
           `No Telegram send for the message "${message}": the agent stayed silent (${staySilentToolName})`
         );
         continue;

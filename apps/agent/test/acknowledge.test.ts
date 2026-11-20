@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Journal } from "../src/journal/journal.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
+import { staySilentToolName } from "../src/personal-agent/stay-silent-tool.ts";
 import { OwnerPreferences } from "../src/preferences/owner-preferences.ts";
 import { setTimeZoneToolName } from "../src/preferences/set-time-zone-tool.ts";
 import { briefPrompt } from "../src/schedule/brief-prompt.ts";
@@ -115,6 +116,27 @@ describe("Acknowledge: typing while the agent works", () => {
       )
     ).toEqual(new Set(["12102:typing"]));
     expect(fakeTelegram.sent).toHaveLength(1);
+  });
+
+  it("repeats typing while the model decides and stops after the Turn stays silent", async () => {
+    const ownerId = await addOwner(12_109);
+    scriptModel([{ callTool: staySilentToolName, input: {} }]);
+    const releaseModel = holdModel();
+
+    await telegramWebhook(textUpdate({ fromUserId: 12_109, text: "ok" }));
+    await vi.waitFor(() =>
+      expect(fakeTelegram.chatActions.length).toBeGreaterThanOrEqual(3)
+    );
+
+    releaseModel();
+    await vi.waitFor(async () =>
+      expect(await journalTagsOf(ownerId)).toContain("StayedSilent")
+    );
+    const afterSilence = await settleTyping();
+    await pause(testTypingRepeatMillis * 5);
+
+    expect(fakeTelegram.chatActions).toHaveLength(afterSilence);
+    expect(fakeTelegram.sent).toEqual([]);
   });
 
   it("sends no typing after the reply starts to send, also while Telegram is slow to confirm", async () => {
