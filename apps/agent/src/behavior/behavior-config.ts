@@ -11,6 +11,8 @@ export interface BehaviorConfig {
   readonly proactiveMessageBudget: number;
   readonly proactiveMergeWindowMillis: number;
   readonly typingRepeatMillis: number;
+  readonly burstQuietMillis: number;
+  readonly burstMaxWaitMillis: number;
   readonly quietHours: { readonly start: string; readonly end: string };
   readonly defaultTimeZone?: string | undefined;
 }
@@ -29,5 +31,7 @@ export const defaultBehaviorConfig: BehaviorConfig = {
   proactiveMessageBudget: 3,
   proactiveMergeWindowMillis: 30 * 60 * 1000,
   typingRepeatMillis: 4000,
+  burstQuietMillis: 2500,
+  burstMaxWaitMillis: 10_000,
   quietHours: { start: "22:00", end: "08:00" },
 };

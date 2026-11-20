@@ -1,9 +1,16 @@
 import { DateTime, Effect, Layer, Option, Context } from "effect";
 
+import { defaultBehaviorConfig } from "../behavior/behavior-config.ts";
 import { Journal } from "../journal/journal.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { AgentStorage } from "../personal-agent/agent-storage.ts";
+import {
+  burstWaitOf,
+  makeBurstWaitQueries,
+} from "../personal-agent/burst-wait.ts";
+import type { BurstWait } from "../personal-agent/burst-wait.ts";
 import { nextOccurrence } from "../time/next-occurrence.ts";
+import { earlierOf } from "./outcome-alarm-queries.ts";
 import { columnsOfAction } from "./schedule-action.ts";
 import { makeScheduleMoves } from "./schedule-moves.ts";
 import { makeScheduleQueries } from "./schedule-queries.ts";
@@ -29,9 +36,12 @@ export interface AlarmClock {
   readonly setAt: (dueAt: Option.Option<DateTime.Utc>) => Promise<void>;
 }
 
+const defaultBurstWait = () => burstWaitOf(defaultBehaviorConfig);
+
 const makeSchedules = Effect.fnUntraced(function* makeSchedules(
   ownerId: OwnerId,
-  clock: AlarmClock
+  clock: AlarmClock,
+  burstWait: () => BurstWait
 ) {
   const { database } = yield* AgentStorage;
   const journal = yield* Journal;
@@ -39,7 +49,13 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
   const { requireRoomForScheduledTask } = queries;
   const writeSchedule = yield* makeWriteSchedule(ownerId, queries);
 
-  const rearm = queries.earliestAlarmAt.pipe(
+  const { burstAlarmAt } = makeBurstWaitQueries(database);
+
+  const rearm = Effect.all([
+    queries.earliestAlarmAt,
+    Effect.suspend(() => burstAlarmAt(burstWait())),
+  ]).pipe(
+    Effect.map(([scheduleAt, burstAt]) => earlierOf(scheduleAt, burstAt)),
     Effect.flatMap((dueAt) => Effect.promise(() => clock.setAt(dueAt)))
   );
 
@@ -179,6 +195,7 @@ const makeSchedules = Effect.fnUntraced(function* makeSchedules(
     });
 
   return {
+    rearm: rearmWithoutFailing,
     listActive: queries.listActive,
     byId: queries.byId,
     activeAgentDueBy: queries.activeAgentDueBy,
@@ -198,6 +215,9 @@ export class Schedules extends Context.Service<
   Schedules,
   Effect.Success<ReturnType<typeof makeSchedules>>
 >()("Schedules") {
-  static readonly layer = (ownerId: OwnerId, clock: AlarmClock) =>
-    Layer.effect(Schedules, makeSchedules(ownerId, clock));
+  static readonly layer = (
+    ownerId: OwnerId,
+    clock: AlarmClock,
+    burstWait: () => BurstWait = defaultBurstWait
+  ) => Layer.effect(Schedules, makeSchedules(ownerId, clock, burstWait));
 }

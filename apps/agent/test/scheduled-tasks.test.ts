@@ -1044,6 +1044,7 @@ describe("the daily Token Budget of Scheduled Tasks", () => {
                   eventId,
                   scheduleId: schedule.scheduleId,
                   dueAt: DateTime.formatIso(schedule.nextDueAt),
+                  receivedAt: DateTime.formatIso(schedule.nextDueAt),
                   state: "pending",
                 }
               ).pipe(

@@ -8,13 +8,7 @@ import { OwnerIdSchema } from "../src/owner-id.ts";
 import { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 import { staySilentToolName } from "../src/personal-agent/stay-silent-tool.ts";
-import {
-  fakeBursts,
-  fakeModel,
-  fakeTelegram,
-  resetFakes,
-  scriptModel,
-} from "./fakes.ts";
+import { fakeModel, fakeTelegram, resetFakes, scriptModel } from "./fakes.ts";
 import { addOwner } from "./telegram-requests.ts";
 
 const burstTexts = ["ok", "thanks", "👍"] as const;
@@ -95,7 +89,6 @@ describe("A burst of Owner messages that ends in silence", () => {
   it("sends nothing and marks every Event of the burst done", async () => {
     const ownerId = await addOwner(7201);
     await storeBurst(ownerId, 7201);
-    fakeBursts.allPendingTogether = true;
     scriptModel([{ callTool: staySilentToolName, input: {} }]);
 
     await runTurn(ownerId);

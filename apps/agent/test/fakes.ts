@@ -263,12 +263,14 @@ export const fakeTool = {
   failWith: undefined as string | undefined,
 };
 
-export const fakeBursts = {
-  allPendingTogether: false,
+export const fakeBurstWait = {
+  quietMillis: 0,
+  maxWaitMillis: 0,
 };
 
 export const resetFakes = () => {
-  fakeBursts.allPendingTogether = false;
+  fakeBurstWait.quietMillis = 0;
+  fakeBurstWait.maxWaitMillis = 0;
   modelScript.length = 0;
   fakeTool.kept = [];
   fakeTool.failWith = undefined;

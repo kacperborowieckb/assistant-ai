@@ -129,13 +129,16 @@ describe("Private metrics", () => {
     expect(unknown.status).toBe(200);
   });
 
-  it("still answers every pending Event when the metric cannot be written", async () => {
+  it("still answers every Owner message when the metric cannot be written", async () => {
     fakeMetrics.failWrites();
     await addOwner(9009);
 
     await telegramWebhook(
       textUpdate({ fromUserId: 9009, text: "One", messageId: 1 })
     );
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(1), {
+      timeout: 10_000,
+    });
     await telegramWebhook(
       textUpdate({ fromUserId: 9009, text: "Two", messageId: 2 })
     );
