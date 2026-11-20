@@ -22,18 +22,25 @@ const foldedOpenLoops = Effect.fnUntraced(function* foldedOpenLoops({
   proactiveMessages,
   eventId,
 }: ReachServices) {
-  const entries = yield* journal.readOfKind("ProactiveMessageFolded");
+  const folds = yield* journal.readOfKind("ProactiveMessageFolded");
+  const plans = yield* journal.readOfKind("ProactiveMessagePlanned");
+  const planSequenceOf = new Map(
+    plans.flatMap(({ record, sequence }) =>
+      record._tag === "ProactiveMessagePlanned"
+        ? [[record.eventId, sequence] as const]
+        : []
+    )
+  );
   const planned = yield* proactiveMessages.plannedOpenLoops(eventId);
-  const notYetInAMessage = entries.flatMap(({ record, recordedAt }) =>
+  const listedAfter = (foldSequence: number, noteId: string) =>
+    planned.some(
+      (message) =>
+        (planSequenceOf.get(message.eventId) ?? 0) > foldSequence &&
+        message.openLoopIds.includes(noteId)
+    );
+  const notYetInAMessage = folds.flatMap(({ record, sequence }) =>
     record._tag === "ProactiveMessageFolded"
-      ? record.openLoopIds.filter(
-          (noteId) =>
-            !planned.some(
-              (message) =>
-                message.plannedAt > recordedAt &&
-                message.openLoopIds.includes(noteId)
-            )
-        )
+      ? record.openLoopIds.filter((noteId) => !listedAfter(sequence, noteId))
       : []
   );
   return yield* notes.openLoopsAmong([...new Set(notYetInAMessage)]);

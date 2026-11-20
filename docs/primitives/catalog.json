@@ -52,7 +52,7 @@
     },
     {
       "id": "journal",
-      "purpose": "The append-only Journal in the Personal Agent SQLite. The interface has append, read, and read for one Event, with no update or delete, and storage triggers refuse updates and deletes. BriefCreated records the creation of the Brief. ProactiveMessageHeld records a hold of a Proactive Message in Quiet Hours. ProactiveMuteChanged records a mute or an undo, and ProactiveMessageFolded records a folded follow-up.",
+      "purpose": "The append-only Journal in the Personal Agent SQLite. The interface has append, read, and read for one Event, with no update or delete, and storage triggers refuse updates and deletes. BriefCreated records the creation of the Brief. ProactiveMessageHeld records a hold of a Proactive Message in Quiet Hours. ProactiveMuteChanged records a mute or an undo, ProactiveMessageFolded records a folded follow-up, and ProactiveMessagePlanned orders the Open Loops that a Proactive Message lists against the folds.",
       "roots": ["apps/agent/src/journal"],
       "adrs": [
         "docs/decisions/0004-owners-and-channels.md",

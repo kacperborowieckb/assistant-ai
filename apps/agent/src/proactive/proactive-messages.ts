@@ -45,6 +45,12 @@ const makeProactiveMessages = Effect.gen(
           plannedAt: DateTime.formatIso(yield* DateTime.now),
         })
         .onConflictDoNothing();
+      const entries = yield* journal.readForEvent(eventId);
+      if (
+        !entries.some(({ record }) => record._tag === "ProactiveMessagePlanned")
+      ) {
+        yield* journal.append({ _tag: "ProactiveMessagePlanned", eventId });
+      }
       const planned = yield* forEvent(eventId);
       return planned?.openLoopIds ?? openLoopIds;
     });
@@ -54,13 +60,13 @@ const makeProactiveMessages = Effect.gen(
     ) {
       const rows = yield* database
         .select({
-          plannedAt: proactiveMessages.plannedAt,
+          eventId: proactiveMessages.eventId,
           openLoopIds: proactiveMessages.openLoopIds,
         })
         .from(proactiveMessages)
         .where(ne(proactiveMessages.eventId, exceptEventId));
       return rows.map((row) => ({
-        plannedAt: row.plannedAt,
+        eventId: row.eventId,
         openLoopIds: decodeIds(row.openLoopIds),
       }));
     });

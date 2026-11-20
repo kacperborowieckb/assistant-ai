@@ -28,3 +28,11 @@ DROP TABLE `owner_preferences`;--> statement-breakpoint
 ALTER TABLE `__new_owner_preferences` RENAME TO `owner_preferences`;--> statement-breakpoint
 PRAGMA foreign_keys=ON;--> statement-breakpoint
 CREATE INDEX `turn_traces_event` ON `turn_traces` (`event_id`);
+--> statement-breakpoint
+CREATE TRIGGER turn_traces_no_update
+BEFORE UPDATE ON turn_traces
+BEGIN SELECT RAISE(ABORT, 'Traces are append-only'); END;
+--> statement-breakpoint
+CREATE TRIGGER turn_traces_no_delete
+BEFORE DELETE ON turn_traces
+BEGIN SELECT RAISE(ABORT, 'Traces are append-only'); END;
