@@ -177,6 +177,22 @@ const muteCall = (input: Record<string, unknown>) => ({
   input: { action: "mute", ...input },
 });
 
+const muteOpenLoop = (ownerId: string, noteId: string) =>
+  inAgent(
+    ownerId,
+    OwnerPreferences.pipe(
+      Effect.flatMap((preferences) =>
+        preferences.changeProactiveMutes(
+          {
+            change: "muted",
+            targets: { openLoopIds: [noteId], kinds: [] },
+          },
+          "test-setup"
+        )
+      )
+    )
+  );
+
 const outcomeOf = async (ownerId: string) => {
   const [row] = await rowsOf(ownerId);
   return row?.outcome;
@@ -259,20 +275,7 @@ describe("a follow-up for a muted Open Loop", () => {
   it("folds with no model call, sends nothing, and the Brief still names the Open Loop", async () => {
     const ownerId = await ownerInWarsaw(9904);
     const note = await keepOpenLoop(ownerId, "Buy a gift for Ana");
-    await inAgent(
-      ownerId,
-      OwnerPreferences.pipe(
-        Effect.flatMap((preferences) =>
-          preferences.changeProactiveMutes(
-            {
-              change: "muted",
-              targets: { openLoopIds: [note.noteId], kinds: [] },
-            },
-            "test-setup"
-          )
-        )
-      )
-    );
+    await muteOpenLoop(ownerId, note.noteId);
     await seedFollowUp(ownerId, [note.noteId]);
     const modelCalls = fakeModel.doGenerateCalls.length;
     const sent = fakeTelegram.sent.length;
@@ -299,20 +302,7 @@ describe("a follow-up for a muted Open Loop", () => {
   it("folds once when the same Event is decided again", async () => {
     const ownerId = await ownerInWarsaw(9905);
     const note = await keepOpenLoop(ownerId, "Buy a gift for Ana");
-    await inAgent(
-      ownerId,
-      OwnerPreferences.pipe(
-        Effect.flatMap((preferences) =>
-          preferences.changeProactiveMutes(
-            {
-              change: "muted",
-              targets: { openLoopIds: [note.noteId], kinds: [] },
-            },
-            "test-setup"
-          )
-        )
-      )
-    );
+    await muteOpenLoop(ownerId, note.noteId);
     await seedFollowUp(ownerId, [note.noteId]);
 
     await makeDue(ownerId, followUpPrompt);
@@ -327,6 +317,55 @@ describe("a follow-up for a muted Open Loop", () => {
 
     expect(await journalTagsOf(ownerId, "ProactiveMessageFolded")).toHaveLength(
       1
+    );
+  });
+
+  it("names a folded Open Loop in the next Brief when more than 20 are open", async () => {
+    const ownerId = await ownerInWarsaw(9912);
+    await Promise.all(
+      Array.from({ length: 20 }, (_, index) =>
+        keepOpenLoop(ownerId, `Earlier task ${index}`)
+      )
+    );
+    const folded = await keepOpenLoop(ownerId, "Buy a gift for Ana");
+    await muteOpenLoop(ownerId, folded.noteId);
+    await seedFollowUp(ownerId, [folded.noteId]);
+    await makeDue(ownerId, followUpPrompt);
+    await vi.waitFor(async () =>
+      expect(
+        await journalTagsOf(ownerId, "ProactiveMessageFolded")
+      ).toHaveLength(1)
+    );
+
+    scriptModel([{ say: "Brief" }]);
+    await makeDue(ownerId, briefPrompt);
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+
+    const system = fakeModel.doGenerateCalls
+      .at(-1)
+      ?.prompt.find((message) => message.role === "system");
+    expect(JSON.stringify(system?.content)).toContain(folded.noteId);
+  });
+
+  it("sends a mixed follow-up that lists only the unmuted Open Loop and names the muted one", async () => {
+    const ownerId = await ownerInWarsaw(9913);
+    const muted = await keepOpenLoop(ownerId, "Buy a gift for Ana");
+    const kept = await keepOpenLoop(ownerId, "Pay the rent");
+    await muteOpenLoop(ownerId, muted.noteId);
+    await seedFollowUp(ownerId, [muted.noteId, kept.noteId]);
+    scriptModel([{ say: "Did you pay the rent?" }]);
+
+    await makeDue(ownerId, followUpPrompt);
+
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+    const system = fakeModel.doGenerateCalls
+      .at(-1)
+      ?.prompt.find((message) => message.role === "system");
+    const text = JSON.stringify(system?.content);
+    expect(text).toContain(`- ${kept.noteId} (task`);
+    expect(text).not.toContain(`- ${muted.noteId} (task`);
+    expect(text).toContain(
+      `less of these Open Loops, so they appear only in the Brief: ${muted.noteId}`
     );
   });
 
@@ -349,20 +388,7 @@ describe("set_schedule for a muted Open Loop", () => {
   it("refuses a follow-up and stores nothing", async () => {
     const ownerId = await ownerInWarsaw(9907);
     const note = await keepOpenLoop(ownerId, "Buy a gift for Ana");
-    await inAgent(
-      ownerId,
-      OwnerPreferences.pipe(
-        Effect.flatMap((preferences) =>
-          preferences.changeProactiveMutes(
-            {
-              change: "muted",
-              targets: { openLoopIds: [note.noteId], kinds: [] },
-            },
-            "test-setup"
-          )
-        )
-      )
-    );
+    await muteOpenLoop(ownerId, note.noteId);
     scriptModel([
       {
         callTool: setScheduleToolName,

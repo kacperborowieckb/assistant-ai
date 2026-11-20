@@ -77,8 +77,7 @@ export const scheduleToolServicesOf = (
     Effect.provideService(OwnerPreferences, preferences),
     Effect.orDie
   ),
-  mutedAmong: (noteIds) =>
-    mutedAmong({ preferences, notes }, noteIds).pipe(Effect.orDie),
+  mutedAmong: (noteIds) => mutedAmong({ preferences, notes }, noteIds),
   progress,
   redactor,
   maxActiveScheduledTasks: behavior.maxActiveScheduledTasks,

@@ -30,3 +30,5 @@ export const mutedAmong = Effect.fnUntraced(function* mutedAmong(
   const { muted } = yield* openLoopsWithMutes(services, noteIds);
   return muted.map(({ noteId }) => noteId);
 });
+
+export type MutedLookupFailed = Effect.Error<ReturnType<typeof mutedAmong>>;
