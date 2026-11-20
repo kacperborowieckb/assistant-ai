@@ -14,6 +14,7 @@ import { OwnerChannelConversation } from "../src/personal-agent/owner-channel-co
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 import { receiveEvent } from "../src/personal-agent/receive-event.ts";
 import { staySilentToolName } from "../src/personal-agent/stay-silent-tool.ts";
+import type { OwnerPreferences } from "../src/preferences/owner-preferences.ts";
 import { setTimeZoneToolName } from "../src/preferences/set-time-zone-tool.ts";
 import { ProactiveMessages } from "../src/proactive/proactive-messages.ts";
 import { Schedules } from "../src/schedule/schedules.ts";
@@ -25,6 +26,7 @@ import {
   resetFakes,
   scriptModel,
 } from "./fakes.ts";
+import { quietHoursLaterToday } from "./quiet-hours-setup.ts";
 import { addOwner, telegramWebhook, textUpdate } from "./telegram-requests.ts";
 
 const { proactiveResponseWindowMillis, burstQuietMillis } =
@@ -44,7 +46,7 @@ const inAgent = async <A, E>(
   effect: Effect.Effect<
     A,
     E,
-    Journal | Notes | ProactiveMessages | Schedules | Inbox
+    Journal | Notes | OwnerPreferences | ProactiveMessages | Schedules | Inbox
   >
 ) =>
   runInDurableObject(await agentOf(ownerId), (instance) =>
@@ -96,6 +98,7 @@ const ownerWithBrief = async (telegramUserId: number) => {
     textUpdate({ fromUserId: telegramUserId, text: "I live in Warsaw" })
   );
   await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(1));
+  await inAgent(ownerId, quietHoursLaterToday("Europe/Warsaw"));
   return ownerId;
 };
 

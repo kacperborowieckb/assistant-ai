@@ -125,9 +125,17 @@ export const pendingBursts = Effect.fnUntraced(function* pendingBursts(
   newBurstIsDue: boolean
 ) {
   const { joined, fresh } = yield* sortLinkedEvents(events);
+  const started = new Set<string>();
+  for (const event of fresh) {
+    if ((yield* deliveryStateOf(event.eventId))._tag !== "Unsent") {
+      started.add(event.eventId);
+    }
+  }
   const restored = new Map(
     fresh
-      .filter((event) => joined.has(event.eventId))
+      .filter(
+        (event) => joined.has(event.eventId) || started.has(event.eventId)
+      )
       .map((event): [string, Burst] => [
         event.eventId,
         [event, ...(joined.get(event.eventId) ?? [])],

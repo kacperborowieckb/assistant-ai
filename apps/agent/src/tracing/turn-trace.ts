@@ -51,7 +51,11 @@ const modelTraceFields = {
   usage: TraceUsageSchema,
   modelLatencyMillis: Schema.Number,
   outcome: Schema.NullOr(
-    Schema.Struct({ kind: Schema.Literals(outcomeKinds) })
+    Schema.Struct({
+      kind: Schema.Literals(outcomeKinds),
+      emoji: Schema.optionalKey(Schema.String),
+      requestedEmoji: Schema.optionalKey(Schema.String),
+    })
   ).pipe(Schema.withDecodingDefaultKey(Effect.succeed(null))),
   refusedOutcomeTools: Schema.Array(Schema.String).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed([]))

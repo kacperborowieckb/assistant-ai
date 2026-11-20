@@ -1,8 +1,14 @@
 import { Effect, Layer, Schema } from "effect";
 
 import { Channel } from "../channel.ts";
-import type { Delivery, OutgoingMessage } from "../channel.ts";
+import type {
+  Delivery,
+  OutgoingMessage,
+  OutgoingReaction,
+  ReactionDelivery,
+} from "../channel.ts";
 import { TypingNotShown } from "../typing-not-shown.ts";
+import { telegramReactionFor } from "./telegram-reactions.ts";
 
 export interface TelegramConfig {
   readonly apiUrl: string;
@@ -21,7 +27,7 @@ const SendMessageResponseSchema = Schema.Union([
   }),
 ]);
 
-const ChatActionResponseSchema = Schema.Union([
+const TrueResponseSchema = Schema.Union([
   Schema.Struct({ ok: Schema.Literal(true) }),
   Schema.Struct({
     ok: Schema.Literal(false),
@@ -140,7 +146,7 @@ const notShown = (reason: string) => new TypingNotShown({ reason });
 
 const typingAnswerOf = (response: Response) =>
   Effect.tryPromise(() => response.json()).pipe(
-    Effect.flatMap(Schema.decodeUnknownEffect(ChatActionResponseSchema)),
+    Effect.flatMap(Schema.decodeUnknownEffect(TrueResponseSchema)),
     Effect.mapError(() =>
       notShown(`Telegram answered ${response.status} without a result`)
     ),
@@ -164,8 +170,54 @@ const showTyping = (config: TelegramConfig) => (conversationId: string) =>
     catch: () => notShown("Telegram could not be reached"),
   }).pipe(Effect.flatMap(typingAnswerOf));
 
+const setMessageReactionRequest = (
+  config: TelegramConfig,
+  reaction: OutgoingReaction
+) =>
+  new Request(`${config.apiUrl}/bot${config.botToken}/setMessageReaction`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: Number(reaction.conversationId),
+      message_id: Number(reaction.channelMessageId),
+      reaction: [{ type: "emoji", emoji: reaction.emoji }],
+    }),
+  });
+
+const reactionDeliveryFrom = (response: Response, reaction: OutgoingReaction) =>
+  Effect.tryPromise(() => response.json()).pipe(
+    Effect.flatMap(Schema.decodeUnknownEffect(TrueResponseSchema)),
+    Effect.map((answer): ReactionDelivery =>
+      answer.ok
+        ? { _tag: "Confirmed", channelMessageId: reaction.channelMessageId }
+        : failed(
+            `Telegram refused the reaction (${response.status}): ${answer.description ?? "no description"}`
+          )
+    ),
+    Effect.orElseSucceed((): ReactionDelivery => ({
+      _tag: "Unconfirmed",
+      reason: `Telegram answered ${response.status} without a result`,
+    }))
+  );
+
+const react = (config: TelegramConfig) => (reaction: OutgoingReaction) =>
+  Effect.tryPromise(() =>
+    (config.fetch ?? fetch)(setMessageReactionRequest(config, reaction))
+  ).pipe(
+    Effect.matchEffect({
+      onFailure: () =>
+        Effect.succeed<ReactionDelivery>({
+          _tag: "Unconfirmed",
+          reason: "Telegram could not be reached",
+        }),
+      onSuccess: (response) => reactionDeliveryFrom(response, reaction),
+    })
+  );
+
 export const telegramChannel = (config: TelegramConfig) =>
   Layer.succeed(Channel, {
     send: send(config),
+    react: react(config),
+    allowedReaction: telegramReactionFor,
     showTyping: showTyping(config),
   });

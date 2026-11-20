@@ -11,6 +11,7 @@ import { TurnTraces } from "../tracing/turn-trace.ts";
 import type { TurnTrace } from "../tracing/turn-trace.ts";
 import { AgentStorage } from "./agent-storage.ts";
 import { Conversation } from "./conversation.ts";
+import { react } from "./delivery-reaction.ts";
 import { fail, send, staySilent } from "./delivery.ts";
 import { Inbox } from "./inbox.ts";
 import type { InboxEvent } from "./inbox.ts";
@@ -118,6 +119,7 @@ export const runModelTurn = <Failure, Requirements>({
         stepLimit: stepsLeft,
       },
       tools: kind.tools,
+      defaultReaction: behavior.defaultReaction,
     });
     const { outcome } = decided;
     const modelLatencyMillis = (yield* Clock.currentTimeMillis) - startedAt;
@@ -131,6 +133,7 @@ export const runModelTurn = <Failure, Requirements>({
           redactor,
           delivered,
           outcomeKind: decided.kind,
+          reaction: decided.reaction,
           refusedOutcomeTools: decided.refusedOutcomeTools,
         })
       );
@@ -180,12 +183,15 @@ export const runModelTurn = <Failure, Requirements>({
       });
       return;
     }
-    const replyText = redactor.redact(outcome.reply.text);
-    const delivery = yield* send(
-      event,
-      preparation.lateText(replyText),
-      kind.replyTo
-    );
+    const outcomeKind = decided.reaction === undefined ? "reply" : "reaction";
+    const delivery =
+      decided.reaction === undefined
+        ? yield* send(
+            event,
+            preparation.lateText(redactor.redact(outcome.reply.text)),
+            kind.replyTo
+          )
+        : yield* react(event, decided.reaction.emoji, kind.replyTo);
     if (delivery._tag === "Failed") {
       yield* remember;
       if (kind.tracesSendFailure === true) {
@@ -200,7 +206,7 @@ export const runModelTurn = <Failure, Requirements>({
         eventId: event.eventId,
         outcome,
         result: "send_failed",
-        outcomeKind: "reply",
+        outcomeKind,
         startedAt,
       });
       return;
@@ -220,8 +226,8 @@ export const runModelTurn = <Failure, Requirements>({
       ownerId,
       eventId: event.eventId,
       outcome,
-      result: "replied",
-      outcomeKind: "reply",
+      result: outcomeKind === "reply" ? "replied" : "reacted",
+      outcomeKind,
       startedAt,
     });
   });

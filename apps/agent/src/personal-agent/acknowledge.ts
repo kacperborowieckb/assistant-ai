@@ -30,7 +30,7 @@ export const showTypingOnce = Effect.fnUntraced(function* showTypingOnce(
  * Acknowledge: shows "typing" in the Owner's conversation while the effect
  * runs, at once and then every `repeatMillis` on a fixed cadence; an attempt
  * with no answer within `repeatMillis` is given up, so the next one still runs. Typing stops as soon as the
- * effect starts a Channel send (the reply or the honest failure notice), so
+ * effect starts a Channel send (the reply, the reaction, or the honest failure notice), so
  * no signal follows the outcome, and the scope stops it as a backstop. It is
  * best-effort: a failed signal is logged and never fails or delays the effect.
  */
@@ -54,6 +54,10 @@ export const whileAcknowledging =
               send: (message) =>
                 Fiber.interrupt(typing).pipe(
                   Effect.andThen(channel.send(message))
+                ),
+              react: (reaction) =>
+                Fiber.interrupt(typing).pipe(
+                  Effect.andThen(channel.react(reaction))
                 ),
             })
           )

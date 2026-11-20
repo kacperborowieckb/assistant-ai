@@ -12,6 +12,13 @@ import {
   isFakeBriefMove,
 } from "./fake-brief.ts";
 import { fakeChatActions, isSendChatAction } from "./fake-chat-actions.ts";
+import {
+  ChatCompletionBodySchema,
+  lastOwnerText,
+  systemTextOf,
+  toolResultOf,
+} from "./fake-completion.ts";
+import { readBody, sendJson } from "./fake-http.ts";
 import { fakeJudgeMessage, fakeJudgeModel } from "./fake-judge.ts";
 import type { FakeJudgeVerdict } from "./fake-judge.ts";
 import { fakeKeepMessage, fakeKeepPrefix } from "./fake-keep.ts";
@@ -22,6 +29,12 @@ import {
   fakeOpenLoopMessage,
   isFakeOpenLoopMessage,
 } from "./fake-open-loops.ts";
+import {
+  fakeReactionMessage,
+  fakeReactions,
+  isFakeReaction,
+  isSetMessageReaction,
+} from "./fake-reaction.ts";
 import { fakeRecallMessage, fakeRecallPrefix } from "./fake-recall.ts";
 import {
   fakeCancelReminderMessage,
@@ -57,53 +70,6 @@ const SendMessageBodySchema = Schema.Struct({
   ),
 });
 
-const ChatCompletionBodySchema = Schema.Struct({
-  model: Schema.String,
-  messages: Schema.Array(
-    Schema.Struct({ role: Schema.String, content: Schema.Unknown })
-  ),
-});
-
-const readBody = async (request: IncomingMessage) => {
-  const chunks: Buffer[] = [];
-  for await (const chunk of request) {
-    chunks.push(Buffer.from(chunk));
-  }
-  return JSON.parse(Buffer.concat(chunks).toString("utf-8")) as unknown;
-};
-
-const sendJson = (response: ServerResponse, status: number, body: unknown) => {
-  response.writeHead(status, { "Content-Type": "application/json" });
-  response.end(JSON.stringify(body));
-};
-
-const lastOwnerText = (
-  messages: (typeof ChatCompletionBodySchema.Type)["messages"]
-) => {
-  const content = messages.findLast(
-    (message) => message.role === "user"
-  )?.content;
-  return typeof content === "string" ? content : "";
-};
-
-const systemTextOf = (
-  messages: (typeof ChatCompletionBodySchema.Type)["messages"]
-) => {
-  const content = messages.find(
-    (message) => message.role === "system"
-  )?.content;
-  return typeof content === "string" ? content : "";
-};
-
-const toolResultOf = (
-  messages: (typeof ChatCompletionBodySchema.Type)["messages"]
-) => {
-  const last = messages.at(-1);
-  return last?.role === "tool" && typeof last.content === "string"
-    ? last.content
-    : undefined;
-};
-
 const fakeAssistantMessage = (
   ownerText: string,
   toolResult: string | undefined,
@@ -117,6 +83,9 @@ const fakeAssistantMessage = (
   }
   if (isFakeSmallTalk(ownerText)) {
     return fakeSmallTalkMessage(toolResult);
+  }
+  if (isFakeReaction(ownerText)) {
+    return fakeReactionMessage(ownerText, toolResult);
   }
   if (isFakeBriefMove(ownerText)) {
     return fakeBriefMoveMessage(toolResult, systemText);
@@ -162,6 +131,7 @@ export const startLocalFakes = Effect.fnUntraced(function* startLocalFakes({
   const telegramMessages = yield* Queue.unbounded<FakeTelegramMessage>();
   const sentTelegramMessages: FakeTelegramMessage[] = [];
   const chatActions = fakeChatActions();
+  const reactions = fakeReactions();
   const modelCalls: FakeModelCall[] = [];
   const pendingJudgeVerdicts = [...judgeVerdicts];
   let nextMessageId = 1;
@@ -232,6 +202,10 @@ export const startLocalFakes = Effect.fnUntraced(function* startLocalFakes({
         sendJson(response, 200, chatActions.record(body));
         return;
       }
+      if (isSetMessageReaction(request.url)) {
+        sendJson(response, 200, reactions.record(body));
+        return;
+      }
       if (request.url === chatCompletionsPath) {
         answerChatCompletion(request, body, response);
         return;
@@ -266,6 +240,7 @@ export const startLocalFakes = Effect.fnUntraced(function* startLocalFakes({
     nextTelegramMessage: Queue.take(telegramMessages),
     sentTelegramMessages: () => [...sentTelegramMessages],
     chatActions: chatActions.list,
+    reactions: reactions.list,
     modelCalls: () => [...modelCalls],
   };
 });

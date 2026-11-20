@@ -30,6 +30,7 @@ import {
   recordOutcomesOfFinishedTurns,
 } from "./outcome-records.ts";
 import { ownerMessageTools } from "./owner-message-tools.ts";
+import { reactSection, reactToolName } from "./react-tool.ts";
 import { staySilentSection, staySilentToolName } from "./stay-silent-tool.ts";
 import { traceOf } from "./turn-record.ts";
 import { ownerMessageRecovery, settleFromJournal } from "./turn-recovery.ts";
@@ -82,6 +83,7 @@ const answer = (
           ...preparation,
           situation: [
             ...(staySilentToolName in ownerTools ? [staySilentSection] : []),
+            ...(reactToolName in ownerTools ? [reactSection] : []),
             ...preparation.situation,
           ],
         }),
