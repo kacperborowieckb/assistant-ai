@@ -493,6 +493,31 @@ describe("undoing less of this", () => {
   });
 });
 
+describe("undoing a mute that was widened to the kind", () => {
+  it("unmutes the Open Loop that was muted by id first, so follow-ups resume", async () => {
+    const ownerId = await ownerInWarsaw(9915);
+    const note = await keepOpenLoop(ownerId, "Buy a gift for Ana", "gift");
+    await muteOpenLoop(ownerId, note.noteId);
+    scriptModel([
+      muteCall({ scope: "kind", openLoopIds: [note.noteId] }),
+      {
+        callTool: muteProactiveMessageToolName,
+        input: { action: "undo", scope: "kind", openLoopIds: [note.noteId] },
+      },
+      { say: "Back to normal" },
+    ]);
+
+    await ownerWrites(9915, "less of all gift things, then undo that");
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2));
+
+    expect(await mutesOf(ownerId)).toEqual({ openLoopIds: [], kinds: [] });
+    await seedFollowUp(ownerId, [note.noteId]);
+    scriptModel([{ say: "Did you buy the gift?" }]);
+    await makeDue(ownerId, followUpPrompt);
+    await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(3));
+  });
+});
+
 describe("the tools of a Turn", () => {
   it("offers mute_proactive_message to an owner Turn", async () => {
     await ownerInWarsaw(9909);

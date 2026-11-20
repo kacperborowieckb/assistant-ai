@@ -1,4 +1,4 @@
-import { and, eq, isNull, ne } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
 import { Journal } from "../journal/journal.ts";
@@ -64,7 +64,12 @@ const makeProactiveMessages = Effect.gen(
           openLoopIds: proactiveMessages.openLoopIds,
         })
         .from(proactiveMessages)
-        .where(ne(proactiveMessages.eventId, exceptEventId));
+        .where(
+          and(
+            ne(proactiveMessages.eventId, exceptEventId),
+            isNotNull(proactiveMessages.sentMessageId)
+          )
+        );
       return rows.map((row) => ({
         eventId: row.eventId,
         openLoopIds: decodeIds(row.openLoopIds),
