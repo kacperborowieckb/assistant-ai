@@ -16,6 +16,7 @@ import { inboxEvents, schedules } from "../personal-agent/storage-schema.ts";
 import { ActiveScheduledTaskLimitReached } from "./active-scheduled-task-limit-reached.ts";
 import { earlierOf, makeOutcomeAlarmQueries } from "./outcome-alarm-queries.ts";
 import { actionColumnOfTag } from "./schedule-action.ts";
+import { makeScheduleOpenLoopLinks } from "./schedule-open-loop-links.ts";
 import { toSchedule } from "./schedule.ts";
 
 export type ScheduleRow = typeof schedules.$inferSelect;
@@ -29,6 +30,8 @@ const firstOf = <Row>(rows: readonly Row[]) => Option.fromNullishOr(rows[0]);
 export const makeScheduleQueries = Effect.fnUntraced(
   function* makeScheduleQueries(ownerId: OwnerId) {
     const { database } = yield* AgentStorage;
+    const links = yield* makeScheduleOpenLoopLinks(ownerId);
+    const { withOpenLoops } = links;
 
     const ownRow = (scheduleId: string) =>
       and(eq(schedules.ownerId, ownerId), eq(schedules.scheduleId, scheduleId));
@@ -62,7 +65,7 @@ export const makeScheduleQueries = Effect.fnUntraced(
       .from(schedules)
       .where(and(eq(schedules.ownerId, ownerId), eq(schedules.state, "active")))
       .orderBy(asc(schedules.nextDueAt), asc(schedules.createdAt))
-      .pipe(Effect.map((rows) => rows.map(toSchedule)));
+      .pipe(Effect.flatMap(withOpenLoops));
 
     const countActiveScheduledTasks = database
       .select({ active: count() })
@@ -93,7 +96,10 @@ export const makeScheduleQueries = Effect.fnUntraced(
         .select()
         .from(schedules)
         .where(ownRow(scheduleId))
-        .pipe(Effect.map((rows) => firstOf(rows).pipe(Option.map(toSchedule))));
+        .pipe(
+          Effect.flatMap(withOpenLoops),
+          Effect.map((rows) => firstOf(rows))
+        );
 
     const agentPromptScheduleId = (prompt: string) =>
       database
@@ -170,7 +176,7 @@ export const makeScheduleQueries = Effect.fnUntraced(
           and(unfiredActive, lte(schedules.nextDueAt, DateTime.formatIso(now)))
         )
         .orderBy(asc(schedules.nextDueAt), asc(schedules.createdAt))
-        .pipe(Effect.map((rows) => rows.map(toSchedule)));
+        .pipe(Effect.map((rows) => rows.map((row) => toSchedule(row))));
 
     const activeRepeatingOutsideZone = (zoneName: string) =>
       database
@@ -217,6 +223,7 @@ export const makeScheduleQueries = Effect.fnUntraced(
 
     return {
       listActive,
+      ...links,
       requireRoomForScheduledTask,
       byId,
       agentPromptScheduleId,

@@ -1,4 +1,4 @@
-import { and, asc, count, eq, isNull } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { Journal } from "../journal/journal.ts";
@@ -127,5 +127,26 @@ export const makeOpenLoopStore = Effect.fnUntraced(function* makeOpenLoopStore(
       }))
     );
 
-  return { journalOpenLoopChange, closeOpenLoop, listOpenLoops };
+  const openLoopsAmong = (noteIds: readonly string[]) =>
+    noteIds.length === 0
+      ? Effect.succeed<readonly Note[]>([])
+      : database
+          .select()
+          .from(notes)
+          .where(
+            and(
+              eq(notes.ownerId, ownerId),
+              isOpenLoopOpen,
+              inArray(notes.noteId, [...noteIds])
+            )
+          )
+          .orderBy(...dueFirst)
+          .pipe(Effect.map((rows) => rows.map(toNote)));
+
+  return {
+    journalOpenLoopChange,
+    closeOpenLoop,
+    listOpenLoops,
+    openLoopsAmong,
+  };
 });

@@ -5,6 +5,7 @@ export interface BehaviorConfig {
   readonly reminderGraceMillis: number;
   readonly scheduledTaskDailyTokenBudget: number;
   readonly maxActiveScheduledTasks: number;
+  readonly maxActiveAgentSchedules: number;
   readonly proactiveDailyTokenBudget: number;
   readonly proactiveResponseWindowMillis: number;
   readonly quietHours: { readonly start: string; readonly end: string };
@@ -19,6 +20,7 @@ export const defaultBehaviorConfig: BehaviorConfig = {
   reminderGraceMillis: 5 * 60 * 1000,
   scheduledTaskDailyTokenBudget: 200_000,
   maxActiveScheduledTasks: 10,
+  maxActiveAgentSchedules: 20,
   proactiveDailyTokenBudget: 200_000,
   proactiveResponseWindowMillis: 24 * 60 * 60 * 1000,
   quietHours: { start: "22:00", end: "08:00" },

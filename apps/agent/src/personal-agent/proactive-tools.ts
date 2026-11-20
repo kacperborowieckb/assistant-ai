@@ -18,6 +18,10 @@ import {
   listSchedulesTool,
   listSchedulesToolName,
 } from "../schedule/list-schedules-tool.ts";
+import {
+  setScheduleTool,
+  setScheduleToolName,
+} from "../schedule/set-schedule-tool.ts";
 import { scheduleToolServicesOf } from "./owner-message-tools.ts";
 import type { ScheduledTaskToolServices } from "./scheduled-task-tools.ts";
 
@@ -26,7 +30,7 @@ export const proactiveTools = (
   services: ScheduledTaskToolServices
 ) => {
   const { notes, progress, redactor } = services;
-  const scheduleServices = scheduleToolServicesOf(services);
+  const scheduleServices = scheduleToolServicesOf(services, "proactive");
   const noteServices = {
     notes,
     ownerTimeZone: scheduleServices.ownerTimeZone,
@@ -39,5 +43,6 @@ export const proactiveTools = (
     [closeOpenLoopToolName]: closeOpenLoopTool(noteServices, eventId),
     [listOpenLoopsToolName]: listOpenLoopsTool(noteServices, eventId),
     [listSchedulesToolName]: listSchedulesTool(scheduleServices, eventId),
+    [setScheduleToolName]: setScheduleTool(scheduleServices, eventId),
   };
 };

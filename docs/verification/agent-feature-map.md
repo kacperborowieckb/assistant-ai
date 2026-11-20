@@ -33,6 +33,10 @@ In the local fake model, `brief soon` moves the Brief to the next minute, and th
 
 No Proactive Message arrives in the Quiet Hours of the Owner (default 22:00 to 08:00 local). The Owner reads and changes them in the chat with the tool `quiet_hours`, and a Brief at the old end moves to the new end. When a Schedule that the agent set fires in Quiet Hours, code makes no model call and moves it to the end of Quiet Hours. Reminders and Scheduled Tasks that the Owner set still arrive. The local fake model has no message for Quiet Hours; the Worker tests in `test/quiet-hours.test.ts` prove the hold.
 
+## Follow-ups
+
+In a proactive Turn, the agent sets its own next follow-up with `set_schedule`: a `RunPrompt` Schedule with `openLoopIds`. Code sets `setBy: agent` because the Owner did not ask for a Schedule in that Turn, or in an owner message Turn when a call has `openLoopIds` and no `ownerAskedForSchedule`; the model never sets `setBy`. At most `maxActiveAgentSchedules` (20) agent Schedules are active, and Scheduled Tasks that the Owner set are not counted. `list_schedules` shows `setBy` and `openLoopIds`. A Turn for an untrusted Event has no `set_schedule`. The local fake model does not set follow-ups; the Worker tests in `apps/agent/test/follow-ups.test.ts` prove them.
+
 ## Scheduled Tasks in the chat
 
 A Scheduled Task is a Schedule with the `RunPrompt` Action. At the due time, the agent runs a Turn with the stored prompt and sends the result.

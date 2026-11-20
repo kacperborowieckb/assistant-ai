@@ -292,6 +292,7 @@ describe("a Brief that fires", () => {
       "list_open_loops",
       "list_schedules",
       "search_notes",
+      "set_schedule",
     ]);
   });
 

@@ -23,7 +23,7 @@ export const scheduledTaskTools = (
   services: ScheduledTaskToolServices
 ) => {
   const { notes, progress, redactor } = services;
-  const scheduleServices = scheduleToolServicesOf(services);
+  const scheduleServices = scheduleToolServicesOf(services, "owner-message");
   const noteServices = {
     notes,
     ownerTimeZone: scheduleServices.ownerTimeZone,

@@ -701,6 +701,7 @@ describe("Open Loops on Notes", () => {
       expect.arrayContaining([captureNoteToolName, listOpenLoopsToolName])
     );
     expect(offered).not.toContain(closeOpenLoopToolName);
+    expect(offered).not.toContain("set_schedule");
     expect(lastToolResultOf(captureNoteToolName)).toMatchObject({
       type: "json",
       value: {

@@ -10,6 +10,8 @@ export const scheduleOf = (
   scheduleId: schedule.scheduleId,
   action: schedule.action,
   noteId: schedule.noteId ?? null,
+  setBy: schedule.setBy,
+  openLoopIds: schedule.openLoopIds,
   due: localTimeOf(schedule.nextDueAt, schedule.repeat?.timeZone ?? timeZone),
   repeats:
     schedule.repeat === undefined
