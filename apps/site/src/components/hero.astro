@@ -169,11 +169,15 @@ const words = [
       </div>
     </div>
     <script type="application/json" data-conversations set:html={JSON.stringify(conversations)} />
-    <div class="float float--note" style="--i: 1" aria-hidden="true">
-      <div class="bob"><Tile icon="note" title="Note saved" detail="Packing list" /></div>
+    <!-- Around Billy, alternating sides: what he has already done today. -->
+    <div class="float float--brief" style="--i: 1" aria-hidden="true">
+      <div class="bob"><Tile icon="brief" title="Morning Brief" detail="3 things today" /></div>
     </div>
-    <div class="float float--brief" style="--i: 2" aria-hidden="true">
-      <div class="bob"><Tile icon="brief" title="Morning Brief" detail="Tomorrow at 8:00" /></div>
+    <div class="float float--note" style="--i: 2" aria-hidden="true">
+      <div class="bob"><Tile icon="note" title="Note saved" detail="Parking · Level 3" /></div>
+    </div>
+    <div class="float float--remind" style="--i: 3" aria-hidden="true">
+      <div class="bob"><Tile icon="reminder" title="Reminder set" detail="Dentist · Fri 17:30" /></div>
     </div>
   </div>
 </div>
@@ -272,7 +276,8 @@ const words = [
   .valley :global(.billy) {
     --mascot-size: 384px;
     inset-block-end: 172px;
-    inset-inline-start: calc(50% - 190px);
+    /* Shifted so his head, not the whole sprite with its tail, is centered. */
+    inset-inline-start: calc(50% - 230px);
   }
 
   .sparkle--a {
@@ -293,7 +298,7 @@ const words = [
   /* The thread floats to Billy's right, so his answer sits beside his head. */
   .float--thread {
     inset-block-start: 24px;
-    inset-inline-start: calc(50% + 200px);
+    inset-inline-start: calc(50% + 170px);
     inline-size: 380px;
   }
 
@@ -322,15 +327,21 @@ const words = [
     grid-area: 1 / 1;
   }
 
-  /* Things Billy already did, to his left. */
-  .float--note {
-    inset-block-start: 96px;
+  /* Alternating around Billy: upper left, the thread upper right, lower
+     left, lower right. */
+  .float--brief {
+    inset-block-start: 40px;
     inset-inline-end: calc(50% + 250px);
   }
 
-  .float--brief {
-    inset-block-start: 196px;
-    inset-inline-end: calc(50% + 320px);
+  .float--note {
+    inset-block-start: 190px;
+    inset-inline-end: calc(50% + 310px);
+  }
+
+  .float--remind {
+    inset-block-start: 300px;
+    inset-inline-start: calc(50% + 230px);
   }
 
   @keyframes float-in {
@@ -366,14 +377,22 @@ const words = [
   }
 
   @media (max-width: 1180px) {
-    .float--note,
-    .float--brief {
-      display: none;
+    .float--thread {
+      inset-inline-start: calc(50% + 140px);
+      inline-size: 300px;
     }
 
-    .float--thread {
-      inset-inline-start: calc(50% + 170px);
-      inline-size: 300px;
+    .float--brief {
+      inset-inline-end: calc(50% + 200px);
+    }
+
+    .float--note {
+      inset-inline-end: calc(50% + 240px);
+    }
+
+    .float--remind {
+      inset-block-start: 320px;
+      inset-inline-start: calc(50% + 180px);
     }
   }
 
@@ -395,7 +414,7 @@ const words = [
     .valley :global(.billy) {
       --mascot-size: 256px;
       inset-block-end: 179px;
-      inset-inline-start: calc(50% - 120px);
+      inset-inline-start: calc(50% - 147px);
     }
 
 
@@ -408,7 +427,10 @@ const words = [
       padding-inline: var(--space-4);
     }
 
-    .sparkle {
+    .sparkle,
+    .float--brief,
+    .float--note,
+    .float--remind {
       display: none;
     }
   }
