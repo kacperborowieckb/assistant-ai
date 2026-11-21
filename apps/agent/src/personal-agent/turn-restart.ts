@@ -9,6 +9,7 @@ import {
 import { TurnTraces } from "../tracing/turn-trace.ts";
 import type { TurnTrace } from "../tracing/turn-trace.ts";
 import { AgentStorage } from "./agent-storage.ts";
+import { burstWaitOf } from "./burst-wait.ts";
 import { turnEventOf } from "./burst.ts";
 import type { Burst } from "./burst.ts";
 import { deliveryStateOf } from "./delivery.ts";
@@ -52,24 +53,21 @@ const arrivedAfter = Effect.fnUntraced(function* arrivedAfter(burst: Burst) {
 
 export const restartOf = Effect.fnUntraced(function* restartOf(
   burst: Burst,
-  behavior: BehaviorConfig
+  behavior: BehaviorConfig,
+  restartsDone: number
 ) {
-  const journal = yield* Journal;
   const later = yield* arrivedAfter(burst);
   if (later.length === 0) {
     return Option.none<Restart>();
   }
   const turnEvent = turnEventOf(burst);
-  const restartsDone = restartCountOf(
-    yield* journal.readForEvent(turnEvent.eventId)
-  );
   const now = yield* DateTime.now;
   const waitedMillis =
     DateTime.toEpochMillis(now) -
     DateTime.toEpochMillis(DateTime.makeUnsafe(turnEvent.receivedAt));
   if (
     restartsDone >= behavior.burstMaxRestarts ||
-    waitedMillis >= behavior.burstMaxWaitMillis
+    waitedMillis >= burstWaitOf(behavior).maxWaitMillis
   ) {
     return Option.none<Restart>();
   }

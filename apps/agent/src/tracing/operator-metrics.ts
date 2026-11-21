@@ -14,6 +14,8 @@ export const turnMetricResults = [
   "superseded",
 ] as const;
 
+export type TurnMetricResult = (typeof turnMetricResults)[number];
+
 export const reminderMetricResults = ["delivered", "delivery_failed"] as const;
 
 export const skipMetricResults = ["daily_token_budget_spent"] as const;
@@ -33,7 +35,7 @@ export type OperatorMetric =
       readonly kind: "turn";
       readonly ownerId: OwnerId;
       readonly eventId: string;
-      readonly result: (typeof turnMetricResults)[number];
+      readonly result: TurnMetricResult;
       readonly outcome: OutcomeKind | undefined;
       readonly latencyMillis: number;
       readonly modelId: string;

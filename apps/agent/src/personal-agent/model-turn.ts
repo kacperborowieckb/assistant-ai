@@ -6,6 +6,7 @@ import type { AgentTools } from "../model-gateway/agent-tool.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { Profile } from "../profile/profile.ts";
 import { ownerCurrentTimeText } from "../time/owner-current-time.ts";
+import type { TurnMetricResult } from "../tracing/operator-metrics.ts";
 import { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
 import type { TurnTrace } from "../tracing/turn-trace.ts";
@@ -49,11 +50,10 @@ export interface ModelTurnKind<Failure, Requirements> {
   readonly inputs: readonly ModelMessage[];
   readonly tools: AgentTools;
   readonly traceOf: (model: ModelTraceInput) => TurnTrace;
-  readonly restartBeforeDelivery?: Effect.Effect<
-    Option.Option<Restart>,
-    Failure,
-    Requirements
-  >;
+  readonly restartSection?: string;
+  readonly restartBeforeDelivery?: (
+    restartsDone: number
+  ) => Effect.Effect<Option.Option<Restart>, Failure, Requirements>;
   readonly checkBeforeFirstStep?: (
     startedAt: number
   ) => Effect.Effect<BeforeFirstStep, Failure, Requirements>;
@@ -89,6 +89,7 @@ export const runModelTurn = <Failure, Requirements>({
     const progress = yield* TurnProgress;
 
     const startedAt = yield* Clock.currentTimeMillis;
+    const restartsDone = yield* restartCountForTurn(event.eventId);
     const stepsUsed = yield* progress.usedStepCount(event.eventId);
     if (stepsUsed === 0 && kind.checkBeforeFirstStep !== undefined) {
       const check = yield* kind.checkBeforeFirstStep(startedAt);
@@ -103,7 +104,12 @@ export const runModelTurn = <Failure, Requirements>({
       behavior,
       profile: yield* profile.read,
       currentTime: yield* ownerCurrentTimeText(behavior),
-      situation: preparation.situation,
+      situation: [
+        ...(restartsDone > 0 && kind.restartSection !== undefined
+          ? [kind.restartSection]
+          : []),
+        ...preparation.situation,
+      ],
     });
     const savedInputs = kind.inputs.map((input) =>
       redactor.redactMessage(input)
@@ -131,7 +137,6 @@ export const runModelTurn = <Failure, Requirements>({
     });
     const { outcome } = decided;
     const modelLatencyMillis = (yield* Clock.currentTimeMillis) - startedAt;
-    const restartsDone = yield* restartCountForTurn(event.eventId);
     const traceInput = {
       system,
       messages,
@@ -145,8 +150,9 @@ export const runModelTurn = <Failure, Requirements>({
     const recordTrace = (delivered: boolean) =>
       traces.record(kind.traceOf({ ...traceInput, delivered }));
     const recordMetric = (
-      result: Parameters<typeof recordTurnMetric>[0]["result"],
-      outcomeKind?: OutcomeKind
+      result: TurnMetricResult,
+      outcomeKind?: OutcomeKind,
+      restartCount = restartsDone
     ) =>
       recordTurnMetric({
         ownerId,
@@ -155,12 +161,12 @@ export const runModelTurn = <Failure, Requirements>({
         result,
         outcomeKind,
         startedAt,
-        restartCount: restartsDone,
+        restartCount,
       });
     const restart =
       kind.restartBeforeDelivery === undefined
         ? Option.none<Restart>()
-        : yield* kind.restartBeforeDelivery;
+        : yield* kind.restartBeforeDelivery(restartsDone);
     if (Option.isSome(restart)) {
       const { coveredEventIds, newEventIds } = restart.value;
       yield* recordSuperseded(
@@ -172,14 +178,7 @@ export const runModelTurn = <Failure, Requirements>({
         }),
         event.eventId
       );
-      yield* recordTurnMetric({
-        ownerId,
-        eventId: event.eventId,
-        outcome,
-        result: "superseded",
-        startedAt,
-        restartCount: restart.value.restartCount,
-      });
+      yield* recordMetric("superseded", undefined, restart.value.restartCount);
       return "Superseded" as const;
     }
     yield* recordTrace(true);

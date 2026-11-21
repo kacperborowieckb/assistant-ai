@@ -34,11 +34,7 @@ import { reactSection, reactToolName } from "./react-tool.ts";
 import { staySilentSection, staySilentToolName } from "./stay-silent-tool.ts";
 import { traceOf } from "./turn-record.ts";
 import { ownerMessageRecovery, settleFromJournal } from "./turn-recovery.ts";
-import {
-  restartCountForTurn,
-  restartOf,
-  restartSection,
-} from "./turn-restart.ts";
+import { restartOf, restartSection } from "./turn-restart.ts";
 
 interface TurnSettings {
   readonly behavior: BehaviorConfig;
@@ -73,7 +69,6 @@ const answer = (
     const settledBySilence: RecordedOutcome[] = [];
     const preparation = yield* connectedProactivePreparation(behavior, burst);
     const ownerTools = ownerMessageTools(burst, { ...toolServices, behavior });
-    const restarted = (yield* restartCountForTurn(event.eventId)) > 0;
 
     yield* linkBurst(burst);
     const turn = yield* runModelTurn({
@@ -88,14 +83,15 @@ const answer = (
         prepare: Effect.succeed({
           ...preparation,
           situation: [
-            ...(restarted ? [restartSection] : []),
             ...(staySilentToolName in ownerTools ? [staySilentSection] : []),
             ...(reactToolName in ownerTools ? [reactSection] : []),
             ...preparation.situation,
           ],
         }),
         traceOf: (model) => traceOf({ event, ...model }),
-        restartBeforeDelivery: restartOf(burst, behavior),
+        restartSection,
+        restartBeforeDelivery: (restartsDone) =>
+          restartOf(burst, behavior, restartsDone),
         whenSilent: settleSilentBurst(burst, settledBySilence).pipe(
           Effect.provideContext(silenceServices)
         ),
