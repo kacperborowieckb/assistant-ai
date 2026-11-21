@@ -7,7 +7,7 @@ import {
 import { Effect } from "effect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Journal } from "../src/journal/journal.ts";
+import { isRestartRecord, Journal } from "../src/journal/journal.ts";
 import { captureNoteToolName } from "../src/notes/capture-note-tool.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
@@ -116,9 +116,7 @@ const journalRecords = (ownerId: string) =>
 const journalTags = (ownerId: string) =>
   journalRecords(ownerId).then((records) =>
     records.map((record) =>
-      record._tag === "EventReceived" && record.restart !== undefined
-        ? "TurnSuperseded"
-        : record._tag
+      isRestartRecord(record) ? "TurnSuperseded" : record._tag
     )
   );
 
