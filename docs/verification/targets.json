@@ -7,6 +7,10 @@
     {
       "workspace": "packages/mascot",
       "guide": "docs/verification/mascot.md"
+    },
+    {
+      "workspace": "packages/tokens",
+      "guide": "docs/verification/tokens.md"
     }
   ]
 }
