@@ -18,6 +18,11 @@ import {
 export const JournalRecordSchema = Schema.TaggedUnion({
   EventReceived: { eventId: Schema.String },
   AnsweredByTurn: { eventId: Schema.String, turnEventId: Schema.String },
+  TurnSuperseded: {
+    eventId: Schema.String,
+    coveredEventIds: Schema.Array(Schema.String),
+    newEventIds: Schema.Array(Schema.String),
+  },
   TurnFailed: { eventId: Schema.String, reason: Schema.String },
   ReplyPlanned: { eventId: Schema.String, text: Schema.String },
   ReactionPlanned: {
@@ -146,6 +151,9 @@ export const answeringTurnEventIdOf = (entries: readonly JournalEntry[]) => {
     ? link.record.turnEventId
     : undefined;
 };
+
+export const restartCountOf = (entries: readonly JournalEntry[]) =>
+  entries.filter((entry) => entry.record._tag === "TurnSuperseded").length;
 
 const RecordJsonSchema = Schema.fromJsonString(JournalRecordSchema);
 

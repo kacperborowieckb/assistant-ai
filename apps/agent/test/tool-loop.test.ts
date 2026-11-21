@@ -330,7 +330,7 @@ describe("Tool loop", () => {
     const point = fakeMetrics.dataPoints.find((candidate) =>
       candidate.blobs?.includes("replied")
     );
-    expect(point?.doubles?.slice(-2)).toEqual([2, 1]);
+    expect(point?.doubles?.slice(-3)).toEqual([2, 1, 0]);
     expect(JSON.stringify(point)).not.toContain("secret-word");
   });
 });

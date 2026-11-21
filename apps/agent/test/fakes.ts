@@ -312,14 +312,18 @@ export const fakeTool = {
   failWith: undefined as string | undefined,
 };
 
+export const defaultTestMaxRestarts = 2;
+
 export const fakeBurstWait = {
   quietMillis: 0,
   maxWaitMillis: 0,
+  maxRestarts: defaultTestMaxRestarts,
 };
 
 export const resetFakes = () => {
   fakeBurstWait.quietMillis = 0;
   fakeBurstWait.maxWaitMillis = 0;
+  fakeBurstWait.maxRestarts = defaultTestMaxRestarts;
   modelScript.length = 0;
   fakeTool.kept = [];
   fakeTool.failWith = undefined;

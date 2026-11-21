@@ -60,6 +60,12 @@ const modelTraceFields = {
   refusedOutcomeTools: Schema.Array(Schema.String).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed([]))
   ),
+  restart: Schema.optionalKey(
+    Schema.Struct({
+      coveredEventIds: Schema.Array(Schema.String),
+      newEventIds: Schema.Array(Schema.String),
+    })
+  ),
 };
 
 const ReplyTraceBodySchema = Schema.Struct({

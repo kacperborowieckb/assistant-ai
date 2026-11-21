@@ -34,6 +34,11 @@ import { reactSection, reactToolName } from "./react-tool.ts";
 import { staySilentSection, staySilentToolName } from "./stay-silent-tool.ts";
 import { traceOf } from "./turn-record.ts";
 import { ownerMessageRecovery, settleFromJournal } from "./turn-recovery.ts";
+import {
+  restartCountForTurn,
+  restartOf,
+  restartSection,
+} from "./turn-restart.ts";
 
 interface TurnSettings {
   readonly behavior: BehaviorConfig;
@@ -68,9 +73,10 @@ const answer = (
     const settledBySilence: RecordedOutcome[] = [];
     const preparation = yield* connectedProactivePreparation(behavior, burst);
     const ownerTools = ownerMessageTools(burst, { ...toolServices, behavior });
+    const restarted = (yield* restartCountForTurn(event.eventId)) > 0;
 
     yield* linkBurst(burst);
-    yield* runModelTurn({
+    const turn = yield* runModelTurn({
       ownerId,
       behavior,
       kind: {
@@ -82,12 +88,14 @@ const answer = (
         prepare: Effect.succeed({
           ...preparation,
           situation: [
+            ...(restarted ? [restartSection] : []),
             ...(staySilentToolName in ownerTools ? [staySilentSection] : []),
             ...(reactToolName in ownerTools ? [reactSection] : []),
             ...preparation.situation,
           ],
         }),
         traceOf: (model) => traceOf({ event, ...model }),
+        restartBeforeDelivery: restartOf(burst, behavior),
         whenSilent: settleSilentBurst(burst, settledBySilence).pipe(
           Effect.provideContext(silenceServices)
         ),
@@ -97,6 +105,7 @@ const answer = (
     for (const recorded of settledBySilence) {
       yield* recordOutcomeMetric(ownerId, recorded);
     }
+    return turn;
   }).pipe(
     whileAcknowledging(replyTo.conversationId, behavior.typingRepeatMillis)
   );
@@ -111,8 +120,11 @@ const answerBurst = Effect.fnUntraced(function* answerBurst(
     turnEventOf(burst),
     ownerMessageRecovery(burst)
   );
-  if (outcome === "unanswered") {
-    yield* answer(ownerId, settings, burst);
+  if (
+    outcome === "unanswered" &&
+    (yield* answer(ownerId, settings, burst)) === "Superseded"
+  ) {
+    return;
   }
   yield* settleBurst(burst);
   for (const event of burst) {

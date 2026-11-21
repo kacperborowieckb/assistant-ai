@@ -133,9 +133,7 @@ export const pendingBursts = Effect.fnUntraced(function* pendingBursts(
   }
   const restored = new Map(
     fresh
-      .filter(
-        (event) => joined.has(event.eventId) || started.has(event.eventId)
-      )
+      .filter((event) => started.has(event.eventId))
       .map((event): [string, Burst] => [
         event.eventId,
         [event, ...(joined.get(event.eventId) ?? [])],

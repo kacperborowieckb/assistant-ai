@@ -33,7 +33,7 @@ describe("Private metrics", () => {
     expect(point?.blobs).toHaveLength(6);
     expect(point?.blobs?.[4]).not.toBe("");
     expect(point?.blobs?.[5]).toBe("reply");
-    expect(point?.doubles?.slice(1)).toEqual([42, 7, 0, 12, 1, 0]);
+    expect(point?.doubles?.slice(1)).toEqual([42, 7, 0, 12, 1, 0, 0]);
     expect(point?.doubles?.[0]).toBeGreaterThanOrEqual(0);
     const everything = JSON.stringify(fakeMetrics.dataPoints);
     expect(everything).not.toContain("private secret plan");
@@ -50,7 +50,7 @@ describe("Private metrics", () => {
     const [point] = fakeMetrics.dataPoints;
     expect(point?.indexes).toEqual([ownerId]);
     expect(point?.blobs?.slice(0, 2)).toEqual(["turn", "model_failed"]);
-    expect(point?.doubles?.slice(1)).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(point?.doubles?.slice(1)).toEqual([0, 0, 0, 0, 0, 0, 0]);
   });
 
   it("records a Turn whose send Telegram refused as send_failed", async () => {

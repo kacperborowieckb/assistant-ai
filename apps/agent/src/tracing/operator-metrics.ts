@@ -11,6 +11,7 @@ export const turnMetricResults = [
   "silent",
   "model_failed",
   "send_failed",
+  "superseded",
 ] as const;
 
 export const reminderMetricResults = ["delivered", "delivery_failed"] as const;
@@ -39,6 +40,7 @@ export type OperatorMetric =
       readonly usage: Usage | undefined;
       readonly stepCount: number;
       readonly toolCallCount: number;
+      readonly restartCount: number;
     }
   | {
       readonly kind: "reminder";
@@ -104,6 +106,7 @@ const dataPointOf = (metric: OperatorMetric): AnalyticsEngineDataPoint => {
       usage?.cachedInputTokens ?? 0,
       metric.kind === "turn" ? metric.stepCount : 0,
       metric.kind === "turn" ? metric.toolCallCount : 0,
+      metric.kind === "turn" ? metric.restartCount : 0,
     ],
   };
 };
