@@ -7,15 +7,17 @@ import PixelIcon from "./pixel-icon.astro";
 interface Props {
   icon: IconName;
   action?: string;
+  /** Lets the hero chat script swap the icon, text, and action. */
+  hooks?: boolean;
 }
 
-const { icon, action } = Astro.props;
+const { icon, action, hooks = false } = Astro.props;
 ---
 
 <div class="confirmation">
-  <PixelIcon name={icon} scale={2} />
-  <span class="text"><slot /></span>
-  {action && <button type="button" class="action">{action}</button>}
+  <PixelIcon name={icon} scale={2} hook={hooks ? "card-icon" : undefined} />
+  <span class="text" data-hook={hooks ? "card-text" : undefined}><slot /></span>
+  {action && <button type="button" class="action" tabindex={hooks ? -1 : undefined} data-hook={hooks ? "card-action" : undefined}>{action}</button>}
 </div>
 
 <style>

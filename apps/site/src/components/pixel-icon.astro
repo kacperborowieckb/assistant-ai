@@ -7,10 +7,12 @@ interface Props {
   name: IconName;
   scale?: 1 | 2 | 3 | 4;
   label?: string;
+  /** Marks the image for a script that swaps it (the hero chat). */
+  hook?: string;
 }
 
-const { name, scale = 2, label } = Astro.props;
+const { name, scale = 2, label, hook } = Astro.props;
 const size = 16 * scale;
 ---
 
-<img class="px" src={icons[name]} alt={label ?? ""} width={size} height={size} />
+<img class="px" src={icons[name]} alt={label ?? ""} width={size} height={size} data-hook={hook} />

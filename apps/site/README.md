@@ -20,7 +20,7 @@ pnpm --filter @repo/site verify   # astro check, build, and tests
 - `src/pages`: one file per route (`index.astro`, `404.astro`).
 - `src/components`: page sections (`hero`, `pillars`, `feature`, `privacy`, `self-host`, `faq`, `closing`, `footer`), the illustration panels (`capture-art`, `brief-art`, `work-art`, `mini-world`), and the drawn pieces (`billy`, `bubble`, `confirmation`, `reminder-row`, `tile`, `pixel-icon`, `avatar`).
 - `src/styles/site.css`: the reset, the content column (`.wrap`), the marketing type classes, the Button contract, day and night scenery, and the motion.
-- `src/scripts/site.ts`: the only script. It switches day and night from the sun or moon, turns the header into a material on scroll, and reveals sections and chat messages as they scroll in.
+- `src/scripts/site.ts` and `src/scripts/hero.ts`: the only scripts. It switches day and night from the sun or moon, turns the header into a material on scroll, and reveals sections and chat messages as they scroll in.
 
 ## Motion
 
@@ -29,6 +29,8 @@ Motion follows `.agents/skills/apple-design`, `.agents/skills/emil-design-eng`, 
 - Day and night: pressing the sun or moon saves the choice (`billy-theme` in local storage, applied before first paint) and plays a circular reveal out of it with the View Transitions API (`duration-theme`). Without that API, or under reduced motion, the theme switches at once.
 - Scenery: clouds drift left to right across their scene (`duration-drift`, linear) and float (`duration-bob`); the water flows (`duration-flow`); stars twinkle at night. At night the scenery is dimmed with a filter; Billy never is.
 - Billy does not move on the site for now: no greeting, idle, or tap animation. His animation comes later, from the mascot artwork.
+- Hero: the headline arrives word by word out of a blur (60ms apart) and a pixel wave is drawn under "all." in whole-pixel steps (`clip-path`). A ticker says what Billy just did, crossfading with a blur; every phrase shares one grid cell, so the pill never changes width. The floating chat plays real exchanges in turn: your message grows from its corner, Billy types, his reply and card arrive, then both leave faster than they came (`src/scripts/hero.ts`). With a fine pointer, the floats drift against it by their own depth, eased every frame. All of it waits while the hero is off screen or the tab is hidden.
+- Buttons: "Get Billy" sweeps a light across once on hover and nudges its arrow; "See how it works" nudges down.
 - Arrival: hero chat floats in once, sections and the messages in each chat panel arrive as they scroll into view, and questions open smoothly.
 - Feedback: buttons and the sun scale on press; tiles and cards lift on hover only where there is a fine pointer.
 - Reduced motion: no loops, no reveals, no movement; everything is visible at rest. Without script, everything is visible too.
