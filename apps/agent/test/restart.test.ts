@@ -419,6 +419,9 @@ describe(
       await send(14_101, "second", 2);
       await abortAllDurableObjects();
       releaseModel();
+      await pause(quietMillis / 3);
+      await fireAlarm(ownerId);
+      expect(fakeTelegram.sent).toEqual([]);
       await pause(quietMillis + 100);
       await fireAlarm(ownerId);
 
@@ -444,6 +447,9 @@ describe(
       await send(14_102, "and it is at 9", 2);
       await abortAllDurableObjects();
       releaseModel();
+      await pause(quietMillis / 3);
+      await fireAlarm(ownerId);
+      expect(fakeTelegram.sent).toEqual([]);
       await pause(quietMillis + 100);
       await fireAlarm(ownerId);
 
@@ -470,6 +476,9 @@ describe(
       await send(14_103, "thanks", 2);
       await abortAllDurableObjects();
       releaseModel();
+      await pause(quietMillis / 3);
+      await fireAlarm(ownerId);
+      expect(fakeTelegram.sent).toEqual([]);
       await pause(quietMillis + 100);
       await fireAlarm(ownerId);
 
@@ -479,6 +488,8 @@ describe(
       expect(replyTargets()).toEqual([2]);
       expect(await scheduleCount(ownerId)).toBe(1);
       expect(countOf(await journalTags(ownerId), "ScheduleSet")).toBe(1);
+      const restarted = fakeModel.doGenerateCalls.at(-1)?.prompt ?? [];
+      expect(toolMessageCountOf(restarted)).toBe(1);
     });
 
     it("gives one outcome when the reset comes after TurnSuperseded and before the next Turn", async () => {
@@ -494,6 +505,9 @@ describe(
       await waitForSupersede(ownerId);
       expect(fakeTelegram.sent).toEqual([]);
       await abortAllDurableObjects();
+      await pause(quietMillis / 3);
+      await fireAlarm(ownerId);
+      expect(fakeTelegram.sent).toEqual([]);
       await pause(quietMillis + 100);
       await fireAlarm(ownerId);
 
@@ -517,12 +531,12 @@ describe(
       await send(14_105, "keep: dentist on Thursday", 1);
       await waitForModelCalls(2);
       await send(14_105, "and it is at 9", 2);
-      fakeTelegram.delaySendsBy(3000);
+      const releaseSend = fakeTelegram.holdSends();
       releaseModel();
       await waitForSupersede(ownerId);
       await waitForSent(1);
       await abortAllDurableObjects();
-      fakeTelegram.delaySendsBy(0);
+      releaseSend();
       await pause(200);
       await fireAlarm(ownerId);
       await pause(quietMillis + 100);
