@@ -25,6 +25,18 @@ export const eventMessage = (event: InboxEvent): ModelMessage => ({
   content: textOf(event),
 });
 
+export const burstMessageLabel = (position: number, count: number) =>
+  `[Message ${position} of ${count}]`;
+
+export const numberedEventMessage = (
+  event: InboxEvent,
+  position: number,
+  count: number
+): ModelMessage => ({
+  role: "user",
+  content: `${burstMessageLabel(position, count)}\n${textOf(event)}`,
+});
+
 export const scheduledTaskInputMessage = (prompt: string): ModelMessage => ({
   role: "user",
   content: prompt,

@@ -1,6 +1,12 @@
 import { Effect, Schema } from "effect";
 
 import { ToolFailed } from "../model-gateway/agent-tool.ts";
+import {
+  noteSourceOfBurst,
+  trustLevelOfBurst,
+  turnEventOf,
+} from "../personal-agent/burst.ts";
+import type { Burst, BurstNoteSource } from "../personal-agent/burst.ts";
 import { recordedTool } from "../personal-agent/recorded-tool.ts";
 import { noteIdListSchema } from "./note-id-list-schema.ts";
 import { noteToolFailureMessage } from "./note-tool-failure-message.ts";
@@ -14,8 +20,11 @@ export const captureNoteToolName = "capture_note";
 export const noteNotKeptMessage =
   "The Note was not kept. Tell the Owner that you could not keep it.";
 
-export const forwardedInBurstMessage =
-  "These Owner messages hold a forwarded message together with other messages, so a Note cannot tell which text to keep with which source. Nothing was kept. Tell the Owner, and ask them to send the message to keep on its own.";
+export const messageNotNamedMessage =
+  "These Owner messages hold a forwarded message together with other messages, so the Note must name the message it keeps. Nothing was kept. Call capture_note again with message set to the number in the [Message n of m] label of the message to keep.";
+
+export const messageOutsideBurstMessage = (message: number, count: number) =>
+  `There is no Owner message ${message} in this Turn: its Owner messages are numbered 1 to ${count}. Nothing was kept. Call capture_note again with message set to the number in the [Message n of m] label of the message to keep.`;
 
 const CaptureNoteInput = Schema.Struct({
   text: Schema.String.pipe(
@@ -33,6 +42,14 @@ const CaptureNoteInput = Schema.Struct({
       })
     )
   ),
+  message: Schema.optionalKey(
+    Schema.Int.pipe(
+      Schema.annotate({
+        description:
+          "The number in the [Message n of m] label of the Owner message to keep, when the Owner messages are numbered. The Note keeps that message as its source, and for a forwarded message its forwarded text.",
+      })
+    )
+  ),
   linkedNoteIds: Schema.optionalKey(
     noteIdListSchema(
       "Note ids of existing Notes that this Note relates to. Use ids that search_notes or capture_note returned."
@@ -44,13 +61,27 @@ const CaptureNoteInput = Schema.Struct({
 const keptTextOf = (source: NoteSource, text: string) =>
   source.forwardedText ?? text;
 
+const sourceOrRefusal = (
+  chosen: BurstNoteSource,
+  message: number | undefined
+) =>
+  chosen._tag === "Named"
+    ? Effect.succeed(chosen.source)
+    : Effect.fail(
+        new ToolFailed({
+          message:
+            chosen._tag === "NotNamed"
+              ? messageNotNamedMessage
+              : messageOutsideBurstMessage(message ?? 0, chosen.count),
+        })
+      );
+
 export const captureNoteTool = (
   { notes, ownerTimeZone, progress, redactor }: NoteToolServices,
-  source: NoteSource,
-  refusal?: string
+  burst: Burst
 ) =>
   recordedTool(
-    { eventId: source.eventId, progress, redactor },
+    { eventId: turnEventOf(burst).eventId, progress, redactor },
     {
       name: captureNoteToolName,
       description:
@@ -61,33 +92,42 @@ export const captureNoteTool = (
           unknownNotesConsequence: "Nothing was kept.",
           otherwise: noteNotKeptMessage,
         }),
-      recordedInput: (input) => ({
-        ...input,
-        text: textForModel({
-          text: keptTextOf(source, input.text),
-          trustLevel: source.trustLevel,
-        }),
-        ...(input.openLoop === undefined
-          ? {}
-          : {
-              openLoop: {
-                ...input.openLoop,
-                kind: textForModel({
-                  text: input.openLoop.kind,
-                  trustLevel: source.trustLevel,
-                }),
-              },
-            }),
-      }),
+      recordedInput: (input) => {
+        const chosen = noteSourceOfBurst(burst, input.message);
+        const trustLevel = trustLevelOfBurst(burst);
+        return {
+          ...input,
+          text: textForModel({
+            text:
+              chosen._tag === "Named"
+                ? keptTextOf(chosen.source, input.text)
+                : input.text,
+            trustLevel,
+          }),
+          ...(input.openLoop === undefined
+            ? {}
+            : {
+                openLoop: {
+                  ...input.openLoop,
+                  kind: textForModel({
+                    text: input.openLoop.kind,
+                    trustLevel,
+                  }),
+                },
+              }),
+        };
+      },
       work: Effect.fnUntraced(function* captureNoteEffect({
         text,
         url,
+        message,
         linkedNoteIds,
         openLoop,
       }) {
-        if (refusal !== undefined) {
-          return yield* new ToolFailed({ message: refusal });
-        }
+        const source = yield* sourceOrRefusal(
+          noteSourceOfBurst(burst, message),
+          message
+        );
         const openLoopRequest = yield* openLoopRequestOf(
           openLoop,
           ownerTimeZone,

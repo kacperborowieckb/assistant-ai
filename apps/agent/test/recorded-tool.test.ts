@@ -221,7 +221,20 @@ describe("Recorded tool", () => {
                 progress,
                 redactor,
               },
-              source
+              [
+                {
+                  _tag: "OwnerMessage",
+                  eventId,
+                  receivedAt: new Date().toISOString(),
+                  state: "pending",
+                  channel: "telegram",
+                  channelUpdateId: "1",
+                  conversationId: "1",
+                  channelMessageId: "1",
+                  text: "red",
+                  sentAt: new Date().toISOString(),
+                },
+              ]
             );
             yield* call(crashing, {
               input: { word: "red" },

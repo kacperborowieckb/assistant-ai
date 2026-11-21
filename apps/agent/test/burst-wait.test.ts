@@ -14,6 +14,7 @@ import { Schedules } from "../src/schedule/schedules.ts";
 import {
   fakeBurstWait,
   fakeModel,
+  burstInputTexts,
   fakeReplyPrefix,
   fakeTelegram,
   holdModel,
@@ -99,13 +100,11 @@ describe(
         timeout: 5000,
       });
       expect(fakeModel.doGenerateCalls).toHaveLength(1);
-      expect(ownerTextsOf(fakeModel.doGenerateCalls[0]?.prompt ?? [])).toEqual([
-        "first",
-        "second",
-        "third",
-      ]);
+      expect(ownerTextsOf(fakeModel.doGenerateCalls[0]?.prompt ?? [])).toEqual(
+        burstInputTexts("first", "second", "third")
+      );
       expect(fakeTelegram.sent[0]?.body).toMatchObject({
-        text: `${fakeReplyPrefix}third`,
+        text: `${fakeReplyPrefix}${burstInputTexts("first", "second", "third").at(-1)}`,
         reply_parameters: { message_id: 63 },
       });
       expect(await eventStates(ownerId)).toEqual(["done", "done", "done"]);
@@ -118,9 +117,7 @@ describe(
       });
       expect(fakeModel.doGenerateCalls).toHaveLength(2);
       expect(ownerTextsOf(fakeModel.doGenerateCalls[1]?.prompt ?? [])).toEqual([
-        "first",
-        "second",
-        "third",
+        ...burstInputTexts("first", "second", "third"),
         "fourth",
       ]);
       expect(fakeTelegram.sent[1]?.body.reply_parameters).toMatchObject({
@@ -284,10 +281,12 @@ describe(
       });
 
       const [call] = fakeModel.doGenerateCalls;
-      expect(ownerTextsOf(call?.prompt ?? [])).toEqual([
-        "keep: dentist on Friday",
-        "actually Thursday, not Friday",
-      ]);
+      expect(ownerTextsOf(call?.prompt ?? [])).toEqual(
+        burstInputTexts(
+          "keep: dentist on Friday",
+          "actually Thursday, not Friday"
+        )
+      );
       expect(systemTextOf(call?.prompt ?? [])).toContain(
         "the later value replaces the earlier one"
       );

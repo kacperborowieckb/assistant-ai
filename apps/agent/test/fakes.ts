@@ -1,5 +1,7 @@
 import { MockLanguageModelV4 } from "ai/test";
 
+import { burstMessageLabel } from "../src/personal-agent/event-message.ts";
+
 export const fakeTelegramApiUrl = "https://telegram.fake";
 
 export const testTypingRepeatMillis = 100;
@@ -351,3 +353,8 @@ export const resetFakes = () => {
   releaseModel = Promise.resolve();
   callsBeforeHold = 0;
 };
+
+export const burstInputTexts = (...texts: readonly string[]) =>
+  texts.map(
+    (text, index) => `${burstMessageLabel(index + 1, texts.length)}\n${text}`
+  );

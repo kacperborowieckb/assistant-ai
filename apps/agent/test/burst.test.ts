@@ -11,7 +11,8 @@ import type { JournalRecord } from "../src/journal/journal.ts";
 import { Journal } from "../src/journal/journal.ts";
 import {
   captureNoteToolName,
-  forwardedInBurstMessage,
+  messageNotNamedMessage,
+  messageOutsideBurstMessage,
 } from "../src/notes/capture-note-tool.ts";
 import { Notes } from "../src/notes/notes.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
@@ -23,6 +24,7 @@ import { muteProactiveMessageToolName } from "../src/proactive/mute-proactive-me
 import { TurnTraces } from "../src/tracing/turn-trace.ts";
 import {
   fakeModel,
+  burstInputTexts,
   fakeReplyPrefix,
   fakeTelegram,
   holdModel,
@@ -148,6 +150,7 @@ interface NoteRow extends Record<string, SqlStorageValue> {
   text: string;
   source_event_id: string;
   source_channel_message_id: string;
+  source_forward_origin: string | null;
   trust_level: string;
 }
 
@@ -155,7 +158,7 @@ const noteRows = async (ownerId: string) =>
   runInDurableObject(await agentOf(ownerId), (_, state) =>
     state.storage.sql
       .exec<NoteRow>(
-        "SELECT text, source_event_id, source_channel_message_id, trust_level FROM notes"
+        "SELECT text, source_event_id, source_channel_message_id, source_forward_origin, trust_level FROM notes"
       )
       .toArray()
   );
@@ -182,11 +185,11 @@ describe("A Turn answers a burst of Owner messages", () => {
 
     expect(fakeModel.doGenerateCalls).toHaveLength(1);
     expect(ownerTextsOf(fakeModel.doGenerateCalls[0]?.prompt ?? [])).toEqual(
-      burstTexts
+      burstInputTexts(...burstTexts)
     );
     expect(fakeTelegram.sent).toHaveLength(1);
     expect(fakeTelegram.sent[0]?.body).toMatchObject({
-      text: `${fakeReplyPrefix}third`,
+      text: `${fakeReplyPrefix}${burstInputTexts("first", "second", "third").at(-1)}`,
       reply_parameters: { message_id: 73 },
     });
     expect(await eventStates(ownerId)).toEqual(["done", "done", "done"]);
@@ -211,7 +214,7 @@ describe("A Turn answers a burst of Owner messages", () => {
     );
     expect(traces).toHaveLength(1);
     expect(conversation.map((message) => message.content)).toEqual([
-      ...burstTexts,
+      ...burstInputTexts(...burstTexts),
       expect.anything(),
     ]);
   });
@@ -287,7 +290,7 @@ describe("A Turn answers a burst of Owner messages", () => {
 
     expect(fakeModel.doGenerateCalls).toHaveLength(1);
     expect(ownerTextsOf(fakeModel.doGenerateCalls[0]?.prompt ?? [])).toEqual(
-      burstTexts
+      burstInputTexts(...burstTexts)
     );
     expect(fakeTelegram.sent).toHaveLength(1);
     expect(fakeTelegram.sent[0]?.body.reply_parameters).toMatchObject({
@@ -319,27 +322,73 @@ describe("A Turn answers a burst of Owner messages", () => {
     });
   });
 
-  it("refuses capture_note for a Burst that holds a forwarded message and another message", async () => {
+  it("keeps the forwarded text, origin, message id, and untrusted level of the forward that capture_note names", async () => {
     const ownerId = await addOwner(7107);
-    await storeBurst(ownerId, 7107, { forwarded: [1] });
+    const [turnEventId] = await storeBurst(ownerId, 7107, { forwarded: [1] });
     scriptModel([
-      { callTool: captureNoteToolName, input: { text: "keep this" } },
-      { say: "I could not keep it" },
+      {
+        callTool: captureNoteToolName,
+        input: { text: "save this", message: 2 },
+      },
+      { say: "Saved" },
     ]);
 
     await runTurn(ownerId);
 
-    expect(await noteRows(ownerId)).toEqual([]);
-    expect(
-      toolResultsOf(fakeModel.doGenerateCalls[1]?.prompt ?? []).join("\n")
-    ).toContain(forwardedInBurstMessage);
-    expect(fakeTelegram.sent).toHaveLength(1);
+    expect(await noteRows(ownerId)).toEqual([
+      {
+        text: "second",
+        source_event_id: turnEventId,
+        source_channel_message_id: "72",
+        source_forward_origin: "Sender 1",
+        trust_level: "untrusted",
+      },
+    ]);
     expect(await eventStates(ownerId)).toEqual(["done", "done", "done"]);
   });
 
-  it("refuses capture_note for a Burst with more than one forwarded message and keeps no Note", async () => {
+  it("keeps the source of the Owner message that capture_note names", async () => {
     const ownerId = await addOwner(7108);
-    await storeBurst(ownerId, 7108, { forwarded: [1, 2] });
+    const [turnEventId] = await storeBurst(ownerId, 7108);
+    scriptModel([
+      {
+        callTool: captureNoteToolName,
+        input: { text: "buy milk", message: 3 },
+      },
+      { say: "Saved" },
+    ]);
+
+    await runTurn(ownerId);
+
+    expect(await noteRows(ownerId)).toEqual([
+      {
+        text: "buy milk",
+        source_event_id: turnEventId,
+        source_channel_message_id: "73",
+        source_forward_origin: null,
+        trust_level: "owner",
+      },
+    ]);
+  });
+
+  it("keeps the first message as the source when capture_note names none in a Burst of Owner messages", async () => {
+    const ownerId = await addOwner(7110);
+    await storeBurst(ownerId, 7110);
+    scriptModel([
+      { callTool: captureNoteToolName, input: { text: "buy milk" } },
+      { say: "Saved" },
+    ]);
+
+    await runTurn(ownerId);
+
+    expect(await noteRows(ownerId)).toMatchObject([
+      { source_channel_message_id: "71", trust_level: "owner" },
+    ]);
+  });
+
+  it("refuses capture_note with no message for a Burst that holds a forwarded message and another message", async () => {
+    const ownerId = await addOwner(7111);
+    await storeBurst(ownerId, 7111, { forwarded: [1] });
     scriptModel([
       { callTool: captureNoteToolName, input: { text: "keep this" } },
       { say: "I could not keep it" },
@@ -348,13 +397,34 @@ describe("A Turn answers a burst of Owner messages", () => {
     await runTurn(ownerId);
 
     expect(await noteRows(ownerId)).toEqual([]);
-    expect(fakeModel.doGenerateCalls).toHaveLength(2);
     expect(
       toolResultsOf(fakeModel.doGenerateCalls[1]?.prompt ?? []).join("\n")
-    ).toContain(forwardedInBurstMessage);
+    ).toContain(messageNotNamedMessage);
     expect(fakeTelegram.sent).toHaveLength(1);
     expect(await eventStates(ownerId)).toEqual(["done", "done", "done"]);
   });
+
+  it.each([0, 4])(
+    "refuses capture_note for message %i outside a Burst of three and keeps no Note",
+    async (message) => {
+      const ownerId = await addOwner(7112 + message);
+      await storeBurst(ownerId, 7112 + message, { forwarded: [1] });
+      scriptModel([
+        {
+          callTool: captureNoteToolName,
+          input: { text: "keep this", message },
+        },
+        { say: "I could not keep it" },
+      ]);
+
+      await runTurn(ownerId);
+
+      expect(await noteRows(ownerId)).toEqual([]);
+      expect(
+        toolResultsOf(fakeModel.doGenerateCalls[1]?.prompt ?? []).join("\n")
+      ).toContain(messageOutsideBurstMessage(message, 3));
+    }
+  );
 
   it("mutes the Open Loops of a Proactive Message connected to a later Event of the Burst", async () => {
     const ownerId = await addOwner(7109);
