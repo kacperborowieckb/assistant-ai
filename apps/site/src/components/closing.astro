@@ -1,0 +1,86 @@
+---
+import { world } from "../art";
+import Billy from "./billy.astro";
+import MiniWorld from "./mini-world.astro";
+---
+
+<section id="get" class="closing" aria-labelledby="get-title">
+  <img class="px cloud cloud--a" src={world.cloud} alt="" width="192" height="72" />
+  <img class="px cloud cloud--b" src={world.cloud} alt="" width="128" height="48" />
+  <div class="wrap inner">
+    <h2 id="get-title" class="display-hero">Start a chat with Billy.</h2>
+    <p class="lede">Say hello, tell him one thing to remember, and see it come back.</p>
+    <div class="actions">
+      <a class="button button--primary button--lg" href="#self-host">Set up Billy</a>
+      <a class="button button--secondary button--lg" href="https://github.com/kacperborowieckb/assistant-ai">Read the source</a>
+    </div>
+  </div>
+  <div class="scene">
+    <MiniWorld />
+    <img class="px log" src={world.log} alt="" width="320" height="88" />
+    <Billy class="billy" size={256} outfit="sports" />
+  </div>
+</section>
+
+<style>
+  .closing {
+    position: relative;
+    overflow: hidden;
+    background: var(--color-sky);
+  }
+
+  .inner {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-5);
+    padding-block-start: var(--space-9);
+    text-align: center;
+  }
+
+  .inner .lede {
+    color: var(--color-forest-ink);
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-4);
+  }
+
+  .cloud {
+    position: absolute;
+  }
+
+  .cloud--a {
+    inset-block-start: 160px;
+    inset-inline-start: 7%;
+  }
+
+  .cloud--b {
+    inset-block-start: 80px;
+    inset-inline-end: 10%;
+  }
+
+  .scene {
+    position: relative;
+    block-size: 400px;
+  }
+
+  .log,
+  .scene :global(.billy) {
+    position: absolute;
+  }
+
+  .log {
+    inset-block-end: 28px;
+    inset-inline-start: calc(50% - 160px);
+  }
+
+  .scene :global(.billy) {
+    inset-block-end: 103px;
+    inset-inline-start: calc(50% - 120px);
+  }
+</style>

@@ -5,6 +5,10 @@
       "guide": "docs/verification/agent.md"
     },
     {
+      "workspace": "apps/site",
+      "guide": "docs/verification/site.md"
+    },
+    {
       "workspace": "packages/mascot",
       "guide": "docs/verification/mascot.md"
     },

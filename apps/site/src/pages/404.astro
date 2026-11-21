@@ -1,0 +1,52 @@
+---
+import Billy from "../components/billy.astro";
+import Header from "../components/header.astro";
+import MiniWorld from "../components/mini-world.astro";
+import Base from "../layouts/base.astro";
+---
+
+<Base title="Not found — Billy" description="This page does not exist.">
+  <div class="sky">
+    <Header />
+    <main id="main" class="wrap lost">
+      <h1 class="display-section">Billy looked everywhere.</h1>
+      <p class="lede">This page does not exist. The home page does.</p>
+      <a class="button button--primary" href="/">Go home</a>
+    </main>
+    <div class="scene">
+      <MiniWorld />
+      <Billy class="billy" size={256} />
+    </div>
+  </div>
+</Base>
+
+<style>
+  .sky {
+    min-block-size: 100vh;
+    background: var(--color-sky);
+  }
+
+  .lost {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-5);
+    padding-block-start: var(--space-8);
+    text-align: center;
+  }
+
+  .lost .lede {
+    color: var(--color-forest-ink);
+  }
+
+  .scene {
+    position: relative;
+    block-size: 340px;
+  }
+
+  .scene :global(.billy) {
+    position: absolute;
+    inset-block-end: 26px;
+    inset-inline-start: calc(50% - 120px);
+  }
+</style>

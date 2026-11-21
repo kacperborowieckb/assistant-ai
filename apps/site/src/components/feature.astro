@@ -1,0 +1,114 @@
+---
+// A split section: copy on one side, an illustration panel on the other.
+interface Props {
+  id?: string;
+  eyebrow: string;
+  title: string;
+  reverse?: boolean;
+  tone?: "sky" | "honey" | "sunken";
+}
+
+const { id, eyebrow, title, reverse = false, tone = "sky" } = Astro.props;
+const headingId = `${id ?? eyebrow.toLowerCase().replaceAll(" ", "-")}-title`;
+---
+
+<section id={id} class="wrap section feature" class:list={[{ "feature--reverse": reverse }]} aria-labelledby={headingId}>
+  <div class="copy">
+    <p class="eyebrow">{eyebrow}</p>
+    <h2 id={headingId} class="display-section">{title}</h2>
+    <slot />
+  </div>
+  <div class:list={["panel", `panel--${tone}`]}>
+    <slot name="art" />
+  </div>
+</section>
+
+<style>
+  .feature {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    align-items: center;
+    gap: var(--space-8);
+    padding-block: var(--space-8);
+  }
+
+  .feature--reverse {
+    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  }
+
+  .feature--reverse .copy {
+    order: 2;
+  }
+
+  .copy {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-5);
+  }
+
+  .copy :global(p:not(.eyebrow)) {
+    max-inline-size: var(--size-measure);
+    color: var(--color-ink-muted);
+  }
+
+  .copy :global(ul) {
+    display: grid;
+    gap: var(--space-4);
+    margin: var(--space-2) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .copy :global(li) {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: start;
+    gap: var(--space-3);
+  }
+
+  .copy :global(li strong) {
+    display: block;
+    font: var(--text-label-lg);
+  }
+
+  .copy :global(li span) {
+    color: var(--color-ink-muted);
+  }
+
+  .panel {
+    display: grid;
+    position: relative;
+    overflow: hidden;
+    min-block-size: 520px;
+    border-radius: calc(var(--radius-lg) * 2);
+  }
+
+  .panel--sky {
+    background: var(--color-sky);
+  }
+
+  .panel--honey {
+    background: var(--color-honey);
+  }
+
+  .panel--sunken {
+    background: var(--color-surface-sunken);
+  }
+
+  @media (max-width: 960px) {
+    .feature,
+    .feature--reverse {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--space-6);
+    }
+
+    .feature--reverse .copy {
+      order: 0;
+    }
+
+    .panel {
+      min-block-size: 440px;
+    }
+  }
+</style>

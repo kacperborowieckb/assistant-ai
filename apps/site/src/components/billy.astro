@@ -1,0 +1,25 @@
+---
+// The full-body sprite with at most one layer per slot (@repo/mascot). Layers
+// share one origin and size, so they always move together.
+import { billy, outfits } from '../art';
+import type { Outfit } from '../art';
+
+interface Props {
+  /** Drawn size in px. Leave it out to size Billy from CSS with --mascot-size. */
+  size?: number;
+  outfit?: Outfit;
+  greet?: boolean;
+  class?: string;
+}
+
+const { size, outfit, greet = false, class: className } = Astro.props;
+---
+
+<span
+  class:list={["mascot", className]}
+  style={size ? `--mascot-size: ${size}px` : undefined}
+  data-greet={greet ? "" : undefined}
+>
+  <img class="px" src={billy.base} alt="Billy the Beaver" width={size ?? 256} height={size ?? 256} />
+  {outfit && <img class="px" src={outfits[outfit]} alt="" width={size ?? 256} height={size ?? 256} />}
+</span>

@@ -1,0 +1,37 @@
+---
+// The bottom of Billy's valley, for illustration panels.
+---
+
+<div class="ground" aria-hidden="true">
+  <div class="hills"></div>
+  <div class="water"></div>
+</div>
+
+<style>
+  .ground {
+    position: absolute;
+    inset-inline: 0;
+    inset-block-end: 0;
+    block-size: 168px;
+    pointer-events: none;
+  }
+
+  .hills,
+  .water {
+    position: absolute;
+    inset-inline: 0;
+    image-rendering: pixelated;
+  }
+
+  .hills {
+    inset-block-end: 40px;
+    block-size: 128px;
+    background: url("@repo/mascot/assets/world/hills.svg") repeat-x 30% bottom / auto 100%;
+  }
+
+  .water {
+    inset-block-end: 0;
+    block-size: 40px;
+    background: url("@repo/mascot/assets/world/water.svg") repeat-x left top / auto 100%;
+  }
+</style>

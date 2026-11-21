@@ -1,6 +1,6 @@
 # Mascot verification
 
-Run `pnpm --filter @repo/mascot verify`. The tests resolve files through the package interface and check the PNG format, canvas size, alpha channel, and unique accessory IDs. They also check that the web stylesheet exports reduced-motion support. The tests use the checked-in files and need no credentials or network access.
+Run `pnpm --filter @repo/mascot verify`. The tests resolve files through the package interface and check the PNG format, canvas size, alpha channel, and unique accessory IDs. They also check that the web stylesheet exports reduced-motion support, and that every world and icon SVG is a static pixel-grid drawing (no scripts, styles, or embedded images) whose size is its grid times the manifest's `world.pixel`. The tests use the checked-in files and need no credentials or network access.
 
 Open the [design preview](../product/mascot/preview.html) from disk. Check that the conversation shows the portrait at 32 px and the light and dark icons show the same face. Select a neck option, turn on the headband, and press **Play greeting**. Check that the full-body layers move as one. Turn on reduced motion in the browser and check that the greeting stays still.
 

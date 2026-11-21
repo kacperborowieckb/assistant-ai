@@ -1,0 +1,53 @@
+---
+import "../styles/site.css";
+import { billy } from "../art";
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/png" href={billy.portrait} />
+  </head>
+  <body>
+    <a class="skip visually-hidden" href="#main">Skip to content</a>
+    <slot />
+    <script>
+      // Billy greets once when the page opens. web.css runs the animation only
+      // when the person allows motion.
+      for (const element of document.querySelectorAll("[data-greet]")) {
+        element.classList.add("mascot--greet");
+        element.addEventListener(
+          "animationend",
+          () => element.classList.remove("mascot--greet"),
+          { once: true }
+        );
+      }
+    </script>
+  </body>
+</html>
+
+<style>
+  .skip:focus {
+    position: fixed;
+    inset-block-start: var(--space-2);
+    inset-inline-start: var(--space-2);
+    z-index: 10;
+    inline-size: auto;
+    block-size: auto;
+    clip-path: none;
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+  }
+</style>

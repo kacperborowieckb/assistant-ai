@@ -1,0 +1,75 @@
+---
+import { billy } from "../art";
+---
+
+<header class="wrap header">
+  <a class="brand" href="/">
+    <span class="mascot mascot--portrait logo"><img class="px" src={billy.portrait} alt="" width="40" height="40" /></span>
+    <span>Billy</span>
+  </a>
+  <nav aria-label="Main">
+    <ul>
+      <li class="optional"><a href="/#how">How it works</a></li>
+      <li class="optional"><a href="/#privacy">Privacy</a></li>
+      <li class="optional"><a href="/#self-host">Self-host</a></li>
+      <li><a class="button button--secondary" href="/#get">Get Billy</a></li>
+    </ul>
+  </nav>
+</header>
+
+<style>
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding-block: var(--space-5);
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-block-size: var(--size-touch);
+    color: var(--color-ink);
+    font: var(--text-heading);
+    letter-spacing: var(--text-heading-tracking);
+    text-decoration: none;
+  }
+
+  .logo {
+    --mascot-size: 40px;
+    background: var(--color-avatar-ground);
+  }
+
+  ul {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li > a:not(.button) {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: var(--size-touch);
+    padding-inline: var(--space-3);
+    color: var(--color-forest-ink);
+    font: var(--text-label-lg);
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  li > a:not(.button):hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+
+  @media (max-width: 760px) {
+    .optional {
+      display: none;
+    }
+  }
+</style>

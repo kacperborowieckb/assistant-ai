@@ -1,0 +1,67 @@
+---
+import { world } from "../art";
+import Billy from "./billy.astro";
+import MiniWorld from "./mini-world.astro";
+import Tile from "./tile.astro";
+---
+
+<div class="art" role="img" aria-label="Billy in his office tie, with the tasks he finished around him">
+  <img class="px cloud" src={world.cloud} alt="" width="128" height="48" />
+  <MiniWorld />
+  <img class="px log" src={world.log} alt="" width="320" height="88" />
+  <Billy class="billy" size={256} outfit="office" />
+  <Tile class="tile tile--web" icon="search" title="Searched the web" detail="Flights to Lisbon · 3 options" />
+  <Tile class="tile tile--mail" icon="email" title="Reply drafted" detail="To Marta · Re: invoice" />
+  <Tile class="tile tile--cal" icon="calendar" title="Booked" detail="Dinner for four · Fri 19:30" />
+</div>
+
+<style>
+  .art {
+    position: relative;
+    block-size: 100%;
+    min-block-size: 520px;
+  }
+
+  .cloud,
+  .log,
+  .art :global(.billy),
+  .art :global(.tile) {
+    position: absolute;
+  }
+
+  .cloud {
+    inset-block-start: var(--space-6);
+    inset-inline-end: var(--space-7);
+  }
+
+  .log {
+    inset-block-end: 28px;
+    inset-inline-start: calc(50% - 160px);
+  }
+
+  .art :global(.billy) {
+    inset-block-end: 103px;
+    inset-inline-start: calc(50% - 120px);
+  }
+
+  .art :global(.tile--web) {
+    inset-block-start: var(--space-7);
+    inset-inline-start: var(--space-6);
+  }
+
+  .art :global(.tile--mail) {
+    inset-block-start: 136px;
+    inset-inline-end: var(--space-6);
+  }
+
+  .art :global(.tile--cal) {
+    inset-block-start: 224px;
+    inset-inline-start: var(--space-7);
+  }
+
+  @media (max-width: 520px) {
+    .art :global(.tile--cal) {
+      display: none;
+    }
+  }
+</style>

@@ -1,0 +1,16 @@
+---
+// A 12-pixel icon from Billy's world, drawn at a whole multiple of its grid.
+import { icons } from '../art';
+import type { IconName } from '../art';
+
+interface Props {
+  name: IconName;
+  scale?: 2 | 3 | 4;
+  label?: string;
+}
+
+const { name, scale = 2, label } = Astro.props;
+const size = 12 * scale;
+---
+
+<img class="px" src={icons[name]} alt={label ?? ""} width={size} height={size} />

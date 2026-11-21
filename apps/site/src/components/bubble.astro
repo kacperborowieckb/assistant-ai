@@ -1,0 +1,94 @@
+---
+// Bubble contract (docs/product/components.md): billy on the left, you on the
+// right; radius-tail where two bubbles of one group meet on the sender's side.
+import Avatar from "./avatar.astro";
+
+interface Props {
+  from: "billy" | "you";
+  place?: "single" | "first" | "middle" | "last";
+  avatar?: boolean;
+  floating?: boolean;
+}
+
+const { from, place = "single", avatar = false, floating = false } = Astro.props;
+const sender = from === "billy" ? "Billy" : "You";
+---
+
+<div class:list={["row", `row--${from}`, { "row--indent": from === "billy" && !avatar }]}>
+  {avatar && <Avatar />}
+  <div class:list={["bubble", `bubble--${from}`, `bubble--${place}`, { "bubble--floating": floating }]}>
+    <span class="visually-hidden">{sender}:</span>
+    <slot />
+  </div>
+</div>
+
+<style>
+  .row {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--space-1);
+  }
+
+  .row--you {
+    justify-content: flex-end;
+  }
+
+  .row--indent {
+    padding-inline-start: calc(var(--size-avatar) + var(--space-1));
+  }
+
+  .bubble {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    max-inline-size: min(360px, 100%);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-lg);
+    font: var(--text-body);
+    text-align: start;
+  }
+
+  .bubble--billy {
+    background: var(--color-bubble-billy);
+    color: var(--color-ink);
+  }
+
+  .bubble--you {
+    background: var(--color-bubble-you);
+    color: var(--color-on-bubble-you);
+  }
+
+  .bubble--floating {
+    box-shadow: var(--shadow-soft);
+  }
+
+  .bubble--billy.bubble--floating {
+    background: var(--color-surface-raised);
+  }
+
+  .bubble--billy.bubble--first {
+    border-end-start-radius: var(--radius-tail);
+  }
+
+  .bubble--billy.bubble--middle {
+    border-start-start-radius: var(--radius-tail);
+    border-end-start-radius: var(--radius-tail);
+  }
+
+  .bubble--billy.bubble--last {
+    border-start-start-radius: var(--radius-tail);
+  }
+
+  .bubble--you.bubble--first {
+    border-end-end-radius: var(--radius-tail);
+  }
+
+  .bubble--you.bubble--middle {
+    border-start-end-radius: var(--radius-tail);
+    border-end-end-radius: var(--radius-tail);
+  }
+
+  .bubble--you.bubble--last {
+    border-start-end-radius: var(--radius-tail);
+  }
+</style>

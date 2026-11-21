@@ -1,0 +1,257 @@
+---
+// The hero: Billy on his dam in the pixel valley, with the chat around him.
+import { world } from "../art";
+import Billy from "./billy.astro";
+import Bubble from "./bubble.astro";
+import Confirmation from "./confirmation.astro";
+import Header from "./header.astro";
+import Tile from "./tile.astro";
+---
+
+<div class="sky">
+  <img class="px cloud cloud--a" src={world.cloud} alt="" width="192" height="72" />
+  <img class="px cloud cloud--b" src={world.cloud} alt="" width="128" height="48" />
+  <img class="px cloud cloud--c" src={world.cloud} alt="" width="96" height="36" />
+  <img class="px sun" src={world.sun} alt="" width="144" height="144" />
+
+  <Header />
+
+  <section class="wrap intro" aria-labelledby="hero-title">
+    <p class="eyebrow">Your personal agent</p>
+    <h1 id="hero-title" class="display-hero">Tell Billy.<br />He'll remember.</h1>
+    <p class="lede">Notes, reminders, and follow-ups in one chat. Text him like a colleague: he files the Note, sets the Reminder, and brings it back in your morning Brief.</p>
+    <div class="actions">
+      <a class="button button--primary button--lg" href="#get">Get Billy</a>
+      <a class="button button--plain" href="#how">See how it works</a>
+    </div>
+  </section>
+
+  <div class="valley" role="img" aria-label="Billy the Beaver sitting on his dam in a pixel valley, with his chat messages around him">
+    <div class="hills" aria-hidden="true"></div>
+    <div class="water" aria-hidden="true"></div>
+    <img class="px log log--left" src={world.log} alt="" width="320" height="88" />
+    <img class="px log log--right" src={world.log} alt="" width="320" height="88" />
+    <img class="px log log--top" src={world.log} alt="" width="320" height="88" />
+    <Billy class="billy" outfit="forest" greet />
+    <img class="px sparkle sparkle--a" src={world.sparkle} alt="" width="24" height="24" />
+    <img class="px sparkle sparkle--b" src={world.sparkle} alt="" width="32" height="32" />
+    <img class="px sparkle sparkle--c" src={world.sparkle} alt="" width="16" height="16" />
+
+    <div class="float float--ask" aria-hidden="true">
+      <Bubble from="you" floating>Remind me to call mum on Sunday</Bubble>
+    </div>
+    <div class="float float--reply" aria-hidden="true">
+      <Bubble from="billy" floating>
+        Done. I'll nudge you on Sunday.
+        <Confirmation icon="reminder" action="Undo">Call mum · Sun 18:00</Confirmation>
+      </Bubble>
+    </div>
+    <div class="float float--note" aria-hidden="true">
+      <Tile icon="note" title="Note saved" detail="Packing list" />
+    </div>
+    <div class="float float--brief" aria-hidden="true">
+      <Tile icon="brief" title="Morning Brief" detail="Tomorrow at 8:00" />
+    </div>
+  </div>
+</div>
+
+<style>
+  .sky {
+    position: relative;
+    overflow: hidden;
+    background: var(--color-sky);
+  }
+
+  .intro {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-5);
+    padding-block-start: var(--space-8);
+    text-align: center;
+  }
+
+  .intro .lede {
+    color: var(--color-forest-ink);
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-4);
+    margin-block-start: var(--space-2);
+  }
+
+  .cloud,
+  .sun {
+    position: absolute;
+  }
+
+  .cloud--a {
+    inset-block-start: 220px;
+    inset-inline-start: 5%;
+  }
+
+  .cloud--b {
+    inset-block-start: 360px;
+    inset-inline-end: 16%;
+  }
+
+  .cloud--c {
+    inset-block-start: 130px;
+    inset-inline-start: 27%;
+  }
+
+  .sun {
+    inset-block-start: 110px;
+    inset-inline-end: 8%;
+  }
+
+  .valley {
+    position: relative;
+    block-size: 600px;
+    margin-block-start: calc(-1 * var(--space-5));
+  }
+
+  .hills,
+  .water {
+    position: absolute;
+    inset-inline: 0;
+  }
+
+  .hills {
+    inset-block-end: 56px;
+    block-size: 240px;
+    background: url("@repo/mascot/assets/world/hills.svg") repeat-x center bottom / auto 100%;
+    image-rendering: pixelated;
+  }
+
+  .water {
+    inset-block-end: 0;
+    block-size: 64px;
+    background: url("@repo/mascot/assets/world/water.svg") repeat-x left top / auto 100%;
+    image-rendering: pixelated;
+  }
+
+  .log,
+  .sparkle,
+  .float,
+  .valley :global(.billy) {
+    position: absolute;
+  }
+
+  .log--left {
+    inset-block-end: 24px;
+    inset-inline-start: calc(50% - 300px);
+  }
+
+  .log--right {
+    inset-block-end: 24px;
+    inset-inline-start: calc(50% - 20px);
+  }
+
+  .log--top {
+    inset-block-end: 104px;
+    inset-inline-start: calc(50% - 170px);
+  }
+
+  .valley :global(.billy) {
+    --mascot-size: 384px;
+    inset-block-end: 172px;
+    inset-inline-start: calc(50% - 190px);
+  }
+
+  .sparkle--a {
+    inset-block-start: 150px;
+    inset-inline-start: calc(50% - 280px);
+  }
+
+  .sparkle--b {
+    inset-block-start: 90px;
+    inset-inline-start: calc(50% + 200px);
+  }
+
+  .sparkle--c {
+    inset-block-start: 210px;
+    inset-inline-start: calc(50% + 250px);
+  }
+
+  .float--ask {
+    inset-block-start: 70px;
+    inset-inline-end: calc(50% + 300px);
+  }
+
+  .float--reply {
+    inset-block-start: 40px;
+    inset-inline-start: calc(50% + 290px);
+    inline-size: 340px;
+  }
+
+  .float--note {
+    inset-block-start: 200px;
+    inset-inline-end: calc(50% + 360px);
+  }
+
+  .float--brief {
+    inset-block-start: 250px;
+    inset-inline-start: calc(50% + 380px);
+  }
+
+  @media (max-width: 1180px) {
+    .float--note,
+    .float--brief {
+      display: none;
+    }
+
+    .float--ask {
+      inset-inline-end: calc(50% + 200px);
+    }
+
+    .float--reply {
+      inset-inline-start: calc(50% + 190px);
+      inline-size: 280px;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .valley {
+      block-size: auto;
+      padding-block: var(--space-6) 450px;
+    }
+
+    .valley :global(.billy) {
+      --mascot-size: 256px;
+      inset-block-end: 179px;
+      inset-inline-start: calc(50% - 120px);
+    }
+
+    .float--ask,
+    .float--reply {
+      position: relative;
+      inset: auto;
+      inline-size: auto;
+      max-inline-size: 360px;
+      margin-inline: auto;
+      padding-inline: var(--space-4);
+    }
+
+    .float--reply {
+      margin-block-start: var(--space-2);
+    }
+
+    .sparkle,
+    .sun,
+    .cloud--a,
+    .cloud--c {
+      display: none;
+    }
+
+    .cloud--b {
+      inset-block-start: 96px;
+      inset-inline-end: 4%;
+    }
+  }
+</style>

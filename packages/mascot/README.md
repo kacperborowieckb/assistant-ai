@@ -22,6 +22,10 @@ Add `mascot--greet` to the wrapper for a 500 ms greeting. Remove it when the ani
 
 Open [mascot.ora](mascot.ora) in an editor that supports OpenRaster, or import the individual PNGs into a design tool as same-size layers. Keep the canvas square and transparent. Export accessory layers at 256 × 256 with the base in view, then hide the base for export. Keep the origin and transparent padding. Add the new PNG basename to the correct slot in the manifest. Test it on the base with the layers from the other slot.
 
+## Draw Billy's world
+
+`world` in the manifest lists Billy's pixel world: `scenery` (hills, water, a log, the sun, a cloud, a sparkle, and a frame) and 12-pixel `icons` (note, reminder, brief, calendar, email, web, connector, search). Each is a static SVG on a grid of `world.pixel` (8) screen pixels per art pixel, so draw it at its own size or a whole multiple, with `image-rendering: pixelated`. The hills and water tile sideways. The world's colors are part of the artwork, like Billy's: do not recolor it. The marketing site uses it for its scenes; the app can use it for empty states.
+
 ## Export app icons
 
 The `icon` record defines the 1024 × 1024 square artwork. The icon foreground uses the same crop as the conversation portrait. The flat light and dark PNGs are opaque. The matching background plates and transparent foreground can go into Icon Composer. Leave the corners square in the source so the platform can apply its mask. The platform can generate appearances you leave unspecified. [Apple App Icons guidance](https://developer.apple.com/design/human-interface-guidelines/app-icons/)

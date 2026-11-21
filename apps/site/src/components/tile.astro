@@ -1,0 +1,50 @@
+---
+// A small floating tile in Billy's world: a pixel icon, a title and a line.
+import type { IconName } from "../art";
+import PixelIcon from "./pixel-icon.astro";
+
+interface Props {
+  icon: IconName;
+  title: string;
+  detail: string;
+  class?: string;
+}
+
+const { icon, title, detail, class: className } = Astro.props;
+---
+
+<div class:list={["tile", className]}>
+  <PixelIcon name={icon} scale={3} />
+  <span class="copy">
+    <span class="title">{title}</span>
+    <span class="detail">{detail}</span>
+  </span>
+</div>
+
+<style>
+  .tile {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-4) var(--space-2) var(--space-2);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-raised);
+    box-shadow: var(--shadow-soft);
+    text-align: start;
+  }
+
+  .copy {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .title {
+    font: var(--text-body-strong);
+  }
+
+  .detail {
+    font: var(--text-label);
+    font-weight: 400;
+    color: var(--color-ink-muted);
+  }
+</style>
