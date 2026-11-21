@@ -14,7 +14,7 @@ Date: 2026-11-13
 
 Run the agent on Cloudflare Workers with the Agents SDK. Each Owner has one `PersonalAgent` Durable Object with its own SQLite storage. Use Durable Object alarms for Schedules. Add Workflows, R2, Vectorize, and Queues when a feature needs them.
 
-Self-hosting is a "Deploy to Cloudflare" button or `git clone`, one setup command (`packages/create-assistant`), and `wrangler deploy`. The setup command creates resources, writes the Wrangler config, and asks for secrets.
+Self-hosting is a "Deploy to Cloudflare" button or `git clone`, one setup command (`packages/create-billy`), and `wrangler deploy`. The setup command creates resources, writes the Wrangler config, and asks for secrets.
 
 Containers and the Sandbox SDK are out of scope. No design may depend on a full computer per task.
 

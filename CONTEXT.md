@@ -2,6 +2,10 @@
 
 Use these terms with these meanings in code, docs, issues, and prompts. Use the term, not a synonym. If you need a new term, add it here in the same change.
 
+## Product
+
+- **Billy**: the name of the product and of its mascot, Billy the Beaver. Billy is the face of the Personal Agent in the app and on the site. Use "Billy" in copy for the Owner; use "Personal Agent" and "Instance" for the runtime parts. The Cloudflare resources still use the old working name `assistant` until [#159](https://github.com/kacperborowieckb/billy/issues/159).
+
 ## People
 
 - **Owner**: the person the agent serves. Each Owner has one Personal Agent and one set of data. Every domain operation runs for exactly one Owner.

@@ -29,7 +29,7 @@ apps/
   site/               Static marketing site and self-host docs                        Before public launch
   platform/           Hosted only: accounts, billing, Registration, managed keys      Hosted phase
 packages/
-  create-assistant/   One-command installer: resources, config, secrets               MVP
+  create-billy/       One-command installer: resources, config, secrets               MVP
   mascot/             Shared sprite layers and icon assets                             Design
   tokens/             Design tokens: web CSS and the native app theme                  Design
   contracts/          Shared schemas: mobile Channel protocol, Owner ids, platform API Mobile phase

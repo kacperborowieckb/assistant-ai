@@ -74,7 +74,7 @@ A fork extends the agent through these interfaces, each one an Effect Layer:
 This is a direction, not a fixed plan. The rules, the stages, and the Turborepo setup are in [decision 0001](../decisions/0001-repository-foundation.md).
 
 - `apps/`: deployable units. `agent` in the MVP; `mobile`, `site`, and `platform` later.
-- `packages/`: code that at least two workspaces need. `create-assistant` in the MVP; `contracts`, `plugin-sdk`, and `tsconfig` when a second consumer exists.
+- `packages/`: code that at least two workspaces need. `create-billy` in the MVP; `contracts`, `plugin-sdk`, and `tsconfig` when a second consumer exists.
 - `plugins/`: Channels that a fork can add or remove. Telegram moves here when the second Channel arrives.
 
 In the MVP, the agent code is in `apps/agent/src`, with one module for each domain area: `edge`, `directory`, `personal-agent`, `channels/telegram`, `memory`, `journal`, `schedule`, `proactivity`, `behavior`, `model-gateway`, and `tracing`. Evals live in `apps/agent/evals`.
