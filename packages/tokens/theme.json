@@ -12,13 +12,13 @@
       "on-bubble-you": "#ffffff",
       "plate": "#f2d8ae",
       "ink": "#1c1917",
-      "ink-muted": "#6b6560",
+      "ink-muted": "#625c57",
       "line": "#ebe7e1",
       "line-strong": "#d9d3cb",
       "control-line": "#8f8780",
       "forest": "#31594b",
       "on-forest": "#ffffff",
-      "forest-soft": "#e8f0eb",
+      "forest-soft": "#edf4ef",
       "forest-ink": "#21342d",
       "bark": "#80512e",
       "honey": "#f7ecd9",
@@ -140,7 +140,7 @@
   },
   "size": {
     "size-touch": 44,
-    "size-avatar": 32
+    "size-avatar": 44
   },
   "shadow": {
     "shadow-icon": [
@@ -206,9 +206,17 @@
     },
     "easing-standard": {
       "cubicBezier": [
-        0.2,
+        0.23,
+        1,
+        0.32,
+        1
+      ]
+    },
+    "easing-move": {
+      "cubicBezier": [
+        0.77,
         0,
-        0,
+        0.175,
         1
       ]
     },

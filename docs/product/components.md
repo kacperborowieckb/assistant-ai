@@ -62,7 +62,8 @@ A Reminder, a Note, or a confirmation inside one of Billy's bubbles.
 Where the person writes to Billy. It floats above the chat at the bottom of the screen.
 
 - Parts: an add button (photo, file, or Note), a text field labelled "Message Billy", and a `forest` button that dictates when the field is empty and sends when it is not.
-- Tokens: `surface-raised` fill, `control-line` border, `radius-pill`, `shadow-composer`, `size-touch` for each button, and 16 points of text so iOS does not zoom the web field.
+- Tokens: `surface-raised` fill, a `line` hairline with `shadow-composer` to lift it off the chat, `radius-pill`, `size-touch` for each button, and 16 points of text so iOS does not zoom the web field.
+- The hairline is decorative and below 3:1. The field is found by its `ink-muted` placeholder, its position, and the `forest` button inside it, and keyboard focus shows the `focus-ring`. This look comes from the iOS chat mock; revisit it if testing shows people miss the field.
 - States: empty, typing, sending, dictating, and disabled while offline, with a word that says why.
 - iOS: the text field and buttons are system controls inside our drawn container. Return inserts a line, and the send button sends.
 - Web: a `<form>` with a `<label>` (visually hidden) and a `<textarea>`.
@@ -71,5 +72,5 @@ Where the person writes to Billy. It floats above the chat at the bottom of the 
 
 Billy's face beside his latest message. The markup and artwork come from [@repo/mascot](../../packages/mascot/README.md).
 
-- The portrait at `size-avatar` (32 points) in a `radius-round` mask on `avatar-ground`, with the alt text "Billy the Beaver".
+- The portrait at `size-avatar` (44 points) in a `radius-round` mask on `avatar-ground`, with the alt text "Billy the Beaver". The portrait crop and disc come from the design system, the size from the iOS chat mock.
 - States: idle, listening, typing, and greeting. Each plays only when the agent is in that state, and none plays under reduced motion. Only the greeting exists today (`mascot--greet`, `duration-greet`).

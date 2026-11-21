@@ -5,6 +5,8 @@
 - External actions or approval questions: [agent authority decision](docs/decisions/0002-agent-authority.md).
 - JavaScript, TypeScript, lint, and format changes: `.agents/skills/ultracite/SKILL.md`.
 - Future shadcn UI work: `.agents/skills/shadcn/SKILL.md`.
+- Motion in the Expo app (animations, gestures, sheets, haptics): `.agents/skills/animate-expo/SKILL.md`. Take curves and durations from [@repo/tokens](packages/tokens/README.md).
+- Design tokens, component contracts, and accessibility rules: [design direction](docs/product/design-direction.md), [component contracts](docs/product/components.md), and [@repo/tokens](packages/tokens/README.md).
 - Adding, changing, or removing a workspace or primitive, or adding or superseding a decision: update [the primitives catalog](docs/primitives/README.md) and [verification targets](docs/verification/README.md) in the same change. Add real control CLI proof and generated route maps with the first application that needs them.
 
 ## Learning more about Effect

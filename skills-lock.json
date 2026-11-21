@@ -1,6 +1,14 @@
 {
   "version": 2,
   "skills": {
+    "animate-expo": {
+      "source": "emilkowalski/skills",
+      "commit": "64eb3deb9a5fbfa041faf783e0bc3fd635872e9c",
+      "sourceType": "github",
+      "skillPath": "skills/animate-expo/SKILL.md",
+      "computedHash": "f221c9cfe03d9255ac3e2383bfb8b1481036142fe2fe9567403eb071d21092bb",
+      "installMode": "copy"
+    },
     "shadcn": {
       "source": "shadcn-ui/ui",
       "sourceType": "github",

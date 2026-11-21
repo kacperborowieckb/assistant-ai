@@ -29,8 +29,6 @@ CSS names: colors are `--color-<name>`, families are `--font-<name>`, each text 
 
 `contrast.pairs` in `tokens.json` lists every approved pair of foreground and background with its WCAG AA minimum: 4.5:1 for text and 3:1 for control edges and focus rings. The build and the tests check each pair in every theme, so a failing color cannot ship. A pair that is not listed is not approved. When a component needs a new pair, add it to the list in the same change.
 
-`ink-muted` is not approved on `plate`: it is 4.2:1 in light. Launch and splash text on `plate` uses `ink`.
-
 ## Change a token
 
 1. Edit `tokens.json`. Every token needs a `usage` note that says where it goes.
