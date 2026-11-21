@@ -1,8 +1,8 @@
 ---
 // The hero: Billy on his dam in the pixel valley, with the chat around him.
-// The headline arrives word by word, a ticker says what Billy just did, and
-// the floating chat plays real exchanges (src/scripts/hero.ts). The sun (or
-// moon) switches day and night.
+// "Tell Billy." lands, a short pause, then "He'll do it all." The floating
+// chat plays everyday exchanges, with Billy saying what he is doing while he
+// works (src/scripts/hero.ts). The sun (or moon) switches day and night.
 import { ArrowDown, ArrowRight } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
@@ -30,27 +30,70 @@ const stars = [
   { top: "52%", left: "76%", size: 1, delay: 0.35 },
 ] as const;
 
-const ticker = [
-  "booked a table for four",
-  "drafted the reply to Marta",
-  "moved the dentist to Friday",
-  "saved your packing list",
-  "found three flights to Lisbon",
-  "sent your morning Brief",
-];
-
-// Exchanges the floating chat plays in turn. The first is in the markup, so the
-// page reads complete without script or with reduced motion.
+// Everyday exchanges the floating chat plays in turn: capture, recall,
+// follow-ups, and plans that change. `status` is what Billy says while he
+// works. The first is in the markup, so the page reads complete without
+// script or with reduced motion.
 const conversations = [
-  { ask: "Remind me to call mum on Sunday", reply: "Done. I'll nudge you on Sunday.", icon: icons.reminder, card: "Call mum · Sun 18:00", action: "Undo" },
-  { ask: "Book a table for four on Friday", reply: "Booked. I took the 19:30 at Lupa.", icon: icons.calendar, card: "Dinner for four · Fri 19:30", action: "Open" },
-  { ask: "Reply to Marta about the invoice", reply: "Drafted. Should I send it?", icon: icons.email, card: "Re: invoice · Draft", action: "Send" },
-  { ask: "What did I need for Lisbon?", reply: "Charger, passport, sandals, and the blue jacket.", icon: icons.note, card: "Packing list · Lisbon", action: "Open" },
+  {
+    ask: "What's the Wi-Fi password at mum's?",
+    status: "Searching your Notes",
+    reply: "It's blue-otter-42. You told me in August.",
+    icon: icons.note,
+    card: "Mum's house · Note, 14 Aug",
+    action: "Open",
+  },
+  {
+    ask: "I parked on level 3, spot C14",
+    status: "Saving a Note",
+    reply: "Saved. Ask me when you're back at the car.",
+    icon: icons.note,
+    card: "Parking · Level 3, C14",
+    action: "Undo",
+  },
+  {
+    ask: "Did Tom ever send the flat contract?",
+    status: "Checking your follow-ups",
+    reply: "Not yet. You asked him on Tuesday. Should I nudge him tomorrow?",
+    icon: icons.reminder,
+    card: "Follow up with Tom · Thu 10:00",
+    action: "Set",
+  },
+  {
+    ask: "Move the dentist to after 5 on Friday",
+    status: "Checking Friday",
+    reply: "Done, Friday at 17:30. I'll remind you an hour before.",
+    icon: icons.calendar,
+    card: "Dentist · Fri 17:30",
+    action: "Undo",
+  },
+  {
+    ask: "Remind me to renew my passport before Lisbon",
+    status: "Looking at your trip",
+    reply: "It expires 5 weeks before you fly. I'll remind you Monday morning.",
+    icon: icons.reminder,
+    card: "Renew passport · Mon 9:00",
+    action: "Undo",
+  },
+  {
+    ask: "Oat milk, eggs, coffee beans",
+    status: "Adding to your list",
+    reply: "Added. Your shopping list has 7 things now.",
+    icon: icons.note,
+    card: "Shopping list · 7 items",
+    action: "Open",
+  },
 ];
 
-// A pixel wave under "all.", one art pixel per column, drawn in steps.
-const wave = [2, 1, 0, 0, 1, 2, 3, 3];
-const squiggle = Array.from({ length: 48 }, (_, x) => ({ x, y: wave[x % wave.length] ?? 0 }));
+// "Tell Billy." arrives, holds for half a second, then the second line.
+const words = [
+  { text: "Tell", delay: 100 },
+  { text: "Billy.", delay: 170, breakAfter: true },
+  { text: "He'll", delay: 1350 },
+  { text: "do", delay: 1420 },
+  { text: "it", delay: 1490 },
+  { text: "all.", delay: 1560 },
+];
 ---
 
 <Header />
@@ -67,23 +110,20 @@ const squiggle = Array.from({ length: 48 }, (_, x) => ({ x, y: wave[x % wave.len
   </div>
 
   <section class="wrap intro" aria-labelledby="hero-title">
-    <p class="ticker rise" style="--d: 0ms">
-      <span class="dot" aria-hidden="true"></span>
-      <span class="ticker-lead">Billy just</span>
-      <span class="ticker-items" data-ticker aria-live="off">
-        {ticker.map((item, index) => <span class:list={["ticker-item", { "is-active": index === 0 }]}>{item}</span>)}
-      </span>
-    </p>
     <h1 id="hero-title" class="display-hero headline">
-      <span class="word" style="--w: 0">Tell</span>{" "}<span class="word" style="--w: 1">Billy.</span><br />
-      <span class="word" style="--w: 2">He'll</span>{" "}<span class="word" style="--w: 3">do</span>{" "}<span class="word" style="--w: 4">it</span>{" "}<span class="word mark" style="--w: 5"
-        >all.<svg class="squiggle" viewBox="0 0 48 4" preserveAspectRatio="none" shape-rendering="crispEdges" aria-hidden="true"
-          >{squiggle.map((pixel) => <rect x={pixel.x} y={pixel.y} width="1" height="1" />)}</svg
-        ></span
-      >
+      {
+        words.map((word, index) => (
+          <>
+            <span class="word" style={`--delay: ${word.delay}ms`}>
+              {word.text}
+            </span>
+            {word.breakAfter ? <br /> : index < words.length - 1 ? " " : ""}
+          </>
+        ))
+      }
     </h1>
-    <p class="lede rise" style="--d: 650ms">Notes, Reminders, follow-ups, research, replies, bookings. Whatever you would hand to a great assistant, text it to Billy, and he takes it from there.</p>
-    <div class="actions rise" style="--d: 780ms">
+    <p class="lede rise" style="--d: 2050ms">Notes, Reminders, follow-ups, research, replies, bookings. Whatever you would hand to a great assistant, text it to Billy, and he takes it from there.</p>
+    <div class="actions rise" style="--d: 2170ms">
       <a class={buttonVariants({ size: "lg", className: "cta" })} href="#get">
         Get Billy<ArrowRight data-icon="inline-end" className="cta-arrow" />
       </a>
@@ -106,31 +146,33 @@ const squiggle = Array.from({ length: 48 }, (_, x) => ({ x, y: wave[x % wave.len
     <img class="px sparkle sparkle--b" src={world.sparkle} alt="" width="32" height="32" />
     <img class="px sparkle sparkle--c" src={world.sparkle} alt="" width="16" height="16" />
 
-    <div class="float float--ask" style="--i: 0" data-depth="14" aria-hidden="true">
+    <div class="float float--ask" style="--i: 0" aria-hidden="true">
       <div class="bob">
         <div class="step step--you" data-step="ask">
           <Bubble from="you" floating><span data-hook="ask">{conversations[0]?.ask}</span></Bubble>
         </div>
       </div>
     </div>
-    <div class="float float--reply" style="--i: 1" data-depth="22" aria-hidden="true">
+    <div class="float float--reply" style="--i: 1" aria-hidden="true">
       <div class="bob">
         <div class="step step--billy typing" data-step="typing">
-          <Bubble from="billy" floating><span class="dots"><span></span><span></span><span></span></span></Bubble>
+          <Bubble from="billy" floating>
+            <span class="working"><span class="dots"><span></span><span></span><span></span></span><span data-hook="status">{conversations[0]?.status}</span></span>
+          </Bubble>
         </div>
         <div class="step step--billy" data-step="reply">
           <Bubble from="billy" floating>
             <span data-hook="reply">{conversations[0]?.reply}</span>
-            <Confirmation icon="reminder" action="Undo" hooks>{conversations[0]?.card}</Confirmation>
+            <Confirmation icon="note" action="Open" hooks>{conversations[0]?.card}</Confirmation>
           </Bubble>
         </div>
       </div>
     </div>
     <script type="application/json" data-conversations set:html={JSON.stringify(conversations)} />
-    <div class="float float--note" style="--i: 2" data-depth="9" aria-hidden="true">
+    <div class="float float--note" style="--i: 2" aria-hidden="true">
       <div class="bob"><Tile icon="note" title="Note saved" detail="Packing list" /></div>
     </div>
-    <div class="float float--brief" style="--i: 3" data-depth="17" aria-hidden="true">
+    <div class="float float--brief" style="--i: 3" aria-hidden="true">
       <div class="bob"><Tile icon="brief" title="Morning Brief" detail="Tomorrow at 8:00" /></div>
     </div>
   </div>
@@ -258,15 +300,8 @@ const squiggle = Array.from({ length: 48 }, (_, x) => ({ x, y: wave[x % wave.len
     inline-size: 372px;
   }
 
-  /* On wide screens the card keeps to one line, so a swap never reflows it. */
-  @media (min-width: 1181px) {
-    .float--reply :global(.bubble) {
-      max-inline-size: none;
-    }
-
-    .float--reply :global(.confirmation .text) {
-      white-space: nowrap;
-    }
+  .float--reply :global(.bubble) {
+    max-inline-size: none;
   }
 
   .float--note {
@@ -289,7 +324,7 @@ const squiggle = Array.from({ length: 48 }, (_, x) => ({ x, y: wave[x % wave.len
   @media (prefers-reduced-motion: no-preference) {
     .float {
       animation: float-in var(--duration-enter) var(--easing-standard) both;
-      animation-delay: calc(300ms + var(--i) * 80ms);
+      animation-delay: calc(2300ms + var(--i) * 80ms);
     }
 
     .bob {
@@ -367,84 +402,6 @@ const squiggle = Array.from({ length: 48 }, (_, x) => ({ x, y: wave[x % wave.len
       display: none;
     }
   }
-  /* Ticker: what Billy just did. Every phrase sits in the same grid cell, so
-     the pill is always as wide as the longest one and never jumps. */
-  .ticker {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-1) var(--space-4) var(--space-1) var(--space-3);
-    border-radius: var(--radius-pill);
-    background: var(--color-surface-raised);
-    box-shadow: var(--shadow-soft);
-    color: var(--color-ink);
-    font: var(--text-body-strong);
-  }
-
-  .ticker-lead {
-    color: var(--color-ink-muted);
-  }
-
-  .ticker-items {
-    display: grid;
-    text-align: start;
-  }
-
-  .ticker-item {
-    grid-area: 1 / 1;
-    opacity: 0;
-    filter: blur(4px);
-    translate: 0 8px;
-    transition:
-      opacity var(--duration-standard) var(--easing-standard),
-      filter var(--duration-standard) var(--easing-standard),
-      translate var(--duration-standard) var(--easing-standard);
-  }
-
-  .ticker-item:global(.is-active) {
-    opacity: 1;
-    filter: none;
-    translate: 0 0;
-  }
-
-  /* Leaving is quicker than arriving: the system response snaps. */
-  .ticker-item:global(.is-leaving) {
-    opacity: 0;
-    filter: blur(4px);
-    translate: 0 -8px;
-    transition-duration: var(--duration-quick);
-  }
-
-  .dot {
-    position: relative;
-    inline-size: 8px;
-    block-size: 8px;
-    border-radius: var(--radius-round);
-    background: var(--color-forest);
-  }
-
-  .dot::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: var(--color-forest);
-    opacity: 0;
-  }
-
-  /* Headline: the pixel wave under "all." */
-  .mark {
-    position: relative;
-  }
-
-  .squiggle {
-    position: absolute;
-    inset-inline: 0.02em 0.12em;
-    inset-block-end: -0.06em;
-    block-size: 0.12em;
-    fill: var(--color-bark);
-  }
-
   .word {
     display: inline-block;
   }
@@ -475,10 +432,19 @@ const squiggle = Array.from({ length: 48 }, (_, x) => ({ x, y: wave[x % wave.len
     inset-inline-start: 0;
   }
 
+  /* While Billy works, he says what he is doing. */
+  .working {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--color-ink-muted);
+    font: var(--text-body);
+    white-space: nowrap;
+  }
+
   .dots {
     display: inline-flex;
     gap: 4px;
-    padding-block: 7px;
   }
 
   .dots span {
@@ -554,28 +520,6 @@ const squiggle = Array.from({ length: 48 }, (_, x) => ({ x, y: wave[x % wave.len
     }
   }
 
-  @keyframes draw {
-    from {
-      clip-path: inset(0 100% 0 0);
-    }
-
-    to {
-      clip-path: inset(0 0 0 0);
-    }
-  }
-
-  @keyframes pulse {
-    from {
-      opacity: 0.5;
-      scale: 1;
-    }
-
-    to {
-      opacity: 0;
-      scale: 2.8;
-    }
-  }
-
   @keyframes dot-bounce {
     0%,
     60%,
@@ -593,7 +537,7 @@ const squiggle = Array.from({ length: 48 }, (_, x) => ({ x, y: wave[x % wave.len
   @media (prefers-reduced-motion: no-preference) {
     .word {
       animation: word-in 700ms var(--easing-standard) both;
-      animation-delay: calc(120ms + var(--w) * 60ms);
+      animation-delay: var(--delay);
     }
 
     .rise {
@@ -601,15 +545,6 @@ const squiggle = Array.from({ length: 48 }, (_, x) => ({ x, y: wave[x % wave.len
       animation-delay: var(--d);
     }
 
-    /* Drawn left to right in whole pixels, after "all." lands. */
-    .squiggle {
-      animation: draw 520ms steps(12, end) both;
-      animation-delay: 1000ms;
-    }
-
-    .dot::after {
-      animation: pulse 2400ms var(--easing-standard) infinite;
-    }
 
     .dots span {
       animation: dot-bounce 1100ms var(--easing-float) infinite;

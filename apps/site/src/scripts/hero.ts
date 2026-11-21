@@ -1,10 +1,10 @@
-// The hero's living parts: the ticker of what Billy just did, the floating
-// chat that plays real exchanges, and a little depth against the pointer.
-// Everything here is decorative: the markup already reads complete, and none
-// of it runs under reduced motion.
+// The hero's floating chat: it plays everyday exchanges in turn, and while
+// Billy works his bubble says what he is doing. It is decorative: the markup
+// already reads complete, and none of it runs under reduced motion.
 
 interface Conversation {
   ask: string;
+  status: string;
   reply: string;
   icon: string;
   card: string;
@@ -54,17 +54,6 @@ const sequence = (steps: readonly Step[], done: () => void) => {
   });
 };
 
-const cycleTicker = (items: HTMLElement[], index: number) => {
-  later(3200, () => {
-    const current = items[index];
-    const nextIndex = (index + 1) % items.length;
-    current?.classList.replace("is-active", "is-leaving");
-    items[nextIndex]?.classList.add("is-active");
-    window.setTimeout(() => current?.classList.remove("is-leaving"), 300);
-    cycleTicker(items, nextIndex);
-  });
-};
-
 const step = (name: string) =>
   hero?.querySelector<HTMLElement>(`[data-step="${name}"]`);
 const hook = (name: string) =>
@@ -73,6 +62,7 @@ const hook = (name: string) =>
 const fill = (conversation: Conversation) => {
   const parts = {
     ask: hook("ask"),
+    status: hook("status"),
     reply: hook("reply"),
     text: hook("card-text"),
     action: hook("card-action"),
@@ -80,6 +70,9 @@ const fill = (conversation: Conversation) => {
   };
   if (parts.ask) {
     parts.ask.textContent = conversation.ask;
+  }
+  if (parts.status) {
+    parts.status.textContent = conversation.status;
   }
   if (parts.reply) {
     parts.reply.textContent = conversation.reply;
@@ -121,58 +114,15 @@ const playChat = (conversations: Conversation[], index: number) => {
   sequence(
     [
       [0, () => show(ask)],
-      [650, () => show(typing)],
-      [1300, () => leave(typing)],
+      [700, () => show(typing)],
+      [1600, () => leave(typing)],
       [220, () => show(reply)],
-      [5200, () => leave(ask, reply)],
+      [5600, () => leave(ask, reply)],
     ],
     () =>
       later(720, () =>
         playChat(conversations, (index + 1) % conversations.length)
       )
-  );
-};
-
-// Each float drifts against the pointer by its own depth. The offset eases
-// toward the target every frame, so it has weight instead of sticking to the
-// mouse (emil-design-eng: smooth decorative pointer tracking). Each element
-// gets its own transform, so no parent variable restyles the whole scene.
-const startDepth = () => {
-  const floats = [
-    ...(hero?.querySelectorAll<HTMLElement>("[data-depth]") ?? []),
-  ].map((element) => ({
-    element,
-    depth: Number(element.dataset.depth ?? 0),
-  }));
-  let targetX = 0;
-  let targetY = 0;
-  let x = 0;
-  let y = 0;
-  let frame = 0;
-  const tick = () => {
-    x += (targetX - x) * 0.08;
-    y += (targetY - y) * 0.08;
-    for (const { element, depth } of floats) {
-      element.style.translate = `${(-x * depth).toFixed(2)}px ${(-y * depth).toFixed(2)}px`;
-    }
-    frame =
-      Math.abs(targetX - x) + Math.abs(targetY - y) > 0.001
-        ? requestAnimationFrame(tick)
-        : 0;
-  };
-  window.addEventListener(
-    "pointermove",
-    (event) => {
-      if (!heroVisible) {
-        return;
-      }
-      targetX = (event.clientX / window.innerWidth) * 2 - 1;
-      targetY = (event.clientY / window.innerHeight) * 2 - 1;
-      if (!frame) {
-        frame = requestAnimationFrame(tick);
-      }
-    },
-    { passive: true }
   );
 };
 
@@ -185,19 +135,10 @@ export const startHero = () => {
     rouse();
   }).observe(hero);
   document.addEventListener("visibilitychange", rouse);
-  const items = [
-    ...document.querySelectorAll<HTMLElement>("[data-ticker] .ticker-item"),
-  ];
-  if (items.length > 1) {
-    cycleTicker(items, 0);
-  }
   const source = hero.querySelector("[data-conversations]")?.textContent;
   const conversations = source ? (JSON.parse(source) as Conversation[]) : [];
   if (conversations.length > 0) {
-    // Let the headline land first.
-    later(1100, () => playChat(conversations, 0));
-  }
-  if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
-    startDepth();
+    // Let the headline and the buttons land first.
+    later(2500, () => playChat(conversations, 0));
   }
 };
