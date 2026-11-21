@@ -100,21 +100,25 @@ const words = [
         </template>
       </Vignette>
 
-      <Vignette place="bl" tilt={1} pair={1} keep label="Example: a Reminder for a trip">
-        <VignetteAsk>Remind me to renew my passport before Lisbon</VignetteAsk>
+      <Vignette place="bl" tilt={1} pair={1} label="Example: a follow-up Billy starts">
         <VignetteAnswer>
-          It runs out five weeks before you fly. I'll remind you Monday at 9:00.
-          <Confirmation icon="reminder" compact><span class="swap" data-swap>Renew passport · Mon 9:00</span></Confirmation>
+          Tom still hasn't sent the flat contract. Should I nudge him?
           <span class="chips" data-choices>
-            <button type="button" class="chip" aria-pressed="false" data-say="sunday" data-swap-to="Renew passport · Sun 10:00"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Make it Sunday</button>
-            <button type="button" class="chip" aria-pressed="false" data-say="undo"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Undo</button>
+            <button type="button" class="chip" aria-pressed="false" data-say="nudge"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Nudge Tom</button>
+            <button type="button" class="chip" aria-pressed="false" data-say="wait"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Wait a day</button>
           </span>
         </VignetteAnswer>
-        <template data-reply="sunday">
-          <VignetteAnswer>Moved to Sunday at 10:00.</VignetteAnswer>
+        <template data-reply="nudge">
+          <VignetteAnswer>
+            Done. I'll message Tom at 9:00 tomorrow.
+            <Confirmation icon="reminder" compact>Nudge Tom · Thu 9:00</Confirmation>
+          </VignetteAnswer>
         </template>
-        <template data-reply="undo">
-          <VignetteAnswer>Removed. I won't remind you about the passport.</VignetteAnswer>
+        <template data-reply="wait">
+          <VignetteAnswer>
+            Okay. I'll check again on Friday.
+            <Confirmation icon="reminder" compact>Check on Tom · Fri 10:00</Confirmation>
+          </VignetteAnswer>
         </template>
       </Vignette>
     </div>
@@ -140,25 +144,21 @@ const words = [
         </template>
       </Vignette>
 
-      <Vignette place="br" tilt={-1} pair={1} label="Example: a follow-up Billy starts">
+      <Vignette place="br" tilt={-1} pair={1} keep label="Example: a Reminder for a trip">
+        <VignetteAsk>Remind me to renew my passport before Lisbon</VignetteAsk>
         <VignetteAnswer>
-          Tom still hasn't sent the flat contract. Should I nudge him?
+          It runs out five weeks before you fly. I'll remind you Monday at 9:00.
+          <Confirmation icon="reminder" compact><span class="swap" data-swap>Renew passport · Mon 9:00</span></Confirmation>
           <span class="chips" data-choices>
-            <button type="button" class="chip" aria-pressed="false" data-say="nudge"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Nudge Tom</button>
-            <button type="button" class="chip" aria-pressed="false" data-say="wait"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Wait a day</button>
+            <button type="button" class="chip" aria-pressed="false" data-say="sunday" data-swap-to="Renew passport · Sun 10:00"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Make it Sunday</button>
+            <button type="button" class="chip" aria-pressed="false" data-say="undo"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Undo</button>
           </span>
         </VignetteAnswer>
-        <template data-reply="nudge">
-          <VignetteAnswer>
-            Done. I'll message Tom at 9:00 tomorrow.
-            <Confirmation icon="reminder" compact>Nudge Tom · Thu 9:00</Confirmation>
-          </VignetteAnswer>
+        <template data-reply="sunday">
+          <VignetteAnswer>Moved to Sunday at 10:00.</VignetteAnswer>
         </template>
-        <template data-reply="wait">
-          <VignetteAnswer>
-            Okay. I'll check again on Friday.
-            <Confirmation icon="reminder" compact>Check on Tom · Fri 10:00</Confirmation>
-          </VignetteAnswer>
+        <template data-reply="undo">
+          <VignetteAnswer>Removed. I won't remind you about the passport.</VignetteAnswer>
         </template>
       </Vignette>
     </div>
@@ -251,6 +251,12 @@ const words = [
   .vignettes :global(.vignette--tl),
   .vignettes :global(.vignette--tr) {
     min-block-size: var(--upper-slot, 412px);
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-3);
   }
 
   /* Chip contract: unselected has a control-line edge; selected is honey
