@@ -12,7 +12,21 @@ const questions = [
 <section id="faq" class="wrap section faq" aria-labelledby="faq-title">
   <h2 id="faq-title" class="display-section" data-reveal>Questions</h2>
   <div data-reveal>
-    <FaqList client:visible questions={questions} />
+    <div class="with-script">
+      <FaqList client:visible questions={questions} />
+    </div>
+    <!-- Closed accordion answers are not in the HTML until React runs, so
+         without script the questions show as a plain list with answers. -->
+    <dl class="without-script">
+      {
+        questions.map((item) => (
+          <div>
+            <dt class="heading">{item.q}</dt>
+            <dd>{item.a}</dd>
+          </div>
+        ))
+      }
+    </dl>
   </div>
 </section>
 
@@ -22,6 +36,25 @@ const questions = [
     grid-template-columns: minmax(0, 4fr) minmax(0, 7fr);
     gap: var(--space-8);
     align-items: start;
+  }
+
+  :global(html:not(.js)) .with-script,
+  :global(html.js) .without-script {
+    display: none;
+  }
+
+  .without-script {
+    display: grid;
+    gap: var(--space-5);
+    margin: 0;
+    padding-block: var(--space-5);
+    border-block: 1px solid var(--color-line);
+  }
+
+  .without-script dd {
+    max-inline-size: var(--size-measure);
+    margin: var(--space-2) 0 0;
+    color: var(--color-ink-muted);
   }
 
   @media (max-width: 860px) {

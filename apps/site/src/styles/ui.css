@@ -77,3 +77,18 @@
     @apply border-border;
   }
 }
+
+/* Reduced motion: the copied shadcn components use fixed animation and
+   press transforms that the duration tokens do not reach, so stop them
+   here. Sheets and accordion answers then appear and disappear at once. */
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="sheet-overlay"],
+  [data-slot="sheet-content"],
+  [data-slot="accordion-content"] {
+    animation: none !important;
+  }
+
+  [data-slot="button"] {
+    transform: none !important;
+  }
+}

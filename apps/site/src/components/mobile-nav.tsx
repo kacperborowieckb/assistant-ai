@@ -26,7 +26,10 @@ export const MobileNav = () => {
           <MenuIcon />
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="w-[min(320px,85vw)] gap-2 p-4">
+      <SheetContent
+        side="right"
+        className="w-[min(320px,85vw)] gap-2 overflow-y-auto p-4"
+      >
         <SheetHeader className="p-2">
           <SheetTitle>Menu</SheetTitle>
           <SheetDescription className="sr-only">
@@ -50,7 +53,7 @@ export const MobileNav = () => {
         <Separator className="my-2" />
         <div className="flex flex-col gap-2">
           <Button asChild size="lg">
-            <a href="/#get" onClick={close}>
+            <a href="/#self-host" onClick={close}>
               Get Billy
             </a>
           </Button>

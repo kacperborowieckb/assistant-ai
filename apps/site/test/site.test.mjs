@@ -121,18 +121,78 @@ test("the sun or moon is a named button that switches day and night", () => {
   assert.match(toggle, /type="button"/u);
 });
 
+// Walks CSS blocks and returns every declaration with a looping animation
+// whose enclosing rules do not include a reduced-motion "no-preference"
+// condition.
+const unguardedLoops = (css) => {
+  const found = [];
+  const preludes = [];
+  let text = "";
+  for (const character of css.replaceAll(/\/\*[\s\S]*?\*\//gu, "")) {
+    if (character === "{") {
+      preludes.push(text.trim());
+      text = "";
+    } else if (character === "}" || character === ";") {
+      const declaration = text.trim();
+      const guarded = preludes.some((prelude) =>
+        /prefers-reduced-motion:\s*no-preference/u.test(prelude)
+      );
+      if (
+        /^animation(?:-iteration-count)?\s*:.*\binfinite\b/u.test(
+          declaration
+        ) &&
+        !guarded
+      ) {
+        found.push(declaration);
+      }
+      text = "";
+      if (character === "}") {
+        preludes.pop();
+      }
+    } else {
+      text += character;
+    }
+  }
+  return found;
+};
+
+test("the reduced-motion check catches loops outside a no-preference block", () => {
+  assert.deepEqual(
+    unguardedLoops(
+      "@media (min-width:1px){.cloud{animation:drift 1s infinite}}"
+    ),
+    ["animation:drift 1s infinite"]
+  );
+  assert.deepEqual(unguardedLoops(".cloud{animation:drift 1s infinite}"), [
+    "animation:drift 1s infinite",
+  ]);
+  assert.deepEqual(
+    unguardedLoops(
+      "@media (prefers-reduced-motion:no-preference){.cloud{animation:drift 1s infinite}}"
+    ),
+    []
+  );
+  assert.deepEqual(
+    unguardedLoops(
+      "@media (prefers-reduced-motion:no-preference){@media (min-width:1px){.a{animation:x 1s infinite}}}"
+    ),
+    []
+  );
+});
+
 test("ambient motion stops when the person asks for reduced motion", () => {
   const css = walk(dist)
     .filter((path) => path.endsWith(".css"))
     .map((path) => read(path))
     .join("\n");
-  const animated = [...css.matchAll(/animation:\s*(?<name>[\w-]+)\s/gu)].map(
-    (match) => match.groups.name
+  assert.match(
+    css,
+    /\binfinite\b/u,
+    "the built CSS has looping animations to check"
   );
-  assert.ok(animated.length > 0);
-  assert.doesNotMatch(
-    css.replaceAll(/@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/gu, ""),
-    /infinite/u,
+  assert.deepEqual(
+    unguardedLoops(css),
+    [],
     "a looping animation runs outside a reduced-motion check"
   );
 });

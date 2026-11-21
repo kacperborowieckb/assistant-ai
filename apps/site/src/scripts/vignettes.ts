@@ -17,7 +17,13 @@ const enter = (thread: Element, node: Element) => {
 
 // Billy types, then his answer takes the typing bubble's exact place, so
 // nothing below it jumps (no exit fade while the answer is added under it).
-const play = (vignette: Element, name: string) => {
+// `stillWanted` is asked again before the answer lands; if it says no, the
+// typing bubble goes away and nothing is said.
+const play = (
+  vignette: Element,
+  name: string,
+  stillWanted: () => boolean = () => true
+) => {
   const template = vignette.querySelector<HTMLTemplateElement>(
     `template[data-reply="${name}"]`
   );
@@ -37,18 +43,38 @@ const play = (vignette: Element, name: string) => {
   }
   enter(thread, typing);
   window.setTimeout(() => {
+    if (!stillWanted()) {
+      typing.remove();
+      return;
+    }
     answer.classList.add("is-new");
     typing.replaceWith(answer);
   }, typingTime());
 };
 
-// Changes a card's text in place: blur out, swap, blur back in.
+// The swap's fade time, from the duration-quick token (0ms under reduced
+// motion).
+const quickDuration = () =>
+  Number(
+    getComputedStyle(document.documentElement)
+      .getPropertyValue("--duration-quick")
+      .trim()
+      .replace("ms", "")
+  ) || 0;
+
+// Changes a card's text in place: blur out, swap, blur back in. Under reduced
+// motion the text simply changes, with no moment where it is hidden.
 const swapText = (element: HTMLElement, text: string) => {
+  const fade = quickDuration();
+  if (reducedMotion.matches || fade === 0) {
+    element.textContent = text;
+    return;
+  }
   element.classList.add("is-swapping");
   window.setTimeout(() => {
     element.textContent = text;
     element.classList.remove("is-swapping");
-  }, 150);
+  }, fade);
 };
 
 const choose = (chip: HTMLButtonElement, vignette: Element) => {
@@ -72,18 +98,27 @@ const choose = (chip: HTMLButtonElement, vignette: Element) => {
   play(vignette, name);
 };
 
+const allTasksDone = (vignette: HTMLElement) =>
+  [...vignette.querySelectorAll("[data-task]")].every(
+    (item) => item.getAttribute("aria-pressed") === "true"
+  );
+
 const tick = (task: HTMLButtonElement, vignette: HTMLElement) => {
   task.setAttribute(
     "aria-pressed",
     task.getAttribute("aria-pressed") === "true" ? "false" : "true"
   );
-  const tasks = [...vignette.querySelectorAll("[data-task]")];
-  const allDone = tasks.every(
-    (item) => item.getAttribute("aria-pressed") === "true"
-  );
-  if (allDone && !vignette.dataset.finished) {
+  if (allTasksDone(vignette) && !vignette.dataset.finished) {
     vignette.dataset.finished = "true";
-    play(vignette, "done");
+    // If a task is unchecked while Billy types, he says nothing, and finishing
+    // the list again brings the reply back.
+    play(vignette, "done", () => {
+      if (allTasksDone(vignette)) {
+        return true;
+      }
+      delete vignette.dataset.finished;
+      return false;
+    });
   }
 };
 
