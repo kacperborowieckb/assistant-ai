@@ -25,7 +25,7 @@ This layout is a direction, not a fixed or complete plan. Follow it by default. 
 ```
 apps/
   agent/              Cloudflare Worker: Edge, Directory, Personal Agent, Evals       MVP
-  mobile/             Native app: chat main screen and settings                       Mobile phase
+  mobile/             Expo app (0025): chat main screen and settings                  Mobile phase
   site/               Static marketing site and self-host docs                        Before public launch
   platform/           Hosted only: accounts, billing, Registration, managed keys      Hosted phase
 packages/
