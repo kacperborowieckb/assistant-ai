@@ -196,8 +196,8 @@ const words = [
      high in the sky, never above a card. */
   .celestial {
     position: absolute;
-    inset-block-start: calc(var(--masthead) + var(--space-1));
-    inset-inline-start: calc(50% + 236px);
+    inset-block-start: calc(var(--masthead) - var(--space-1));
+    inset-inline-start: calc(50% + 252px);
     z-index: 2;
   }
 
@@ -251,6 +251,11 @@ const words = [
   .vignettes :global(.vignette--tl),
   .vignettes :global(.vignette--tr) {
     min-block-size: var(--upper-slot, 412px);
+  }
+
+  /* The Brief is short, so the passport chat below it sits a little higher. */
+  .vignettes :global(.vignette--tr) {
+    min-block-size: calc(var(--upper-slot, 412px) - 36px);
   }
 
   .chips {
@@ -636,7 +641,7 @@ const words = [
     }
 
     .celestial {
-      inset-inline-start: calc(50% + 220px);
+      inset-inline-start: calc(50% + 236px);
     }
 
     .celestial :global(.sky-toggle) {
