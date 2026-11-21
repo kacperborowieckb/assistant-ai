@@ -1,21 +1,23 @@
 ---
-// The hero: Billy on his dam in the pixel valley, with the chat around him.
-// "Tell Billy." lands, a short pause, then "He'll do it all." The floating
-// chat plays everyday exchanges, with Billy saying what he is doing while he
-// works (src/scripts/hero.ts). The sun (or moon) switches day and night.
+// The hero: the headline in the middle of Billy's sky, small conversations
+// floating around it, and Billy on his dam below. "Tell Billy." lands, a
+// beat, then "He'll do it all." The conversations then play in one after
+// another (src/scripts/hero.ts). The sun (or moon) switches day and night.
 import { ArrowDown, ArrowRight } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
 
-import { icons, world } from "../art";
+import { world } from "../art";
 import Billy from "./billy.astro";
-import Bubble from "./bubble.astro";
 import Cloud from "./cloud.astro";
 import Confirmation from "./confirmation.astro";
 import Header from "./header.astro";
+import ReminderRow from "./reminder-row.astro";
 import SkyToggle from "./sky-toggle.astro";
 import Stars from "./stars.astro";
-import Tile from "./tile.astro";
+import VignetteAnswer from "./vignette-answer.astro";
+import VignetteAsk from "./vignette-ask.astro";
+import Vignette from "./vignette.astro";
 
 const stars = [
   { top: "14%", left: "8%", size: 2, delay: 0.1 },
@@ -29,61 +31,6 @@ const stars = [
   { top: "50%", left: "28%", size: 2, delay: 0.9 },
   { top: "52%", left: "76%", size: 1, delay: 0.35 },
 ] as const;
-
-// Everyday exchanges the floating chat plays in turn: capture, recall,
-// follow-ups, and plans that change. `status` is what Billy says while he
-// works. The first is in the markup, so the page reads complete without
-// script or with reduced motion.
-const conversations = [
-  {
-    ask: "What's the Wi-Fi password at mum's?",
-    status: "Searching your Notes",
-    reply: "It's blue-otter-42. You told me in August.",
-    icon: icons.note,
-    card: "Mum's house · 14 Aug",
-    action: "Open",
-  },
-  {
-    ask: "I parked on level 3, spot C14",
-    status: "Saving a Note",
-    reply: "Saved. Ask me when you're back at the car.",
-    icon: icons.note,
-    card: "Parking · Level 3, C14",
-    action: "Undo",
-  },
-  {
-    ask: "Did Tom ever send the flat contract?",
-    status: "Checking your follow-ups",
-    reply: "Not yet. You asked him on Tuesday. Should I nudge him tomorrow?",
-    icon: icons.reminder,
-    card: "Follow up with Tom · Thu 10:00",
-    action: "Set",
-  },
-  {
-    ask: "Move the dentist to after 5 on Friday",
-    status: "Checking Friday",
-    reply: "Done, Friday at 17:30. I'll remind you an hour before.",
-    icon: icons.calendar,
-    card: "Dentist · Fri 17:30",
-    action: "Undo",
-  },
-  {
-    ask: "Remind me to renew my passport before Lisbon",
-    status: "Looking at your trip",
-    reply: "It expires 5 weeks before you fly. I'll remind you Monday morning.",
-    icon: icons.reminder,
-    card: "Renew passport · Mon 9:00",
-    action: "Undo",
-  },
-  {
-    ask: "Oat milk, eggs, coffee beans",
-    status: "Adding to your list",
-    reply: "Added. Your shopping list has 7 things now.",
-    icon: icons.note,
-    card: "Shopping list · 7 items",
-    action: "Open",
-  },
-];
 
 // "Tell Billy." arrives, holds a beat, then the second line.
 const words = [
@@ -133,6 +80,60 @@ const words = [
     </div>
   </section>
 
+  <!-- Everyday conversations around the headline, alternating sides. -->
+  <div class="vignettes">
+    <Vignette place="tl" tilt={-2} keep>
+      <VignetteAsk>What's the Wi-Fi password at mum's?</VignetteAsk>
+      <VignetteAnswer status="Searching your Notes">
+        It's blue-otter-42. You told me in August.
+        <Confirmation icon="note" compact>Mum's house · 14 Aug</Confirmation>
+      </VignetteAnswer>
+    </Vignette>
+
+    <Vignette place="tr" tilt={1.5}>
+      <VignetteAnswer status="Preparing your Brief">
+        Good morning. Three things today:
+        <span class="rows">
+          <ReminderRow title="Invoice to Marta" time="14:00" />
+          <ReminderRow title="Dentist" time="17:30" />
+          <ReminderRow title="Call mum" time="18:00" />
+        </span>
+      </VignetteAnswer>
+    </Vignette>
+
+    <Vignette place="ml" tilt={1}>
+      <VignetteAnswer status="Checking your follow-ups">
+        Tom still hasn't sent the flat contract. Should I nudge him?
+        <span class="chips"><span class="chip">Nudge Tom</span><span class="chip">Wait a day</span></span>
+      </VignetteAnswer>
+      <VignetteAsk>Yes, tomorrow morning</VignetteAsk>
+    </Vignette>
+
+    <Vignette place="mr" tilt={-1.5} keep>
+      <VignetteAsk>I parked on level 3, spot C14</VignetteAsk>
+      <VignetteAnswer status="Saving a Note">
+        Saved. Ask me when you're back at the car.
+        <Confirmation icon="note" compact>Parking · Level 3, C14</Confirmation>
+      </VignetteAnswer>
+    </Vignette>
+
+    <Vignette place="bl" tilt={1.5}>
+      <VignetteAsk>Remind me to renew my passport before Lisbon</VignetteAsk>
+      <VignetteAnswer status="Looking at your trip">
+        It runs out five weeks before you fly. I'll remind you Monday at 9:00.
+        <Confirmation icon="reminder" compact>Renew passport · Mon 9:00</Confirmation>
+      </VignetteAnswer>
+    </Vignette>
+
+    <Vignette place="br" tilt={-1}>
+      <VignetteAsk>oat milk, eggs, coffee beans</VignetteAsk>
+      <VignetteAnswer status="Adding to your list">
+        Added. Your shopping list has 7 things now.
+        <Confirmation icon="note" compact>Shopping list · 7 items</Confirmation>
+      </VignetteAnswer>
+    </Vignette>
+  </div>
+
   <div class="valley">
     <div class="hills hills-light" aria-hidden="true"></div>
     <div class="water water-flow" aria-hidden="true"></div>
@@ -145,40 +146,6 @@ const words = [
     <img class="px sparkle sparkle--a" src={world.sparkle} alt="" width="24" height="24" />
     <img class="px sparkle sparkle--b" src={world.sparkle} alt="" width="32" height="32" />
     <img class="px sparkle sparkle--c" src={world.sparkle} alt="" width="16" height="16" />
-
-    <!-- One floating thread beside Billy: your message, then his answer right
-         under it, in the same spot where he was typing. -->
-    <div class="float float--thread" style="--i: 0" aria-hidden="true">
-      <div class="bob thread">
-        <div class="step step--you" data-step="ask">
-          <Bubble from="you" floating><span data-hook="ask">{conversations[0]?.ask}</span></Bubble>
-        </div>
-        <div class="answer">
-        <div class="step step--billy typing" data-step="typing">
-          <Bubble from="billy" floating>
-            <span class="working"><span class="dots"><span></span><span></span><span></span></span><span data-hook="status">{conversations[0]?.status}</span></span>
-          </Bubble>
-        </div>
-        <div class="step step--billy" data-step="reply">
-          <Bubble from="billy" floating>
-            <span data-hook="reply">{conversations[0]?.reply}</span>
-            <Confirmation icon="note" action="Open" hooks>{conversations[0]?.card}</Confirmation>
-          </Bubble>
-        </div>
-        </div>
-      </div>
-    </div>
-    <script type="application/json" data-conversations set:html={JSON.stringify(conversations)} />
-    <!-- Around Billy, alternating sides: what he has already done today. -->
-    <div class="float float--brief" style="--i: 1" aria-hidden="true">
-      <div class="bob"><Tile icon="brief" title="Morning Brief" detail="3 things today" /></div>
-    </div>
-    <div class="float float--note" style="--i: 2" aria-hidden="true">
-      <div class="bob"><Tile icon="note" title="Note saved" detail="Parking · Level 3" /></div>
-    </div>
-    <div class="float float--remind" style="--i: 3" aria-hidden="true">
-      <div class="bob"><Tile icon="reminder" title="Reminder set" detail="Dentist · Fri 17:30" /></div>
-    </div>
   </div>
 </div>
 
@@ -199,6 +166,7 @@ const words = [
 
   .intro {
     position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -219,6 +187,63 @@ const words = [
     justify-content: center;
     gap: var(--space-4);
     margin-block-start: var(--space-2);
+  }
+
+  /* Conversations around the headline. Left ones hang from the center line
+     by their right edge, right ones by their left edge. */
+  .vignettes :global(.vignette) {
+    position: absolute;
+    z-index: 1;
+    inline-size: 300px;
+  }
+
+  .vignettes :global(.vignette--tl) {
+    inset-block-start: 120px;
+    inset-inline-end: calc(50% + 330px);
+  }
+
+  .vignettes :global(.vignette--tr) {
+    inset-block-start: 250px;
+    inset-inline-start: calc(50% + 340px);
+  }
+
+  .vignettes :global(.vignette--ml) {
+    inset-block-start: 410px;
+    inset-inline-end: calc(50% + 350px);
+  }
+
+  .vignettes :global(.vignette--mr) {
+    inset-block-start: 510px;
+    inset-inline-start: calc(50% + 330px);
+  }
+
+  .vignettes :global(.vignette--bl) {
+    inset-block-start: 690px;
+    inset-inline-end: calc(50% + 270px);
+  }
+
+  .vignettes :global(.vignette--br) {
+    inset-block-start: 740px;
+    inset-inline-start: calc(50% + 210px);
+  }
+
+  .rows {
+    display: block;
+    margin-block-start: calc(-1 * var(--space-1));
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .chip {
+    padding: var(--space-1) var(--space-3);
+    border: 1px solid var(--color-control-line);
+    border-radius: var(--radius-pill);
+    color: var(--color-forest);
+    font: var(--text-body-strong);
   }
 
   .valley {
@@ -249,7 +274,6 @@ const words = [
 
   .log,
   .sparkle,
-  .float,
   .valley :global(.billy) {
     position: absolute;
   }
@@ -295,196 +319,8 @@ const words = [
     inset-inline-start: calc(50% + 250px);
   }
 
-  /* The thread floats to Billy's right, so his answer sits beside his head. */
-  .float--thread {
-    inset-block-start: 24px;
-    inset-inline-start: calc(50% + 170px);
-    inline-size: 380px;
-  }
-
-  .thread {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-  }
-
-  .thread :global(.bubble) {
-    max-inline-size: none;
-  }
-
-  .thread .step--you {
-    align-self: flex-end;
-    max-inline-size: 320px;
-  }
-
-  /* Typing and the reply share one cell: the answer lands where he typed. */
-  .answer {
-    display: grid;
-    align-items: start;
-  }
-
-  .answer > .step {
-    grid-area: 1 / 1;
-  }
-
-  /* Alternating around Billy: upper left, the thread upper right, lower
-     left, lower right. */
-  .float--brief {
-    inset-block-start: 40px;
-    inset-inline-end: calc(50% + 250px);
-  }
-
-  .float--note {
-    inset-block-start: 190px;
-    inset-inline-end: calc(50% + 310px);
-  }
-
-  .float--remind {
-    inset-block-start: 300px;
-    inset-inline-start: calc(50% + 230px);
-  }
-
-  @keyframes float-in {
-    from {
-      opacity: 0;
-      transform: translateY(18px) scale(0.96);
-    }
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .float {
-      animation: float-in var(--duration-enter) var(--easing-standard) both;
-      animation-delay: calc(1850ms + var(--i) * 80ms);
-    }
-
-    .bob {
-      animation: float var(--duration-bob) var(--easing-float) infinite alternate;
-      animation-delay: calc(var(--i) * -2300ms);
-    }
-
-    .sparkle {
-      animation: twinkle var(--duration-twinkle) var(--easing-float) infinite;
-    }
-
-    .sparkle--b {
-      animation-delay: -900ms;
-    }
-
-    .sparkle--c {
-      animation-delay: -1700ms;
-    }
-
-  }
-
-  @media (max-width: 1180px) {
-    .float--thread {
-      inset-inline-start: calc(50% + 140px);
-      inline-size: 300px;
-    }
-
-    .float--brief {
-      inset-inline-end: calc(50% + 200px);
-    }
-
-    .float--note {
-      inset-inline-end: calc(50% + 240px);
-    }
-
-    .float--remind {
-      inset-block-start: 320px;
-      inset-inline-start: calc(50% + 180px);
-    }
-  }
-
-  @media (max-width: 900px) {
-    .celestial {
-      inset-block-start: calc(var(--masthead) - var(--space-2));
-      inset-inline-end: var(--space-4);
-    }
-
-    .intro {
-      padding-block-start: calc(var(--masthead) + 96px);
-    }
-
-    .valley {
-      block-size: auto;
-      padding-block: var(--space-6) 450px;
-    }
-
-    .valley :global(.billy) {
-      --mascot-size: 256px;
-      inset-block-end: 179px;
-      inset-inline-start: calc(50% - 147px);
-    }
-
-
-    .float--thread {
-      position: relative;
-      inset: auto;
-      inline-size: auto;
-      max-inline-size: 380px;
-      margin-inline: auto;
-      padding-inline: var(--space-4);
-    }
-
-    .sparkle,
-    .float--brief,
-    .float--note,
-    .float--remind {
-      display: none;
-    }
-  }
   .word {
     display: inline-block;
-  }
-
-  /* Chat steps: each bubble grows from the corner it is anchored to. */
-  .bob {
-    position: relative;
-  }
-
-  .step {
-    transition:
-      opacity var(--duration-standard) var(--easing-standard),
-      transform var(--duration-standard) var(--easing-standard),
-      filter var(--duration-standard) var(--easing-standard);
-  }
-
-  .step--you {
-    transform-origin: right bottom;
-  }
-
-  .step--billy {
-    transform-origin: left top;
-  }
-
-  /* While Billy works, he says what he is doing. */
-  .working {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    color: var(--color-ink-muted);
-    font: var(--text-body);
-    white-space: nowrap;
-  }
-
-  .dots {
-    display: inline-flex;
-    gap: 4px;
-  }
-
-  .dots span {
-    inline-size: 6px;
-    block-size: 6px;
-    border-radius: var(--radius-round);
-    background: var(--color-ink-muted);
-  }
-
-  /* Without script or with reduced motion the first exchange is simply there,
-     and the typing bubble never shows. */
-  .typing {
-    opacity: 0;
-    transform: scale(0.9);
   }
 
   /* Buttons. */
@@ -546,20 +382,6 @@ const words = [
     }
   }
 
-  @keyframes dot-bounce {
-    0%,
-    60%,
-    100% {
-      translate: 0 0;
-      opacity: 0.45;
-    }
-
-    30% {
-      translate: 0 -4px;
-      opacity: 1;
-    }
-  }
-
   @media (prefers-reduced-motion: no-preference) {
     .word {
       animation: word-in 700ms var(--easing-standard) both;
@@ -571,36 +393,120 @@ const words = [
       animation-delay: var(--d);
     }
 
-
-    .dots span {
-      animation: dot-bounce 1100ms var(--easing-float) infinite;
+    .vignettes :global(.bob) {
+      animation: float var(--duration-bob) var(--easing-float) infinite alternate;
     }
 
-    .dots span:nth-child(2) {
-      animation-delay: 150ms;
+    .vignettes :global(.vignette:nth-child(2n) .bob) {
+      animation-delay: -3s;
     }
 
-    .dots span:nth-child(3) {
-      animation-delay: 300ms;
+    .vignettes :global(.vignette:nth-child(3n) .bob) {
+      animation-delay: -6s;
     }
 
-    /* With script, the chat plays: steps wait hidden until their turn. */
-    :global(.js) .step:not(:global(.is-shown)) {
-      opacity: 0;
-      transform: translateY(10px) scale(0.94);
-      filter: blur(2px);
+    .sparkle {
+      animation: twinkle var(--duration-twinkle) var(--easing-float) infinite;
     }
 
-    :global(.js) .step:global(.is-leaving) {
-      opacity: 0;
-      transform: translateY(-8px) scale(0.98);
-      filter: blur(4px);
-      transition-duration: var(--duration-quick);
+    .sparkle--b {
+      animation-delay: -900ms;
     }
 
-    :global(.js) .typing:global(.is-shown) {
-      opacity: 1;
-      transform: none;
+    .sparkle--c {
+      animation-delay: -1700ms;
+    }
+  }
+
+  /* Smaller laptops: narrower conversations, a narrower lede between them. */
+  @media (max-width: 1279px) {
+    .intro .lede {
+      max-inline-size: 520px;
+    }
+
+    .vignettes :global(.vignette) {
+      inline-size: 232px;
+    }
+
+    .vignettes :global(.vignette--tl),
+    .vignettes :global(.vignette--ml) {
+      inset-inline-end: calc(50% + 280px);
+    }
+
+    .vignettes :global(.vignette--tr),
+    .vignettes :global(.vignette--mr) {
+      inset-inline-start: calc(50% + 280px);
+    }
+
+    .vignettes :global(.vignette--ml) {
+      inset-block-start: 440px;
+    }
+
+    .vignettes :global(.vignette--mr) {
+      inset-block-start: 520px;
+    }
+
+    .vignettes :global(.vignette--bl) {
+      inset-block-start: 720px;
+    }
+
+    .vignettes :global(.vignette--br) {
+      inset-block-start: 790px;
+    }
+
+    .vignettes :global(.vignette--bl) {
+      inset-inline-end: calc(50% + 250px);
+    }
+
+    .vignettes :global(.vignette--br) {
+      inset-inline-start: calc(50% + 180px);
+    }
+  }
+
+  /* Narrow screens: two conversations stack above Billy. */
+  @media (max-width: 1023px) {
+    .vignettes {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-5);
+      inline-size: min(380px, 100%);
+      margin-inline: auto;
+      padding: var(--space-7) var(--space-4) 0;
+    }
+
+    .vignettes :global(.vignette) {
+      position: relative;
+      inset: auto;
+      inline-size: auto;
+    }
+
+    .vignettes :global(.vignette:not(.vignette--keep)) {
+      display: none;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .celestial {
+      inset-block-start: calc(var(--masthead) - var(--space-2));
+      inset-inline-end: var(--space-4);
+    }
+
+    .intro {
+      padding-block-start: calc(var(--masthead) + 96px);
+    }
+
+    .valley {
+      block-size: 450px;
+    }
+
+    .valley :global(.billy) {
+      --mascot-size: 256px;
+      inset-block-end: 179px;
+      inset-inline-start: calc(50% - 147px);
+    }
+
+    .sparkle {
+      display: none;
     }
   }
 </style>

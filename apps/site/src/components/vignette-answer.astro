@@ -1,0 +1,112 @@
+---
+// Billy's answer in a hero conversation. While he works, a bubble in the
+// same spot says what he is doing; the answer then lands where it was.
+import Bubble from "./bubble.astro";
+
+interface Props {
+  /** What Billy says while he works, such as "Searching your Notes". */
+  status: string;
+}
+
+const { status } = Astro.props;
+---
+
+<div class="answer" data-answer>
+  <div class="step typing" data-typing>
+    <Bubble from="billy" floating>
+      <span class="working"><span class="dots"><span></span><span></span><span></span></span>{status}</span>
+    </Bubble>
+  </div>
+  <div class="step" data-reply>
+    <Bubble from="billy" floating><slot /></Bubble>
+  </div>
+</div>
+
+<style>
+  /* Typing and the reply share one cell, so nothing below them moves. */
+  .answer {
+    display: grid;
+    align-items: start;
+  }
+
+  .step {
+    grid-area: 1 / 1;
+    transform-origin: left top;
+    transition:
+      opacity var(--duration-standard) var(--easing-standard),
+      transform var(--duration-standard) var(--easing-standard),
+      filter var(--duration-standard) var(--easing-standard);
+  }
+
+  /* Without script or with reduced motion the answer is simply there. */
+  .typing {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+
+  .working {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--color-ink-muted);
+    white-space: nowrap;
+  }
+
+  .dots {
+    display: inline-flex;
+    gap: 4px;
+  }
+
+  .dots span {
+    inline-size: 6px;
+    block-size: 6px;
+    border-radius: var(--radius-round);
+    background: var(--color-ink-muted);
+  }
+
+  @keyframes dot-bounce {
+    0%,
+    60%,
+    100% {
+      translate: 0 0;
+      opacity: 0.45;
+    }
+
+    30% {
+      translate: 0 -4px;
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .dots span {
+      animation: dot-bounce 1100ms var(--easing-float) infinite;
+    }
+
+    .dots span:nth-child(2) {
+      animation-delay: 150ms;
+    }
+
+    .dots span:nth-child(3) {
+      animation-delay: 300ms;
+    }
+
+    :global(.js) .step:not(:global(.is-shown)) {
+      opacity: 0;
+      transform: translateY(10px) scale(0.94);
+      filter: blur(2px);
+    }
+
+    :global(.js) .step:global(.is-leaving) {
+      opacity: 0;
+      transform: translateY(-6px) scale(0.98);
+      filter: blur(4px);
+      transition-duration: var(--duration-quick);
+    }
+
+    :global(.js) .typing:global(.is-shown) {
+      opacity: 1;
+      transform: none;
+    }
+  }
+</style>

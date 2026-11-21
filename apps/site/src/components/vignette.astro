@@ -1,0 +1,38 @@
+---
+// One small, tilted conversation floating in the hero. Its questions and
+// answers play in turn on load (src/scripts/hero.ts), then it stays.
+interface Props {
+  /** Where it floats around the headline. */
+  place: "tl" | "tr" | "ml" | "mr" | "bl" | "br";
+  tilt: number;
+  /** Shown on narrow screens too, stacked above Billy. */
+  keep?: boolean;
+}
+
+const { place, tilt, keep = false } = Astro.props;
+---
+
+<div
+  class:list={["vignette", `vignette--${place}`, { "vignette--keep": keep }]}
+  style={`--tilt: ${tilt}deg`}
+  data-vignette
+  aria-hidden="true"
+>
+  <div class="bob"><slot /></div>
+</div>
+
+<style>
+  .vignette {
+    rotate: var(--tilt);
+  }
+
+  .bob {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .bob :global(.bubble) {
+    max-inline-size: none;
+  }
+</style>

@@ -9,15 +9,17 @@ interface Props {
   action?: string;
   /** Lets the hero chat script swap the icon, text, and action. */
   hooks?: boolean;
+  /** Icon and label only, for small floating conversations. */
+  compact?: boolean;
 }
 
-const { icon, action, hooks = false } = Astro.props;
+const { icon, action, hooks = false, compact = false } = Astro.props;
 ---
 
-<div class="confirmation">
+<div class:list={["confirmation", { "confirmation--compact": compact }]}>
   <PixelIcon name={icon} scale={2} hook={hooks ? "card-icon" : undefined} />
   <span class="text" data-hook={hooks ? "card-text" : undefined}><slot /></span>
-  {action && <button type="button" class="action" tabindex={hooks ? -1 : undefined} data-hook={hooks ? "card-action" : undefined}>{action}</button>}
+  {action && !compact && <button type="button" class="action" tabindex={hooks ? -1 : undefined} data-hook={hooks ? "card-action" : undefined}>{action}</button>}
 </div>
 
 <style>
@@ -45,5 +47,9 @@ const { icon, action, hooks = false } = Astro.props;
     color: var(--color-forest);
     font: var(--text-body-strong);
     cursor: pointer;
+  }
+
+  .confirmation--compact {
+    padding: var(--space-2) var(--space-3) var(--space-2) var(--space-2);
   }
 </style>
