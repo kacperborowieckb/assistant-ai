@@ -1,8 +1,8 @@
 ---
 // The hero: the headline in the middle of Billy's sky, small conversations
-// floating around it, and Billy on his dam below. "Tell Billy." lands, a
-// beat, then "He'll do it all." The conversations then play in one after
-// another (src/scripts/hero.ts). The sun (or moon) switches day and night.
+// around it in two mirrored pairs, and Billy on his dam below. "Tell Billy."
+// lands, a beat, then "He'll do it all."; each pair then fades in once. The
+// sun (or moon) switches day and night.
 import { ArrowDown, ArrowRight } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
@@ -83,16 +83,16 @@ const words = [
   <!-- Four everyday conversations in two mirrored pairs: one pair beside the
        headline, one beside Billy. -->
   <div class="vignettes">
-    <Vignette place="tl" tilt={-1} keep>
+    <Vignette place="tl" tilt={-1} pair={0} keep>
       <VignetteAsk>What's the Wi-Fi password at mum's?</VignetteAsk>
-      <VignetteAnswer status="Searching your Notes">
+      <VignetteAnswer>
         It's blue-otter-42. You told me in August.
         <Confirmation icon="note" compact>Mum's house · 14 Aug</Confirmation>
       </VignetteAnswer>
     </Vignette>
 
-    <Vignette place="tr" tilt={1}>
-      <VignetteAnswer status="Preparing your Brief">
+    <Vignette place="tr" tilt={1} pair={0}>
+      <VignetteAnswer>
         Good morning. Three things today:
         <span class="rows">
           <ReminderRow title="Invoice to Marta" time="14:00" />
@@ -102,16 +102,16 @@ const words = [
       </VignetteAnswer>
     </Vignette>
 
-    <Vignette place="bl" tilt={1} keep>
+    <Vignette place="bl" tilt={1} pair={1} keep>
       <VignetteAsk>Remind me to renew my passport before Lisbon</VignetteAsk>
-      <VignetteAnswer status="Looking at your trip">
+      <VignetteAnswer>
         It runs out five weeks before you fly. I'll remind you Monday at 9:00.
         <Confirmation icon="reminder" compact>Renew passport · Mon 9:00</Confirmation>
       </VignetteAnswer>
     </Vignette>
 
-    <Vignette place="br" tilt={-1}>
-      <VignetteAnswer status="Checking your follow-ups">
+    <Vignette place="br" tilt={-1} pair={1}>
+      <VignetteAnswer>
         Tom still hasn't sent the flat contract. Should I nudge him?
         <span class="chips"><span class="chip">Nudge Tom</span><span class="chip">Wait a day</span></span>
       </VignetteAnswer>
@@ -178,7 +178,7 @@ const words = [
      the center line: left ones hang by their right edge, right ones by their
      left edge. */
   .vignettes :global(.vignette) {
-    --gap-from-center: 330px;
+    --gap-from-center: 380px;
     position: absolute;
     z-index: 1;
     inline-size: 280px;
@@ -371,9 +371,11 @@ const words = [
       animation-delay: var(--d);
     }
 
-    /* They float together, so the pairs stay level. */
-    .vignettes :global(.bob) {
-      animation: float var(--duration-bob) var(--easing-float) infinite alternate;
+    /* Each pair fades in once, together, after the buttons; then they stay
+       still. */
+    .vignettes :global(.vignette) {
+      animation: rise var(--duration-enter) var(--easing-standard) both;
+      animation-delay: calc(1800ms + var(--pair) * 160ms);
     }
 
 
@@ -398,8 +400,8 @@ const words = [
     }
 
     .vignettes :global(.vignette) {
-      --gap-from-center: 280px;
-      inline-size: 236px;
+      --gap-from-center: 300px;
+      inline-size: 224px;
     }
   }
 

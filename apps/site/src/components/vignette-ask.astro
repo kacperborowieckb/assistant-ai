@@ -1,28 +1,15 @@
 ---
-// Your message in a hero conversation. It grows from its own corner.
+// Your message in a hero conversation, on the right as in a chat.
 import Bubble from "./bubble.astro";
 ---
 
-<div class="step" data-step>
+<div class="ask">
   <Bubble from="you" floating><slot /></Bubble>
 </div>
 
 <style>
-  .step {
+  .ask {
     align-self: flex-end;
     max-inline-size: 90%;
-    transform-origin: right bottom;
-    transition:
-      opacity var(--duration-standard) var(--easing-standard),
-      transform var(--duration-standard) var(--easing-standard),
-      filter var(--duration-standard) var(--easing-standard);
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    :global(.js) .step:not(:global(.is-shown)) {
-      opacity: 0;
-      transform: translateY(10px) scale(0.94);
-      filter: blur(2px);
-    }
   }
 </style>

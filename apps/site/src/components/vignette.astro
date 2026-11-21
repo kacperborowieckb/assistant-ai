@@ -1,21 +1,22 @@
 ---
-// One small, tilted conversation floating in the hero. Its questions and
-// answers play in turn on load (src/scripts/hero.ts), then it stays.
+// One small, tilted conversation in the hero. It fades in once with its
+// mirrored partner, then stays still.
 interface Props {
   /** Where it floats around the headline. */
   place: "tl" | "tr" | "ml" | "mr" | "bl" | "br";
   tilt: number;
   /** Shown on narrow screens too, stacked above Billy. */
   keep?: boolean;
+  /** Which pair it belongs to: 0 beside the headline, 1 beside Billy. */
+  pair: 0 | 1;
 }
 
-const { place, tilt, keep = false } = Astro.props;
+const { place, tilt, keep = false, pair } = Astro.props;
 ---
 
 <div
   class:list={["vignette", `vignette--${place}`, { "vignette--keep": keep }]}
-  style={`--tilt: ${tilt}deg`}
-  data-vignette
+  style={`--tilt: ${tilt}deg; --pair: ${pair}`}
   aria-hidden="true"
 >
   <div class="bob"><slot /></div>

@@ -1,7 +1,5 @@
-import { startHero } from "./hero";
-
 // The only script on the site: the day and night switch, the header material,
-// sections arriving on scroll, and the hero (./hero.ts). Everything works and
+// and sections arriving on scroll. Everything works and
 // reads the same without it.
 
 const root = document.documentElement;
@@ -101,5 +99,3 @@ for (const element of document.querySelectorAll<HTMLElement>("[data-reveal]")) {
   );
   reveal.observe(element);
 }
-
-startHero();
