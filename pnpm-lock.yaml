@@ -80,6 +80,8 @@ importers:
 
   packages/mascot: {}
 
+  packages/tokens: {}
+
 packages:
 
   '@ai-sdk/gateway@4.0.145':

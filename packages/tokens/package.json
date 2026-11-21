@@ -1,0 +1,14 @@
+{
+  "name": "@repo/tokens",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./tokens.json": "./tokens.json",
+    "./tokens.css": "./tokens.css",
+    "./theme.json": "./theme.json"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "verify": "node build.mjs --check && node --test verify.test.mjs"
+  }
+}
