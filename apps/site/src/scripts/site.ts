@@ -88,9 +88,11 @@ const reveal = new IntersectionObserver(
   { rootMargin: "0px 0px -12% 0px", threshold: 0.12 }
 );
 for (const element of document.querySelectorAll<HTMLElement>("[data-reveal]")) {
-  const siblings = [...(element.parentElement?.children ?? [])].filter(
-    (sibling) => Object.hasOwn(sibling.dataset, "reveal")
-  );
+  const siblings = [
+    ...(element.parentElement?.querySelectorAll<HTMLElement>(
+      ":scope > [data-reveal]"
+    ) ?? []),
+  ];
   element.style.setProperty(
     "--reveal-index",
     String(siblings.indexOf(element))
