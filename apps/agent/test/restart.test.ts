@@ -115,16 +115,14 @@ const journalRecords = (ownerId: string) =>
 
 const journalTags = (ownerId: string) =>
   journalRecords(ownerId).then((records) =>
-    records.map((record) =>
-      isRestartRecord(record) ? "TurnSuperseded" : record._tag
-    )
+    records.map((record) => (isRestartRecord(record) ? "Restart" : record._tag))
   );
 
 const countOf = (tags: readonly string[], tag: string) =>
   tags.filter((found) => found === tag).length;
 
 const supersededCount = (ownerId: string) =>
-  journalTags(ownerId).then((tags) => countOf(tags, "TurnSuperseded"));
+  journalTags(ownerId).then((tags) => countOf(tags, "Restart"));
 
 const replyTargets = () =>
   fakeTelegram.sent.map((message) => message.body.reply_parameters?.message_id);
@@ -186,7 +184,7 @@ describe(
   "A message that arrives mid-Turn restarts the Turn",
   { timeout: 40_000 },
   () => {
-    it("sends nothing for the dropped answer, writes TurnSuperseded and a Trace, and gives one outcome for the whole Burst", async () => {
+    it("sends nothing for the dropped answer, writes a restart record and a Trace, and gives one outcome for the whole Burst", async () => {
       const ownerId = await addOwner(14_001);
       waitBurst(quietMillis);
       const releaseModel = holdModel();
@@ -222,8 +220,8 @@ describe(
         systemTextOf(fakeModel.doGenerateCalls[0]?.prompt ?? [])
       ).not.toContain(restartSection);
       const tags = await journalTags(ownerId);
-      expect(tags.slice(tags.indexOf("TurnSuperseded"))).toEqual([
-        "TurnSuperseded",
+      expect(tags.slice(tags.indexOf("Restart"))).toEqual([
+        "Restart",
         "AnsweredByTurn",
         "ReplyPlanned",
         "SendStarted",
@@ -364,7 +362,7 @@ describe(
 
       await waitForSent(2);
       await allDone(ownerId, 4);
-      expect(countOf(await journalTags(ownerId), "TurnSuperseded")).toBe(2);
+      expect(countOf(await journalTags(ownerId), "Restart")).toBe(2);
       expect(replyTargets()).toEqual([3, 4]);
     });
 
@@ -493,7 +491,7 @@ describe(
       expect(toolMessageCountOf(restarted)).toBe(1);
     });
 
-    it("gives one outcome when the reset comes after TurnSuperseded and before the next Turn", async () => {
+    it("gives one outcome when the reset comes after the restart record and before the next Turn", async () => {
       const ownerId = await addOwner(14_104);
       waitBurst(quietMillis);
       scriptModel(keepThursday);
@@ -554,7 +552,7 @@ describe(
       expect(fakeModel.doGenerateCalls).toHaveLength(3);
       const tags = await journalTags(ownerId);
       expect(tags.filter((tag) => tag === "SendStarted")).toHaveLength(1);
-      expect(tags.filter((tag) => tag === "TurnSuperseded")).toHaveLength(1);
+      expect(tags.filter((tag) => tag === "Restart")).toHaveLength(1);
     });
   }
 );
