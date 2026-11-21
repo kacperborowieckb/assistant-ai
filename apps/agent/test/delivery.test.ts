@@ -3,12 +3,12 @@ import {
   env,
   runInDurableObject,
 } from "cloudflare:test";
-import { DateTime, Effect, Layer } from "effect";
+import { DateTime, Effect, Layer, Schema } from "effect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Channel } from "../src/channels/channel.ts";
 import type { Delivery } from "../src/channels/channel.ts";
-import { Journal } from "../src/journal/journal.ts";
+import { Journal, JournalRecordSchema } from "../src/journal/journal.ts";
 import type { JournalEntry, JournalRecord } from "../src/journal/journal.ts";
 import { OwnerIdSchema } from "../src/owner-id.ts";
 import type { Conversation } from "../src/personal-agent/conversation.ts";
@@ -130,12 +130,16 @@ describe("the Delivery state of an Event", () => {
   });
 
   it("follows the newest plan when a reaction plan and a text plan are both in the Journal", () => {
-    const reaction: JournalRecord = {
-      _tag: "ReactionPlanned",
-      eventId,
-      emoji: "✍",
+    const target = {
       conversationId: "6100",
       channelMessageId: "91",
+      emoji: "✍",
+    };
+    const reaction: JournalRecord = {
+      _tag: "ReplyPlanned",
+      eventId,
+      text: "",
+      reaction: target,
     };
 
     expect(stateAfter(reaction, planned, started)).toEqual({
@@ -150,12 +154,42 @@ describe("the Delivery state of an Event", () => {
     });
     expect(stateAfter(planned, reaction, started)).toEqual({
       _tag: "ReactionUnconfirmed",
-      reaction,
+      reaction: target,
     });
     expect(stateAfter(planned, reaction, started, sent)).toEqual({
       _tag: "Sent",
       text: undefined,
       reaction: "✍",
+      channelMessageId: "9100",
+    });
+  });
+
+  it("stores a reaction plan as a ReplyPlanned Entry that a version without reactions reads as a text plan, settling an unconfirmed send as failed and a sent one as done", () => {
+    const stored = Schema.encodeSync(
+      Schema.fromJsonString(JournalRecordSchema)
+    )({
+      _tag: "ReplyPlanned",
+      eventId,
+      text: "",
+      reaction: { conversationId: "6100", channelMessageId: "91", emoji: "✍" },
+    });
+    const earlierReplyPlanned = Schema.fromJsonString(
+      Schema.TaggedUnion({
+        ReplyPlanned: { eventId: Schema.String, text: Schema.String },
+      })
+    );
+
+    const earlierRead = Schema.decodeUnknownSync(earlierReplyPlanned)(stored);
+
+    expect(earlierRead).toEqual({ _tag: "ReplyPlanned", eventId, text: "" });
+    expect(stateAfter(earlierRead, started)).toEqual({
+      _tag: "Unconfirmed",
+      text: "",
+    });
+    expect(stateAfter(earlierRead, started, sent)).toEqual({
+      _tag: "Sent",
+      text: "",
+      reaction: undefined,
       channelMessageId: "9100",
     });
   });
