@@ -13,7 +13,7 @@ const pillars: { icon: IconName; title: string; text: string }[] = [
   <ul>
     {
       pillars.map((pillar) => (
-        <li>
+        <li data-reveal>
           <PixelIcon name={pillar.icon} scale={4} />
           <h2 class="heading">{pillar.title}</h2>
           <p>{pillar.text}</p>

@@ -2,27 +2,62 @@
 import { billy } from "../art";
 ---
 
-<header class="wrap header">
-  <a class="brand" href="/">
-    <span class="mascot mascot--portrait logo"><img class="px" src={billy.portrait} alt="" width="40" height="40" /></span>
-    <span>Billy</span>
-  </a>
-  <nav aria-label="Main">
-    <ul>
-      <li class="optional"><a href="/#how">How it works</a></li>
-      <li class="optional"><a href="/#privacy">Privacy</a></li>
-      <li class="optional"><a href="/#self-host">Self-host</a></li>
-      <li><a class="button button--secondary" href="/#get">Get Billy</a></li>
-    </ul>
-  </nav>
-</header>
+<div class="masthead" data-masthead>
+  <header class="wrap header">
+    <a class="brand" href="/">
+      <span class="mascot mascot--portrait logo"><img class="px" src={billy.portrait} alt="" width="40" height="40" /></span>
+      <span>Billy</span>
+    </a>
+    <nav aria-label="Main">
+      <ul>
+        <li class="optional"><a href="/#how">How it works</a></li>
+        <li class="optional"><a href="/#privacy">Privacy</a></li>
+        <li class="optional"><a href="/#self-host">Self-host</a></li>
+        <li><a class="button button--secondary" href="/#get">Get Billy</a></li>
+      </ul>
+    </nav>
+  </header>
+</div>
 
 <style>
+  /* Fixed over the sky. Once the page scrolls, it becomes a translucent
+     material with a soft edge (apple-design: materials, scroll edge). */
+  .masthead {
+    position: fixed;
+    inset-block-start: 0;
+    inset-inline: 0;
+    z-index: 20;
+    border-block-end: 1px solid transparent;
+    transition:
+      background-color var(--duration-standard) var(--easing-standard),
+      border-color var(--duration-standard) var(--easing-standard),
+      backdrop-filter var(--duration-standard) var(--easing-standard);
+  }
+
+  .masthead:global(.is-scrolled) {
+    background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+    border-block-end-color: var(--color-line);
+    backdrop-filter: blur(18px) saturate(1.6);
+    -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .masthead:global(.is-scrolled) {
+      background: var(--color-surface);
+      backdrop-filter: none;
+    }
+  }
+
   .header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-4);
+    padding-block: var(--space-3);
+    transition: padding-block var(--duration-standard) var(--easing-standard);
+  }
+
+  .masthead:not(:global(.is-scrolled)) .header {
     padding-block: var(--space-5);
   }
 
@@ -40,6 +75,13 @@ import { billy } from "../art";
   .logo {
     --mascot-size: 40px;
     background: var(--color-avatar-ground);
+    transition: rotate var(--duration-standard) var(--easing-pop);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .brand:hover .logo {
+      rotate: -10deg;
+    }
   }
 
   ul {
@@ -52,6 +94,7 @@ import { billy } from "../art";
   }
 
   li > a:not(.button) {
+    position: relative;
     display: inline-flex;
     align-items: center;
     min-block-size: var(--size-touch);
@@ -62,9 +105,24 @@ import { billy } from "../art";
     text-decoration: none;
   }
 
-  li > a:not(.button):hover {
-    text-decoration: underline;
-    text-underline-offset: 4px;
+  /* The underline grows from the left on hover. */
+  li > a:not(.button)::after {
+    content: "";
+    position: absolute;
+    inset-inline: var(--space-3);
+    inset-block-end: 10px;
+    block-size: 2px;
+    border-radius: var(--radius-pill);
+    background: currentcolor;
+    scale: 0 1;
+    transform-origin: left;
+    transition: scale var(--duration-standard) var(--easing-standard);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    li > a:not(.button):hover::after {
+      scale: 1 1;
+    }
   }
 
   @media (max-width: 760px) {

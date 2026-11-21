@@ -80,7 +80,7 @@ test("in-page links and labels point at elements that exist", () => {
   }
 });
 
-test("every custom property the CSS reads is defined", () => {
+test("every custom property the CSS reads without a fallback is defined", () => {
   const css = walk(dist)
     .filter((path) => path.endsWith(".css"))
     .map((path) => read(path))
@@ -92,7 +92,7 @@ test("every custom property the CSS reads is defined", () => {
     )
   );
   const used = new Set(
-    [...css.matchAll(/var\((?<name>--[\w-]+)/gu)].map(
+    [...css.matchAll(/var\((?<name>--[\w-]+)\)/gu)].map(
       (match) => match.groups.name
     )
   );
@@ -107,4 +107,28 @@ test("no color is written by hand: colors come from @repo/tokens", () => {
     assert.doesNotMatch(source, /#[0-9a-f]{3,8}\b(?![\w-])/iu, file.pathname);
     assert.doesNotMatch(source, /\b(?:rgba?|hsla?|oklch)\(/u, file.pathname);
   }
+});
+
+test("the sun or moon is a named button that switches day and night", () => {
+  const html = read("index.html");
+  const toggle = html.match(/<button\b[^>]*data-theme-toggle[^>]*>/u)?.[0];
+  assert.ok(toggle, "no theme toggle");
+  assert.match(toggle, /aria-label="Switch to (?:night|day)"/u);
+  assert.match(toggle, /type="button"/u);
+});
+
+test("ambient motion stops when the person asks for reduced motion", () => {
+  const css = walk(dist)
+    .filter((path) => path.endsWith(".css"))
+    .map((path) => read(path))
+    .join("\n");
+  const animated = [...css.matchAll(/animation:\s*(?<name>[\w-]+)\s/gu)].map(
+    (match) => match.groups.name
+  );
+  assert.ok(animated.length > 0);
+  assert.doesNotMatch(
+    css.replaceAll(/@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/gu, ""),
+    /infinite/u,
+    "a looping animation runs outside a reduced-motion check"
+  );
 });

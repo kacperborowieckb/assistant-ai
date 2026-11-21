@@ -13,12 +13,12 @@ const headingId = `${id ?? eyebrow.toLowerCase().replaceAll(" ", "-")}-title`;
 ---
 
 <section id={id} class="wrap section feature" class:list={[{ "feature--reverse": reverse }]} aria-labelledby={headingId}>
-  <div class="copy">
+  <div class="copy" data-reveal>
     <p class="eyebrow">{eyebrow}</p>
     <h2 id={headingId} class="display-section">{title}</h2>
     <slot />
   </div>
-  <div class:list={["panel", `panel--${tone}`]}>
+  <div class:list={["panel", `panel--${tone}`]} data-reveal>
     <slot name="art" />
   </div>
 </section>

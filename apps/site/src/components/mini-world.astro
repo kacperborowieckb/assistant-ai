@@ -3,8 +3,8 @@
 ---
 
 <div class="ground" aria-hidden="true">
-  <div class="hills"></div>
-  <div class="water"></div>
+  <div class="hills hills-light"></div>
+  <div class="water water-flow"></div>
 </div>
 
 <style>
@@ -30,6 +30,7 @@
   }
 
   .water {
+    --tile: 300px;
     inset-block-end: 0;
     block-size: 40px;
     background: url("@repo/mascot/assets/world/water.svg") repeat-x left top / auto 100%;

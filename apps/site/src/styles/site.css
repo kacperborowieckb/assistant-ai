@@ -167,3 +167,243 @@ a {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* Day and night. The tokens switch colors; these switch the scenery. */
+:root {
+  --day-only: block;
+  --night-only: none;
+  --is-night: 0;
+  --scenery-light: none;
+  --cloud-light: none;
+  /* Set from the pressed sun or moon before each reveal. */
+  --reveal-x: 50%;
+  --reveal-y: 0;
+  --reveal-r: 150vmax;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --day-only: none;
+    --night-only: block;
+    --is-night: 1;
+    --scenery-light: brightness(0.62) saturate(0.85);
+    --cloud-light: brightness(0.3) saturate(0.6);
+  }
+}
+
+:root[data-theme="dark"] {
+  --day-only: none;
+  --night-only: block;
+  --is-night: 1;
+  --scenery-light: brightness(0.62) saturate(0.85);
+  --cloud-light: brightness(0.3) saturate(0.6);
+}
+
+/* The day and night reveal grows out of the sun or the moon (src/scripts/site.ts). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-new(root) {
+  animation: theme-reveal var(--duration-theme) var(--easing-move);
+}
+
+::view-transition-old(celestial) {
+  animation: celestial-set var(--duration-theme) var(--easing-move) both;
+}
+
+::view-transition-new(celestial) {
+  animation: celestial-rise var(--duration-theme) var(--easing-standard) both;
+}
+
+@keyframes theme-reveal {
+  from {
+    clip-path: circle(0 at var(--reveal-x) var(--reveal-y));
+  }
+
+  to {
+    clip-path: circle(var(--reveal-r) at var(--reveal-x) var(--reveal-y));
+  }
+}
+
+@keyframes celestial-set {
+  to {
+    opacity: 0;
+    transform: translateY(60%) rotate(-40deg) scale(0.7);
+  }
+}
+
+@keyframes celestial-rise {
+  from {
+    opacity: 0;
+    transform: translateY(60%) rotate(40deg) scale(0.7);
+  }
+}
+
+/* Floating, drifting, flowing, twinkling. */
+@keyframes float {
+  from {
+    translate: 0 0;
+  }
+
+  to {
+    translate: 0 -8px;
+  }
+}
+
+@keyframes cloud-drift {
+  from {
+    transform: translateX(calc(-1 * var(--x) - 100%));
+  }
+
+  to {
+    transform: translateX(calc(100cqw - var(--x)));
+  }
+}
+
+@keyframes water-flow {
+  to {
+    background-position-x: var(--tile);
+  }
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 1;
+    scale: 1;
+  }
+
+  50% {
+    opacity: 0.35;
+    scale: 0.75;
+  }
+}
+
+.scene {
+  container-type: inline-size;
+}
+
+.cloud {
+  position: absolute;
+  inset-block-start: var(--top);
+  inset-inline-start: var(--x);
+  pointer-events: none;
+}
+
+.cloud img {
+  filter: var(--cloud-light);
+  transition: filter var(--duration-theme) var(--easing-standard);
+}
+
+.cloud--small {
+  opacity: 0.85;
+}
+
+.water-flow {
+  --tile: 480px;
+  filter: var(--scenery-light);
+}
+
+.hills-light {
+  filter: var(--scenery-light);
+}
+
+.stars {
+  position: absolute;
+  inset: 0;
+  opacity: var(--is-night);
+  pointer-events: none;
+  transition: opacity var(--duration-theme) var(--easing-standard);
+}
+
+.star {
+  position: absolute;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cloud {
+    animation: cloud-drift calc(var(--duration-drift) * var(--speed))
+      var(--easing-drift)
+      calc(var(--duration-drift) * var(--speed) * var(--phase) * -1) infinite;
+  }
+
+  .cloud img {
+    animation: float var(--duration-bob) var(--easing-float) infinite alternate;
+    animation-delay: calc(var(--duration-bob) * var(--phase) * -2);
+  }
+
+  .water-flow {
+    animation: water-flow var(--duration-flow) var(--easing-drift) infinite;
+  }
+
+  .star {
+    animation: twinkle var(--duration-twinkle) var(--easing-float) infinite;
+    animation-delay: calc(var(--duration-twinkle) * var(--twinkle-delay) * -1);
+  }
+}
+
+/* Sections arrive as they scroll into view. Without script or with reduced
+   motion, everything is simply there. */
+@media (prefers-reduced-motion: no-preference) {
+  .js [data-reveal] {
+    opacity: 0;
+    transform: translateY(28px);
+    transition:
+      opacity var(--duration-enter) var(--easing-standard),
+      transform var(--duration-enter) var(--easing-standard);
+    transition-delay: calc(var(--reveal-index, 0) * 80ms);
+  }
+
+  .js [data-reveal].is-in {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Chat messages in a panel arrive one after another, like a reply. */
+  .js [data-chat] > * {
+    opacity: 0;
+    translate: 0 12px;
+    scale: 0.97;
+    transition:
+      opacity var(--duration-enter) var(--easing-standard),
+      translate var(--duration-enter) var(--easing-standard),
+      scale var(--duration-enter) var(--easing-standard);
+  }
+
+  .js .is-in [data-chat] > * {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
+  }
+
+  /* Questions open smoothly. */
+  :root {
+    interpolate-size: allow-keywords;
+  }
+
+  details::details-content {
+    block-size: 0;
+    overflow: clip;
+    transition:
+      block-size var(--duration-standard) var(--easing-standard),
+      content-visibility var(--duration-standard) allow-discrete;
+  }
+
+  details[open]::details-content {
+    block-size: auto;
+  }
+}
+
+/* Lift on hover, only where there is a real pointer. */
+@media (hover: hover) and (pointer: fine) {
+  .lift {
+    transition: translate var(--duration-standard) var(--easing-standard);
+  }
+
+  .lift:hover {
+    translate: 0 -4px;
+  }
+}

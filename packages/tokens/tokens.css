@@ -86,6 +86,15 @@
   --easing-standard: cubic-bezier(0.23, 1, 0.32, 1);
   --easing-move: cubic-bezier(0.77, 0, 0.175, 1);
   --easing-greet: steps(1, end);
+  --duration-enter: 600ms;
+  --duration-theme: 900ms;
+  --duration-twinkle: 2600ms;
+  --duration-bob: 9000ms;
+  --duration-flow: 16000ms;
+  --duration-drift: 110000ms;
+  --easing-drift: cubic-bezier(0, 0, 1, 1);
+  --easing-float: cubic-bezier(0.37, 0, 0.63, 1);
+  --easing-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 :root[data-theme="light"] {
@@ -150,6 +159,12 @@
     --duration-quick: 0ms;
     --duration-standard: 0ms;
     --duration-greet: 0ms;
+    --duration-enter: 0ms;
+    --duration-theme: 0ms;
+    --duration-twinkle: 0ms;
+    --duration-bob: 0ms;
+    --duration-flow: 0ms;
+    --duration-drift: 0ms;
   }
 }
 

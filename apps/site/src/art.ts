@@ -13,11 +13,14 @@ import web from "@repo/mascot/assets/icons/web.svg?url";
 import neckerchief from "@repo/mascot/assets/neckerchief.png?url";
 import portrait from "@repo/mascot/assets/portrait.png?url";
 import tie from "@repo/mascot/assets/tie.png?url";
-import cloud from "@repo/mascot/assets/world/cloud.svg?url";
+import cloudLarge from "@repo/mascot/assets/world/cloud-large.svg?url";
+import cloudSmall from "@repo/mascot/assets/world/cloud-small.svg?url";
 import frame from "@repo/mascot/assets/world/frame.svg?url";
 import hills from "@repo/mascot/assets/world/hills.svg?url";
 import log from "@repo/mascot/assets/world/log.svg?url";
+import moon from "@repo/mascot/assets/world/moon.svg?url";
 import sparkle from "@repo/mascot/assets/world/sparkle.svg?url";
+import star from "@repo/mascot/assets/world/star.svg?url";
 import sun from "@repo/mascot/assets/world/sun.svg?url";
 import water from "@repo/mascot/assets/world/water.svg?url";
 
@@ -31,7 +34,18 @@ export const outfits = {
 
 export type Outfit = keyof typeof outfits;
 
-export const world = { cloud, frame, hills, log, sparkle, sun, water } as const;
+export const world = {
+  cloudLarge,
+  cloudSmall,
+  frame,
+  hills,
+  log,
+  moon,
+  sparkle,
+  star,
+  sun,
+  water,
+} as const;
 
 export const icons = {
   brief,

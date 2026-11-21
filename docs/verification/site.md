@@ -8,11 +8,13 @@ Run `pnpm --filter @repo/site verify`. It runs `astro check` (types and Astro di
 - Every in-page link (`#id`), home-page link (`/#id`), and `aria-labelledby` points at an element that exists.
 - Every custom property the CSS reads (`var(--…)`) is defined, so a mistyped or removed token fails the build.
 - No color is written by hand in `apps/site/src`: colors come from `@repo/tokens`.
+- The sun or moon is a named `<button>` that switches day and night.
+- Every looping animation sits inside a `prefers-reduced-motion: no-preference` block.
 
 The tests use only the checked-in files and need no credentials or network access.
 
 ## Look at it
 
-Run `pnpm --filter @repo/site dev` and open the printed local address, or `pnpm --filter @repo/site build && pnpm --filter @repo/site preview` for the production build. Check the page at 1440px and 390px wide in light and dark, with no sideways scroll. Turn on reduced motion and check that Billy does not move when the page opens.
+Run `pnpm --filter @repo/site dev` and open the printed local address, or `pnpm --filter @repo/site build && pnpm --filter @repo/site preview` for the production build. Check the page at 1440px and 390px wide in light and dark, with no sideways scroll. Press the sun: the night should grow out of it in a circle, and the moon should rise in its place; press the moon to go back, and reload to check the choice is kept. Tap Billy: he greets, sparkles rise, and he answers in a bubble. Scroll down: sections and chat messages arrive once. Turn on reduced motion and check that nothing moves (no drifting clouds, flowing water, or greeting) and every section is visible.
 
 Deploying (`wrangler deploy` from `apps/site` after a build) changes a public site and needs the repository owner's approval ([decision 0002](../decisions/0002-agent-authority.md)). Verification never deploys.

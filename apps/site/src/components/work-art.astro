@@ -1,18 +1,19 @@
 ---
 import { world } from "../art";
 import Billy from "./billy.astro";
+import Cloud from "./cloud.astro";
 import MiniWorld from "./mini-world.astro";
 import Tile from "./tile.astro";
 ---
 
-<div class="art" role="img" aria-label="Billy in his office tie, with the tasks he finished around him">
-  <img class="px cloud" src={world.cloud} alt="" width="128" height="48" />
+<div class="art scene" role="img" aria-label="Billy in his office tie, with the tasks he finished around him">
+  <Cloud size="small" top="24px" x="58cqw" phase={0.35} speed={0.7} />
   <MiniWorld />
   <img class="px log" src={world.log} alt="" width="320" height="88" />
   <Billy class="billy" size={256} outfit="office" />
-  <Tile class="tile tile--web" icon="search" title="Searched the web" detail="Flights to Lisbon · 3 options" />
-  <Tile class="tile tile--mail" icon="email" title="Reply drafted" detail="To Marta · Re: invoice" />
-  <Tile class="tile tile--cal" icon="calendar" title="Booked" detail="Dinner for four · Fri 19:30" />
+  <Tile class="tile tile--web lift" icon="search" title="Searched the web" detail="Flights to Lisbon · 3 options" />
+  <Tile class="tile tile--mail lift" icon="email" title="Reply drafted" detail="To Marta · Re: invoice" />
+  <Tile class="tile tile--cal lift" icon="calendar" title="Booked" detail="Dinner for four · Fri 19:30" />
 </div>
 
 <style>
@@ -22,19 +23,14 @@ import Tile from "./tile.astro";
     min-block-size: 520px;
   }
 
-  .cloud,
   .log,
   .art :global(.billy),
   .art :global(.tile) {
     position: absolute;
   }
 
-  .cloud {
-    inset-block-start: var(--space-6);
-    inset-inline-end: var(--space-7);
-  }
-
   .log {
+    filter: var(--scenery-light);
     inset-block-end: 28px;
     inset-inline-start: calc(50% - 160px);
   }

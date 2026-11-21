@@ -13,7 +13,7 @@ import Base from "../layouts/base.astro";
       <p class="lede">This page does not exist. The home page does.</p>
       <a class="button button--primary" href="/">Go home</a>
     </main>
-    <div class="scene">
+    <div class="ground">
       <MiniWorld />
       <Billy class="billy" size={256} />
     </div>
@@ -31,7 +31,7 @@ import Base from "../layouts/base.astro";
     flex-direction: column;
     align-items: center;
     gap: var(--space-5);
-    padding-block-start: var(--space-8);
+    padding-block-start: calc(var(--size-touch) + 2 * var(--space-5) + var(--space-7));
     text-align: center;
   }
 
@@ -39,12 +39,12 @@ import Base from "../layouts/base.astro";
     color: var(--color-forest-ink);
   }
 
-  .scene {
+  .ground {
     position: relative;
     block-size: 340px;
   }
 
-  .scene :global(.billy) {
+  .ground :global(.billy) {
     position: absolute;
     inset-block-end: 26px;
     inset-inline-start: calc(50% - 120px);

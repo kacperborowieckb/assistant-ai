@@ -1,15 +1,15 @@
 ---
-import { world } from "../art";
 import Bubble from "./bubble.astro";
+import Cloud from "./cloud.astro";
 import Confirmation from "./confirmation.astro";
 import MiniWorld from "./mini-world.astro";
 ---
 
-<div class="art">
-  <img class="px cloud" src={world.cloud} alt="" width="128" height="48" />
-  <img class="px cloud cloud--small" src={world.cloud} alt="" width="96" height="36" />
+<div class="art scene">
+  <Cloud size="small" top="32px" x="6cqw" phase={0.2} speed={0.6} />
+  <Cloud size="small" top="150px" x="64cqw" phase={0.7} speed={0.75} />
   <MiniWorld />
-  <div class="chat" role="group" aria-label="Example chat with Billy">
+  <div class="chat" data-chat role="group" aria-label="Example chat with Billy">
     <Bubble from="you" place="first" floating>Packing list for Lisbon: charger, passport, sandals</Bubble>
     <Bubble from="you" place="last" floating>and the blue jacket</Bubble>
     <Bubble from="billy" avatar floating>
@@ -26,18 +26,6 @@ import MiniWorld from "./mini-world.astro";
   .art {
     position: relative;
     block-size: 100%;
-  }
-
-  .cloud {
-    position: absolute;
-    inset-block-start: var(--space-6);
-    inset-inline-start: var(--space-6);
-  }
-
-  .cloud--small {
-    inset-block-start: 120px;
-    inset-inline-start: auto;
-    inset-inline-end: var(--space-6);
   }
 
   .chat {

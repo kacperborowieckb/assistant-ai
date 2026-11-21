@@ -4,10 +4,10 @@ import Bubble from "./bubble.astro";
 import ReminderRow from "./reminder-row.astro";
 ---
 
-<div class="art">
+<div class="art scene">
   <img class="px sun" src={world.sun} alt="" width="144" height="144" />
   <img class="px sparkle" src={world.sparkle} alt="" width="24" height="24" />
-  <div class="chat" role="group" aria-label="Example morning Brief from Billy">
+  <div class="chat" data-chat role="group" aria-label="Example morning Brief from Billy">
     <p class="stamp">Today 08:00</p>
     <Bubble from="billy" place="first" floating>Good morning. Here is your Brief.</Bubble>
     <Bubble from="billy" place="middle" floating>

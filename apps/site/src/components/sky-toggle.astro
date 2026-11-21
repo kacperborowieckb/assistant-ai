@@ -1,0 +1,147 @@
+---
+// The sun by day, the moon by night. Pressing it switches the theme with a
+// circular reveal that grows out of it (src/scripts/site.ts).
+import { world } from "../art";
+---
+
+<button class="sky-toggle" type="button" data-theme-toggle aria-label="Switch to night">
+  <span class="halo" aria-hidden="true"></span>
+  <img class="px body sun" src={world.sun} alt="" width="144" height="144" />
+  <img class="px body moon" src={world.moon} alt="" width="144" height="144" />
+  <span class="hint" aria-hidden="true">
+    <span class="hint--day">Turn on night</span>
+    <span class="hint--night">Bring back the sun</span>
+  </span>
+</button>
+
+<style>
+  .sky-toggle {
+    --size: 144px;
+    position: relative;
+    display: grid;
+    place-items: center;
+    inline-size: var(--size);
+    block-size: var(--size);
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-round);
+    background: none;
+    cursor: pointer;
+    view-transition-name: celestial;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .body,
+  .halo {
+    grid-area: 1 / 1;
+  }
+
+  .body {
+    inline-size: 100%;
+    block-size: 100%;
+    transition:
+      scale var(--duration-standard) var(--easing-standard),
+      rotate var(--duration-standard) var(--easing-standard);
+  }
+
+  .moon {
+    display: var(--night-only);
+  }
+
+  .sun {
+    display: var(--day-only);
+  }
+
+  .halo {
+    inline-size: 120%;
+    block-size: 120%;
+    border-radius: var(--radius-round);
+    background: radial-gradient(
+      closest-side,
+      color-mix(in srgb, var(--color-honey) 85%, transparent),
+      transparent
+    );
+    opacity: 0;
+    scale: 0.8;
+    transition:
+      opacity var(--duration-standard) var(--easing-standard),
+      scale var(--duration-standard) var(--easing-standard);
+  }
+
+  .hint {
+    position: absolute;
+    inset-block-start: calc(100% + var(--space-1));
+    inset-inline-end: 50%;
+    translate: 50% 4px;
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-raised);
+    box-shadow: var(--shadow-soft);
+    color: var(--color-ink);
+    font: var(--text-label);
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      opacity var(--duration-quick) var(--easing-standard),
+      translate var(--duration-quick) var(--easing-standard);
+  }
+
+  .hint--night {
+    display: var(--night-only);
+  }
+
+  .hint--day {
+    display: var(--day-only);
+  }
+
+  .sky-toggle:focus-visible .hint {
+    opacity: 1;
+    translate: 50% 0;
+  }
+
+  .sky-toggle:focus-visible .halo {
+    opacity: 1;
+    scale: 1;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .sky-toggle:hover .halo {
+      opacity: 1;
+      scale: 1;
+    }
+
+    .sky-toggle:hover .sun {
+      scale: 1.08;
+    }
+
+    .sky-toggle:hover .moon {
+      scale: 1.08;
+      rotate: -12deg;
+    }
+
+    .sky-toggle:hover .hint {
+      opacity: 1;
+      translate: 50% 0;
+      transition-delay: 200ms;
+    }
+  }
+
+  /* Feedback on press, before the click lands (apple-design: respond on pointer-down). */
+  .sky-toggle:active .body {
+    scale: 0.92;
+    transition-duration: var(--duration-quick);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .sky-toggle {
+      animation: float var(--duration-bob) var(--easing-float) infinite alternate;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .sky-toggle {
+      --size: 90px;
+    }
+  }
+</style>

@@ -1,20 +1,42 @@
 ---
 // The hero: Billy on his dam in the pixel valley, with the chat around him.
+// The sun (or moon) switches day and night; Billy answers a tap.
 import { world } from "../art";
 import Billy from "./billy.astro";
 import Bubble from "./bubble.astro";
+import Cloud from "./cloud.astro";
 import Confirmation from "./confirmation.astro";
 import Header from "./header.astro";
+import SkyToggle from "./sky-toggle.astro";
+import Stars from "./stars.astro";
 import Tile from "./tile.astro";
+
+const stars = [
+  { top: "14%", left: "8%", size: 2, delay: 0.1 },
+  { top: "22%", left: "21%", size: 1, delay: 0.6 },
+  { top: "9%", left: "34%", size: 1, delay: 0.3 },
+  { top: "30%", left: "45%", size: 1, delay: 0.8 },
+  { top: "12%", left: "58%", size: 2, delay: 0.45 },
+  { top: "26%", left: "70%", size: 1, delay: 0.2 },
+  { top: "38%", left: "90%", size: 2, delay: 0.7 },
+  { top: "44%", left: "4%", size: 1, delay: 0.5 },
+  { top: "50%", left: "28%", size: 2, delay: 0.9 },
+  { top: "52%", left: "76%", size: 1, delay: 0.35 },
+] as const;
 ---
 
-<div class="sky">
-  <img class="px cloud cloud--a" src={world.cloud} alt="" width="192" height="72" />
-  <img class="px cloud cloud--b" src={world.cloud} alt="" width="128" height="48" />
-  <img class="px cloud cloud--c" src={world.cloud} alt="" width="96" height="36" />
-  <img class="px sun" src={world.sun} alt="" width="144" height="144" />
+<Header />
 
-  <Header />
+<div class="sky scene">
+  <Stars stars={[...stars]} />
+  <Cloud top="190px" x="4cqw" phase={0.12} />
+  <Cloud size="small" top="120px" x="26cqw" phase={0.45} speed={1.5} />
+  <Cloud top="340px" x="72cqw" phase={0.7} speed={1.2} />
+  <Cloud size="small" top="470px" x="44cqw" phase={0.9} speed={1.7} />
+
+  <div class="celestial">
+    <SkyToggle />
+  </div>
 
   <section class="wrap intro" aria-labelledby="hero-title">
     <p class="eyebrow">Your personal agent</p>
@@ -26,40 +48,60 @@ import Tile from "./tile.astro";
     </div>
   </section>
 
-  <div class="valley" role="img" aria-label="Billy the Beaver sitting on his dam in a pixel valley, with his chat messages around him">
-    <div class="hills" aria-hidden="true"></div>
-    <div class="water" aria-hidden="true"></div>
+  <div class="valley">
+    <div class="hills hills-light" aria-hidden="true"></div>
+    <div class="water water-flow" aria-hidden="true"></div>
     <img class="px log log--left" src={world.log} alt="" width="320" height="88" />
     <img class="px log log--right" src={world.log} alt="" width="320" height="88" />
     <img class="px log log--top" src={world.log} alt="" width="320" height="88" />
-    <Billy class="billy" outfit="forest" greet />
+
+    <button class="billy-button" type="button" data-billy aria-label="Say hi to Billy">
+      <Billy class="billy" outfit="forest" greet />
+      <span class="burst" aria-hidden="true">
+        <img class="px" src={world.sparkle} alt="" width="24" height="24" />
+        <img class="px" src={world.sparkle} alt="" width="16" height="16" />
+        <img class="px" src={world.sparkle} alt="" width="32" height="32" />
+      </span>
+    </button>
+    <p class="billy-says" data-billy-says aria-live="polite"></p>
+
     <img class="px sparkle sparkle--a" src={world.sparkle} alt="" width="24" height="24" />
     <img class="px sparkle sparkle--b" src={world.sparkle} alt="" width="32" height="32" />
     <img class="px sparkle sparkle--c" src={world.sparkle} alt="" width="16" height="16" />
 
-    <div class="float float--ask" aria-hidden="true">
-      <Bubble from="you" floating>Remind me to call mum on Sunday</Bubble>
+    <div class="float float--ask" style="--i: 0" aria-hidden="true">
+      <div class="bob"><Bubble from="you" floating>Remind me to call mum on Sunday</Bubble></div>
     </div>
-    <div class="float float--reply" aria-hidden="true">
-      <Bubble from="billy" floating>
-        Done. I'll nudge you on Sunday.
-        <Confirmation icon="reminder" action="Undo">Call mum · Sun 18:00</Confirmation>
-      </Bubble>
+    <div class="float float--reply" style="--i: 1" aria-hidden="true">
+      <div class="bob">
+        <Bubble from="billy" floating>
+          Done. I'll nudge you on Sunday.
+          <Confirmation icon="reminder" action="Undo">Call mum · Sun 18:00</Confirmation>
+        </Bubble>
+      </div>
     </div>
-    <div class="float float--note" aria-hidden="true">
-      <Tile icon="note" title="Note saved" detail="Packing list" />
+    <div class="float float--note" style="--i: 2" aria-hidden="true">
+      <div class="bob"><Tile icon="note" title="Note saved" detail="Packing list" /></div>
     </div>
-    <div class="float float--brief" aria-hidden="true">
-      <Tile icon="brief" title="Morning Brief" detail="Tomorrow at 8:00" />
+    <div class="float float--brief" style="--i: 3" aria-hidden="true">
+      <div class="bob"><Tile icon="brief" title="Morning Brief" detail="Tomorrow at 8:00" /></div>
     </div>
   </div>
 </div>
 
 <style>
   .sky {
+    --masthead: calc(var(--size-touch) + 2 * var(--space-5));
     position: relative;
     overflow: hidden;
     background: var(--color-sky);
+  }
+
+  .celestial {
+    position: absolute;
+    inset-block-start: calc(var(--masthead) + var(--space-3));
+    inset-inline-end: 8%;
+    z-index: 2;
   }
 
   .intro {
@@ -68,7 +110,7 @@ import Tile from "./tile.astro";
     flex-direction: column;
     align-items: center;
     gap: var(--space-5);
-    padding-block-start: var(--space-8);
+    padding-block-start: calc(var(--masthead) + var(--space-8));
     text-align: center;
   }
 
@@ -83,31 +125,6 @@ import Tile from "./tile.astro";
     justify-content: center;
     gap: var(--space-4);
     margin-block-start: var(--space-2);
-  }
-
-  .cloud,
-  .sun {
-    position: absolute;
-  }
-
-  .cloud--a {
-    inset-block-start: 220px;
-    inset-inline-start: 5%;
-  }
-
-  .cloud--b {
-    inset-block-start: 360px;
-    inset-inline-end: 16%;
-  }
-
-  .cloud--c {
-    inset-block-start: 130px;
-    inset-inline-start: 27%;
-  }
-
-  .sun {
-    inset-block-start: 110px;
-    inset-inline-end: 8%;
   }
 
   .valley {
@@ -139,8 +156,13 @@ import Tile from "./tile.astro";
   .log,
   .sparkle,
   .float,
-  .valley :global(.billy) {
+  .billy-button,
+  .billy-says {
     position: absolute;
+  }
+
+  .log {
+    filter: var(--scenery-light);
   }
 
   .log--left {
@@ -158,10 +180,68 @@ import Tile from "./tile.astro";
     inset-inline-start: calc(50% - 170px);
   }
 
-  .valley :global(.billy) {
+  /* Billy is a button: he answers a tap (src/scripts/site.ts). */
+  .billy-button {
     --mascot-size: 384px;
     inset-block-end: 172px;
     inset-inline-start: calc(50% - 190px);
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-lg);
+    background: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: scale var(--duration-quick) var(--easing-standard);
+    transform-origin: 50% 95%;
+  }
+
+  .billy-button:active {
+    scale: 0.97;
+  }
+
+  .billy-button :global(.billy) {
+    display: grid;
+  }
+
+  .burst {
+    position: absolute;
+    inset-block-start: 18%;
+    inset-inline-start: 48%;
+    pointer-events: none;
+  }
+
+  .burst img {
+    position: absolute;
+    opacity: 0;
+  }
+
+  .billy-says {
+    inset-block-end: calc(172px + 330px);
+    inset-inline-start: calc(50% + 60px);
+    max-inline-size: 240px;
+    margin: 0;
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-tail);
+    background: var(--color-surface-raised);
+    box-shadow: var(--shadow-soft);
+    color: var(--color-ink);
+    font: var(--text-body);
+    opacity: 0;
+    scale: 0.9;
+    transform-origin: left bottom;
+    pointer-events: none;
+    transition:
+      opacity var(--duration-standard) var(--easing-standard),
+      scale var(--duration-standard) var(--easing-pop);
+  }
+
+  .billy-says:global(.is-shown) {
+    opacity: 1;
+    scale: 1;
+  }
+
+  .billy-says:empty {
+    display: none;
   }
 
   .sparkle--a {
@@ -200,6 +280,71 @@ import Tile from "./tile.astro";
     inset-inline-start: calc(50% + 380px);
   }
 
+  @keyframes float-in {
+    from {
+      opacity: 0;
+      transform: translateY(18px) scale(0.96);
+    }
+  }
+
+  @keyframes burst {
+    0% {
+      opacity: 0;
+      transform: translate(0, 0) scale(0.6);
+    }
+
+    20% {
+      opacity: 1;
+    }
+
+    100% {
+      opacity: 0;
+      transform: translate(var(--dx), -90px) scale(1.1);
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .float {
+      animation: float-in var(--duration-enter) var(--easing-standard) both;
+      animation-delay: calc(400ms + var(--i) * 220ms);
+    }
+
+    .bob {
+      animation: float var(--duration-bob) var(--easing-float) infinite alternate;
+      animation-delay: calc(var(--i) * -2300ms);
+    }
+
+    .sparkle {
+      animation: twinkle var(--duration-twinkle) var(--easing-float) infinite;
+    }
+
+    .sparkle--b {
+      animation-delay: -900ms;
+    }
+
+    .sparkle--c {
+      animation-delay: -1700ms;
+    }
+
+    .billy-button:global(.is-bursting) .burst img {
+      animation: burst 900ms var(--easing-standard) both;
+    }
+
+    .burst img:nth-child(1) {
+      --dx: -70px;
+    }
+
+    .burst img:nth-child(2) {
+      --dx: 10px;
+      animation-delay: 80ms;
+    }
+
+    .burst img:nth-child(3) {
+      --dx: 80px;
+      animation-delay: 160ms;
+    }
+  }
+
   @media (max-width: 1180px) {
     .float--note,
     .float--brief {
@@ -217,15 +362,30 @@ import Tile from "./tile.astro";
   }
 
   @media (max-width: 900px) {
+    .celestial {
+      inset-block-start: calc(var(--masthead) - var(--space-2));
+      inset-inline-end: var(--space-4);
+    }
+
+    .intro {
+      padding-block-start: calc(var(--masthead) + 104px);
+    }
+
     .valley {
       block-size: auto;
       padding-block: var(--space-6) 450px;
     }
 
-    .valley :global(.billy) {
+    .billy-button {
       --mascot-size: 256px;
       inset-block-end: 179px;
       inset-inline-start: calc(50% - 120px);
+    }
+
+    .billy-says {
+      inset-block-end: calc(179px + 210px);
+      inset-inline-start: calc(50% + 20px);
+      max-inline-size: 180px;
     }
 
     .float--ask,
@@ -242,16 +402,8 @@ import Tile from "./tile.astro";
       margin-block-start: var(--space-2);
     }
 
-    .sparkle,
-    .sun,
-    .cloud--a,
-    .cloud--c {
+    .sparkle {
       display: none;
-    }
-
-    .cloud--b {
-      inset-block-start: 96px;
-      inset-inline-end: 4%;
     }
   }
 </style>

@@ -10,7 +10,7 @@ const promises = [
 
 <section id="privacy" class="band" aria-labelledby="privacy-title">
   <div class="wrap section inner">
-    <div class="portrait" aria-hidden="true">
+    <div class="portrait" aria-hidden="true" data-reveal>
       <img class="px frame" src={world.frame} alt="" width="160" height="160" />
       <img class="px face" src={billy.portrait} alt="" width="112" height="112" />
     </div>
@@ -19,7 +19,7 @@ const promises = [
     <ul>
       {
         promises.map((promise) => (
-          <li>
+          <li class="lift" data-reveal>
             <h3 class="heading">{promise.title}</h3>
             <p>{promise.text}</p>
           </li>

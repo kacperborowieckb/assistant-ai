@@ -39,7 +39,11 @@
       "cloud": "world/cloud.svg",
       "sun": "world/sun.svg",
       "sparkle": "world/sparkle.svg",
-      "frame": "world/frame.svg"
+      "frame": "world/frame.svg",
+      "cloud-large": "world/cloud-large.svg",
+      "cloud-small": "world/cloud-small.svg",
+      "moon": "world/moon.svg",
+      "star": "world/star.svg"
     },
     "icons": {
       "note": "icons/note.svg",
