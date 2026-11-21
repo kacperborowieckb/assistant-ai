@@ -52,7 +52,8 @@ export const resolveColors = (tokens) => {
     if (!hexPattern.test(value)) {
       fail(`${name} in ${theme} must be lowercase hex or an alias: ${value}`);
     }
-    return value;
+    // Native code reads one form: #rrggbb, or #rrggbbaa with alpha.
+    return value.length === 4 ? value.replaceAll(/[0-9a-f]/gu, "$&$&") : value;
   };
   return Object.fromEntries(
     themeIds(tokens).map((theme) => [
@@ -124,6 +125,16 @@ export const validate = (tokens) => {
     }
     if (names.indexOf(name) !== names.lastIndexOf(name)) {
       fail(`duplicate token name: ${name}`);
+    }
+  }
+  // Text styles have their own namespace (--text-<name>, theme.text).
+  const styleNames = styles(tokens).map(({ name }) => name);
+  for (const name of styleNames) {
+    if (!namePattern.test(name)) {
+      fail(`text style name must be lowercase kebab case: ${name}`);
+    }
+    if (styleNames.indexOf(name) !== styleNames.lastIndexOf(name)) {
+      fail(`duplicate text style name: ${name}`);
     }
   }
   const tokensWithUsage = [

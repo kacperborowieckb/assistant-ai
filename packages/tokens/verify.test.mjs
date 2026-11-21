@@ -61,6 +61,13 @@ test("aliases resolve per theme, and broken aliases are refused", () => {
   assert.throws(() => validate(loop), /alias loop/u);
 });
 
+test("the native theme expands short hex to six digits", () => {
+  const short = copy();
+  colorToken(short, "surface").value.light = "#fff";
+  assert.equal(toTheme(short).colors.light.surface, "#ffffff");
+  assert.equal(toTheme(short).colors.light["surface-raised"], "#ffffff");
+});
+
 test("names are unique and every token says how to use it", () => {
   const duplicate = copy();
   duplicate.radius.tokens.push({
@@ -69,6 +76,12 @@ test("names are unique and every token says how to use it", () => {
     usage: "Duplicate.",
   });
   assert.throws(() => validate(duplicate), /duplicate token name: space-1/u);
+  const twoBodies = copy();
+  twoBodies.type.groups[1].styles.push({
+    ...twoBodies.type.groups[1].styles[0],
+    name: "body",
+  });
+  assert.throws(() => validate(twoBodies), /duplicate text style name: body/u);
   const silent = copy();
   delete silent.spacing.tokens[0].usage;
   assert.throws(() => validate(silent), /space-1 needs a usage note/u);
@@ -107,7 +120,7 @@ test("the native theme has resolved colors and point values for every token", ()
       tokens.color.tokens.map(({ name }) => name)
     );
     for (const value of Object.values(values)) {
-      assert.match(value, /^#[0-9a-f]{6}$/u);
+      assert.match(value, /^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/u);
     }
   }
   assert.deepEqual(theme.text.display, {

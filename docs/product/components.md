@@ -32,7 +32,8 @@ The one primary action of a view, or a secondary action beside it.
 
 A choice in a short set, such as an option in a picker row.
 
-- Variants: `unselected` has a `control-line` border and `ink` text. `selected` has a `honey` fill, a `honey-line` border, `on-honey` text, and a check icon, so the state does not rest on color.
+- Variants: `unselected` has a `control-line` border and `ink` text. `selected` has a `honey` fill, a `honey-line` border, `on-honey` text, and a check icon in `on-honey`, so the state does not rest on color.
+- The selected edge is decorative: `honey-line` and the `honey` fill are below 3:1 against `surface` in light. As with the Composer, the chip is found by its label, and its state is shown by the check icon (`on-honey` on `honey`, an approved pair), not by the edge.
 - States: default, pressed, focused, selected, disabled.
 - Tokens: `radius-sm`, `text-label`, `space-1` between icon and label, `space-2` between chips.
 - iOS: a toggle button with `isSelected` as its accessibility trait.
