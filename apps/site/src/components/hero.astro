@@ -3,8 +3,6 @@
 // around it in two mirrored pairs, and Billy on his dam below. "Tell Billy."
 // lands, a beat, then "He'll do it all."; each pair then fades in once. The
 // sun (or moon) switches day and night.
-import { ArrowDown, ArrowRight } from "lucide-react";
-
 import { buttonVariants } from "@/components/ui/button";
 
 import { world } from "../art";
@@ -76,95 +74,94 @@ const words = [
     </h1>
     <p class="lede rise" style="--d: 1600ms">Notes, Reminders, follow-ups, research, replies, bookings. Whatever you would hand to a great assistant, text it to Billy, and he takes it from there.</p>
     <div class="actions rise" style="--d: 1720ms">
-      <a class={buttonVariants({ size: "lg" })} href="#get">
-        Get Billy<ArrowRight data-icon="inline-end" />
-      </a>
-      <a class={buttonVariants({ variant: "link", size: "lg", className: "px-3" })} href="#how">
-        See how it works<ArrowDown data-icon="inline-end" />
-      </a>
+      <a class={buttonVariants({ size: "lg" })} href="#get">Get Billy</a>
+      <a class={buttonVariants({ variant: "link", size: "lg", className: "px-3" })} href="#how">See how it works</a>
     </div>
   </section>
 
   <!-- Four everyday conversations in two mirrored pairs: one pair beside the
        headline, one beside Billy. Each has something to try. -->
   <div class="vignettes">
-    <Vignette place="tl" tilt={-1} pair={0} keep label="Example: finding a password in your Notes">
-      <VignetteAsk>What's the Wi-Fi password at mum's?</VignetteAsk>
-      <VignetteAnswer>
-        It's blue-otter-42. You told me in August.
-        <Confirmation icon="note" compact>Mum's house · 14 Aug</Confirmation>
-        <span class="chips">
-          <button type="button" class="chip morph" data-copy="blue-otter-42">
-            <span class="morph-from">Copy password</span>
-            <span class="morph-to" aria-hidden="true"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Copied</span>
-          </button>
-        </span>
-      </VignetteAnswer>
-    </Vignette>
-
-    <Vignette place="tr" tilt={1} pair={0} label="Example: your morning Brief">
-      <VignetteAnswer>
-        Good morning. Three things today:
-        <span class="tasks">
-          {
-            brief.map((task) => (
-              <button type="button" class="task" aria-pressed="false" data-task>
-                <span class="tick" aria-hidden="true"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg></span>
-                <span class="task-title">{task.title}</span>
-                <span class="task-time">{task.time}</span>
-              </button>
-            ))
-          }
-        </span>
-      </VignetteAnswer>
-      <template data-reply="done">
-        <VignetteAnswer>That's all three. Enjoy your evening.</VignetteAnswer>
-      </template>
-    </Vignette>
-
-    <Vignette place="bl" tilt={1} pair={1} keep label="Example: a Reminder for a trip">
-      <VignetteAsk>Remind me to renew my passport before Lisbon</VignetteAsk>
-      <VignetteAnswer>
-        It runs out five weeks before you fly. I'll remind you Monday at 9:00.
-        <Confirmation icon="reminder" compact><span class="swap" data-swap>Renew passport · Mon 9:00</span></Confirmation>
-        <span class="chips" data-choices>
-          <button type="button" class="chip" aria-pressed="false" data-say="sunday" data-swap-to="Renew passport · Sun 10:00"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Make it Sunday</button>
-          <button type="button" class="chip" aria-pressed="false" data-say="undo"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Undo</button>
-        </span>
-      </VignetteAnswer>
-      <template data-reply="sunday">
-        <VignetteAsk>Make it Sunday</VignetteAsk>
-        <VignetteAnswer>Moved to Sunday at 10:00.</VignetteAnswer>
-      </template>
-      <template data-reply="undo">
-        <VignetteAsk>Undo that</VignetteAsk>
-        <VignetteAnswer>Removed. I won't remind you about the passport.</VignetteAnswer>
-      </template>
-    </Vignette>
-
-    <Vignette place="br" tilt={-1} pair={1} label="Example: a follow-up Billy starts">
-      <VignetteAnswer>
-        Tom still hasn't sent the flat contract. Should I nudge him?
-        <span class="chips" data-choices>
-          <button type="button" class="chip" aria-pressed="false" data-say="nudge"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Nudge Tom</button>
-          <button type="button" class="chip" aria-pressed="false" data-say="wait"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Wait a day</button>
-        </span>
-      </VignetteAnswer>
-      <template data-reply="nudge">
-        <VignetteAsk>Nudge Tom</VignetteAsk>
+    <div class="column column--left">
+      <Vignette place="tl" tilt={-1} pair={0} keep label="Example: finding gift ideas in your Notes">
+        <VignetteAsk>What did Anna want for her birthday?</VignetteAsk>
         <VignetteAnswer>
-          Done. I'll message Tom at 9:00 tomorrow.
-          <Confirmation icon="reminder" compact>Nudge Tom · Thu 9:00</Confirmation>
+          The green notebook and a ceramics class. You told me in May.
+          <Confirmation icon="note" compact>Anna · Gift ideas</Confirmation>
+          <span class="chips" data-choices>
+            <button type="button" class="chip" aria-pressed="false" data-say="anna"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Remind me a week before</button>
+          </span>
         </VignetteAnswer>
-      </template>
-      <template data-reply="wait">
-        <VignetteAsk>Wait a day</VignetteAsk>
+        <template data-reply="anna">
+          <VignetteAnswer>
+            Done. I'll remind you on 7 June.
+            <Confirmation icon="reminder" compact>Anna's gift · 7 Jun</Confirmation>
+          </VignetteAnswer>
+        </template>
+      </Vignette>
+
+      <Vignette place="bl" tilt={1} pair={1} keep label="Example: a Reminder for a trip">
+        <VignetteAsk>Remind me to renew my passport before Lisbon</VignetteAsk>
         <VignetteAnswer>
-          Okay. I'll check again on Friday.
-          <Confirmation icon="reminder" compact>Check on Tom · Fri 10:00</Confirmation>
+          It runs out five weeks before you fly. I'll remind you Monday at 9:00.
+          <Confirmation icon="reminder" compact><span class="swap" data-swap>Renew passport · Mon 9:00</span></Confirmation>
+          <span class="chips" data-choices>
+            <button type="button" class="chip" aria-pressed="false" data-say="sunday" data-swap-to="Renew passport · Sun 10:00"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Make it Sunday</button>
+            <button type="button" class="chip" aria-pressed="false" data-say="undo"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Undo</button>
+          </span>
         </VignetteAnswer>
-      </template>
-    </Vignette>
+        <template data-reply="sunday">
+          <VignetteAnswer>Moved to Sunday at 10:00.</VignetteAnswer>
+        </template>
+        <template data-reply="undo">
+          <VignetteAnswer>Removed. I won't remind you about the passport.</VignetteAnswer>
+        </template>
+      </Vignette>
+    </div>
+
+    <div class="column column--right">
+      <Vignette place="tr" tilt={1} pair={0} label="Example: your morning Brief">
+        <VignetteAnswer>
+          Good morning. Three things today:
+          <span class="tasks">
+            {
+              brief.map((task) => (
+                <button type="button" class="task" aria-pressed="false" data-task>
+                  <span class="tick" aria-hidden="true"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg></span>
+                  <span class="task-title">{task.title}</span>
+                  <span class="task-time">{task.time}</span>
+                </button>
+              ))
+            }
+          </span>
+        </VignetteAnswer>
+        <template data-reply="done">
+          <VignetteAnswer>That's all three. Enjoy your evening.</VignetteAnswer>
+        </template>
+      </Vignette>
+
+      <Vignette place="br" tilt={-1} pair={1} label="Example: a follow-up Billy starts">
+        <VignetteAnswer>
+          Tom still hasn't sent the flat contract. Should I nudge him?
+          <span class="chips" data-choices>
+            <button type="button" class="chip" aria-pressed="false" data-say="nudge"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Nudge Tom</button>
+            <button type="button" class="chip" aria-pressed="false" data-say="wait"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Wait a day</button>
+          </span>
+        </VignetteAnswer>
+        <template data-reply="nudge">
+          <VignetteAnswer>
+            Done. I'll message Tom at 9:00 tomorrow.
+            <Confirmation icon="reminder" compact>Nudge Tom · Thu 9:00</Confirmation>
+          </VignetteAnswer>
+        </template>
+        <template data-reply="wait">
+          <VignetteAnswer>
+            Okay. I'll check again on Friday.
+            <Confirmation icon="reminder" compact>Check on Tom · Fri 10:00</Confirmation>
+          </VignetteAnswer>
+        </template>
+      </Vignette>
+    </div>
   </div>
 
   <!-- Billy typing, cloned in before each answer. -->
@@ -195,10 +192,12 @@ const words = [
     background: var(--color-sky);
   }
 
+  /* The sun sits between the headline and the right-hand conversations,
+     high in the sky, never above a card. */
   .celestial {
     position: absolute;
-    inset-block-start: calc(var(--masthead) + var(--space-3));
-    inset-inline-end: 8%;
+    inset-block-start: calc(var(--masthead) + var(--space-1));
+    inset-inline-start: calc(50% + 236px);
     z-index: 2;
   }
 
@@ -227,41 +226,31 @@ const words = [
     margin-block-start: var(--space-2);
   }
 
-  /* Two mirrored pairs. Each pair sits at one height, the same distance from
-     the center line: left ones hang by their right edge, right ones by their
-     left edge. */
-  .vignettes :global(.vignette) {
+  /* Two mirrored pairs in two columns, the same distance from the center
+     line: the left column hangs by its right edge, the right one by its left
+     edge. The upper chat of each column keeps a fixed slot, so the lower pair
+     stays level and a chat that grows after a tap never runs into the next. */
+  .column {
     --gap-from-center: 380px;
     position: absolute;
     z-index: 1;
+    inset-block-start: 236px;
+    display: flex;
+    flex-direction: column;
     inline-size: 280px;
   }
 
-  .vignettes :global(.vignette--tl),
-  .vignettes :global(.vignette--bl) {
+  .column--left {
     inset-inline-end: calc(50% + var(--gap-from-center));
   }
 
-  .vignettes :global(.vignette--tr),
-  .vignettes :global(.vignette--br) {
+  .column--right {
     inset-inline-start: calc(50% + var(--gap-from-center));
   }
 
-  /* The upper pair starts below the sun; the lower pair beside Billy. */
   .vignettes :global(.vignette--tl),
   .vignettes :global(.vignette--tr) {
-    inset-block-start: 236px;
-  }
-
-  .vignettes :global(.vignette--bl),
-  .vignettes :global(.vignette--br) {
-    inset-block-start: 596px;
-  }
-
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
+    min-block-size: var(--upper-slot, 412px);
   }
 
   /* Chip contract: unselected has a control-line edge; selected is honey
@@ -306,8 +295,7 @@ const words = [
     display: none;
   }
 
-  .chip[aria-pressed="true"] :global(.check),
-  .morph :global(.check) {
+  .chip[aria-pressed="true"] :global(.check) {
     display: block;
   }
 
@@ -325,37 +313,6 @@ const words = [
     stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
-  }
-
-  /* Copy morphs into Copied: both labels share one cell and crossfade with a
-     little blur, so it reads as one button changing (emil-design-eng). */
-  .morph {
-    display: inline-grid;
-  }
-
-  .morph > span {
-    display: inline-flex;
-    grid-area: 1 / 1;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-1);
-    transition:
-      opacity var(--duration-standard) var(--easing-standard),
-      filter var(--duration-standard) var(--easing-standard),
-      transform var(--duration-standard) var(--easing-standard);
-  }
-
-  .morph-to,
-  .morph:global(.is-done) .morph-from {
-    opacity: 0;
-    filter: blur(4px);
-    transform: scale(0.9);
-  }
-
-  .morph:global(.is-done) .morph-to {
-    opacity: 1;
-    filter: none;
-    transform: none;
   }
 
   /* The Brief's tasks check off. */
@@ -488,8 +445,8 @@ const words = [
   }
 
   /* New messages grow in from their sender's corner, never from nothing
-     (emil-design-eng: @starting-style, scale 0.96 + opacity). Typing leaves
-     quicker than replies arrive. */
+     (emil-design-eng: @starting-style, scale 0.96 + opacity). The answer
+     replaces the typing bubble in place, so nothing jumps. */
   .vignettes :global(.is-new) {
     transition:
       opacity var(--duration-standard) var(--easing-standard),
@@ -513,11 +470,6 @@ const words = [
     }
   }
 
-  .vignettes :global(.is-leaving) {
-    opacity: 0;
-    transform: scale(0.98);
-    transition-duration: var(--duration-quick);
-  }
 
   .valley {
     position: relative;
@@ -677,8 +629,17 @@ const words = [
       max-inline-size: 520px;
     }
 
-    .vignettes :global(.vignette) {
+    .celestial {
+      inset-inline-start: calc(50% + 220px);
+    }
+
+    .celestial :global(.sky-toggle) {
+      --size: 96px;
+    }
+
+    .column {
       --gap-from-center: 300px;
+      --upper-slot: 452px;
       inline-size: 224px;
     }
   }
@@ -694,10 +655,13 @@ const words = [
       padding: var(--space-7) var(--space-4) 0;
     }
 
-    .vignettes :global(.vignette) {
-      position: relative;
-      inset: auto;
-      inline-size: auto;
+    .column {
+      display: contents;
+    }
+
+    .vignettes :global(.vignette--tl),
+    .vignettes :global(.vignette--tr) {
+      min-block-size: 0;
     }
 
     .vignettes :global(.vignette:not(.vignette--keep)) {
@@ -708,6 +672,7 @@ const words = [
   @media (max-width: 900px) {
     .celestial {
       inset-block-start: calc(var(--masthead) - var(--space-2));
+      inset-inline-start: auto;
       inset-inline-end: var(--space-4);
     }
 
