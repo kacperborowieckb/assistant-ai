@@ -1,27 +1,41 @@
 ---
+// A slim, Linear-style bar: brand on the left, links in the middle, actions on
+// the right. Transparent over the sky; a material once the page scrolls.
 import { billy } from "../art";
+import { MobileNav } from "./mobile-nav";
+import { navLinks, sourceUrl } from "./nav-links";
+import { buttonVariants } from "./ui/button";
 ---
 
 <div class="masthead" data-masthead>
-  <header class="wrap header">
+  <header class="wrap bar">
     <a class="brand" href="/">
-      <span class="mascot logo"><img class="px" src={billy.base} alt="" width="56" height="56" /></span>
+      <span class="mascot logo"><img class="px" src={billy.base} alt="" width="48" height="48" /></span>
       <span>Billy</span>
     </a>
-    <nav aria-label="Main">
-      <ul>
-        <li class="optional"><a href="/#how">How it works</a></li>
-        <li class="optional"><a href="/#privacy">Privacy</a></li>
-        <li class="optional"><a href="/#self-host">Self-host</a></li>
-        <li><a class="button button--secondary" href="/#get">Get Billy</a></li>
-      </ul>
+    <nav aria-label="Main" class="links">
+      {
+        navLinks.map((link) => (
+          <a
+            class={buttonVariants({ variant: "ghost", size: "sm", className: "text-muted-foreground hover:text-foreground" })}
+            href={link.href}
+          >
+            {link.label}
+          </a>
+        ))
+      }
     </nav>
+    <div class="actions">
+      <a class={buttonVariants({ variant: "ghost", size: "sm", className: "source" })} href={sourceUrl}>Source</a>
+      <a class={buttonVariants({ size: "sm" })} href="/#get">Get Billy</a>
+      <div class="menu">
+        <MobileNav client:media="(max-width: 860px)" />
+      </div>
+    </div>
   </header>
 </div>
 
 <style>
-  /* Fixed over the sky. Once the page scrolls, it becomes a translucent
-     material with a soft edge (apple-design: materials, scroll edge). */
   .masthead {
     position: fixed;
     inset-block-start: 0;
@@ -35,10 +49,9 @@ import { billy } from "../art";
   }
 
   .masthead:global(.is-scrolled) {
-    background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+    background: color-mix(in srgb, var(--color-surface) 75%, transparent);
     border-block-end-color: var(--color-line);
-    backdrop-filter: blur(18px) saturate(1.6);
-    -webkit-backdrop-filter: blur(18px) saturate(1.6);
+    backdrop-filter: blur(16px) saturate(1.6);
   }
 
   @media (prefers-reduced-transparency: reduce) {
@@ -48,23 +61,19 @@ import { billy } from "../art";
     }
   }
 
-  .header {
-    display: flex;
+  .bar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    justify-content: space-between;
     gap: var(--space-4);
-    padding-block: var(--space-3);
-    transition: padding-block var(--duration-standard) var(--easing-standard);
-  }
-
-  .masthead:not(:global(.is-scrolled)) .header {
-    padding-block: var(--space-5);
+    block-size: 64px;
   }
 
   .brand {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-3);
+    gap: var(--space-2);
+    justify-self: start;
     min-block-size: var(--size-touch);
     color: var(--color-ink);
     font: var(--text-heading);
@@ -72,10 +81,8 @@ import { billy } from "../art";
     text-decoration: none;
   }
 
-  /* The full figure, standing on the brand name's baseline. */
   .logo {
-    --mascot-size: 56px;
-    margin-block: calc(-1 * var(--space-2));
+    --mascot-size: 48px;
     transform-origin: 50% 95%;
     transition:
       rotate var(--duration-standard) var(--easing-pop),
@@ -89,50 +96,35 @@ import { billy } from "../art";
     }
   }
 
-  ul {
+  .links {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
-    margin: 0;
-    padding: 0;
-    list-style: none;
+    gap: var(--space-1);
   }
 
-  li > a:not(.button) {
-    position: relative;
-    display: inline-flex;
+  .actions {
+    display: flex;
     align-items: center;
-    min-block-size: var(--size-touch);
-    padding-inline: var(--space-3);
-    color: var(--color-forest-ink);
-    font: var(--text-label-lg);
-    font-weight: 500;
-    text-decoration: none;
+    justify-content: flex-end;
+    gap: var(--space-2);
   }
 
-  /* The underline grows from the left on hover. */
-  li > a:not(.button)::after {
-    content: "";
-    position: absolute;
-    inset-inline: var(--space-3);
-    inset-block-end: 10px;
-    block-size: 2px;
-    border-radius: var(--radius-pill);
-    background: currentcolor;
-    scale: 0 1;
-    transform-origin: left;
-    transition: scale var(--duration-standard) var(--easing-standard);
+  .menu {
+    display: none;
   }
 
-  @media (hover: hover) and (pointer: fine) {
-    li > a:not(.button):hover::after {
-      scale: 1 1;
+  @media (max-width: 860px) {
+    .bar {
+      grid-template-columns: 1fr auto;
     }
-  }
 
-  @media (max-width: 760px) {
-    .optional {
+    .links,
+    .actions :global(.source) {
       display: none;
+    }
+
+    .menu {
+      display: block;
     }
   }
 </style>

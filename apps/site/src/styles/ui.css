@@ -1,0 +1,79 @@
+/* shadcn/ui for the marketing site (decision 0026). Every color, radius and
+   font maps to @repo/tokens, so dark mode and contrast come from the tokens. */
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* Dark follows the same rule as the tokens: the system setting unless the
+   page chose a theme. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    &:where(
+      :root:not([data-theme="light"]),
+      :root:not([data-theme="light"]) *
+    ) {
+      @slot;
+    }
+  }
+}
+
+@theme inline {
+  --font-heading: var(--font-display);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --color-sky: var(--color-sky);
+  --radius-sm: 7px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --ease-out: var(--easing-standard);
+  --ease-in-out: var(--easing-move);
+}
+
+:root {
+  --background: var(--color-surface);
+  --foreground: var(--color-ink);
+  --card: var(--color-surface-raised);
+  --card-foreground: var(--color-ink);
+  --popover: var(--color-surface-raised);
+  --popover-foreground: var(--color-ink);
+  --primary: var(--color-forest);
+  --primary-foreground: var(--color-on-forest);
+  --secondary: var(--color-surface-sunken);
+  --secondary-foreground: var(--color-ink);
+  --muted: var(--color-surface-sunken);
+  --muted-foreground: var(--color-ink-muted);
+  --accent: var(--color-forest-soft);
+  --accent-foreground: var(--color-forest-ink);
+  --destructive: var(--color-danger);
+  --border: var(--color-line);
+  --input: var(--color-control-line);
+  --ring: var(--color-focus-ring);
+  --radius: var(--radius-md);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+}

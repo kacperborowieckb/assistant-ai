@@ -12,7 +12,8 @@ pnpm --filter @repo/site verify   # astro check, build, and tests
 
 - Colors, type, spacing, radii, sizes, shadows, and motion: `@repo/tokens/tokens.css`. Never write a value by hand; add a token with a usage note instead ([tokens README](../../packages/tokens/README.md)). The tests refuse a hand-written color.
 - Billy, his outfits, his pixel world, and the pixel icons: `@repo/mascot`, through [src/art.ts](src/art.ts). Pixel art is imported as a file URL, drawn with `.px` (`image-rendering: pixelated`), and never redrawn or recolored.
-- Bubble, Card, and Button follow [the component contracts](../../docs/product/components.md).
+- Standard controls (Button, Accordion, Sheet, Separator) are shadcn/ui components in `src/components/ui`, added with `pnpm dlx shadcn@4.23.0 add <name>` from this folder. Their colors and radii map to the tokens in `src/styles/ui.css`; never give them raw colors. In `.astro` files, style a link with `buttonVariants()`; `asChild` works only inside React components.
+- Bubble and Card, Billy, and the pixel world are ours, drawn from [the component contracts](../../docs/product/components.md).
 
 ## Layout
 

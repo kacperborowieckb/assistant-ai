@@ -1,4 +1,5 @@
 ---
+import { buttonVariants } from "@/components/ui/button";
 import Billy from "../components/billy.astro";
 import Header from "../components/header.astro";
 import MiniWorld from "../components/mini-world.astro";
@@ -11,11 +12,11 @@ import Base from "../layouts/base.astro";
     <main id="main" class="wrap lost">
       <h1 class="display-section">Billy looked everywhere.</h1>
       <p class="lede">This page does not exist. The home page does.</p>
-      <a class="button button--primary" href="/">Go home</a>
+      <a class={buttonVariants()} href="/">Go home</a>
     </main>
     <div class="ground">
       <MiniWorld />
-      <Billy class="billy" size={256} />
+      <Billy class="billy" size={256} alive />
     </div>
   </div>
 </Base>
@@ -31,7 +32,7 @@ import Base from "../layouts/base.astro";
     flex-direction: column;
     align-items: center;
     gap: var(--space-5);
-    padding-block-start: calc(var(--size-touch) + 2 * var(--space-5) + var(--space-7));
+    padding-block-start: calc(64px + var(--space-7));
     text-align: center;
   }
 

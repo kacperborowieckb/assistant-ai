@@ -100,6 +100,40 @@ for (const element of document.querySelectorAll<HTMLElement>("[data-reveal]")) {
   reveal.observe(element);
 }
 
+// Billy leans a little toward the pointer, eased so it feels physical
+// rather than glued to the mouse (emil-design-eng: spring-like smoothing).
+const leaner = document.querySelector<HTMLElement>(
+  "[data-billy] .mascot.alive"
+);
+const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
+if (leaner && finePointer.matches && !reducedMotion.matches) {
+  let target = 0;
+  let lean = 0;
+  let frame = 0;
+  const step = () => {
+    lean += (target - lean) * 0.08;
+    leaner.style.setProperty("--lean", `${lean.toFixed(2)}deg`);
+    frame = Math.abs(target - lean) > 0.01 ? requestAnimationFrame(step) : 0;
+  };
+  const aim = (value: number) => {
+    target = value;
+    if (!frame) {
+      frame = requestAnimationFrame(step);
+    }
+  };
+  window.addEventListener(
+    "pointermove",
+    (event) => {
+      const box = leaner.getBoundingClientRect();
+      const offset =
+        (event.clientX - (box.left + box.width / 2)) / window.innerWidth;
+      aim(Math.max(-1, Math.min(1, offset * 2)) * 4);
+    },
+    { passive: true }
+  );
+  document.addEventListener("pointerleave", () => aim(0));
+}
+
 // Billy greets once when the page opens, and answers a tap.
 const greet = (mascot: Element) => {
   mascot.classList.remove("mascot--greet");

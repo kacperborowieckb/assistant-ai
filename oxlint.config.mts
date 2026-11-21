@@ -8,6 +8,8 @@ export default defineConfig({
     ...core.ignorePatterns,
     ".agents/skills/**",
     "apps/agent/worker-configuration.d.ts",
+    // shadcn/ui source, kept as the CLI writes it so `shadcn add --diff` stays clean.
+    "apps/site/src/components/ui/**",
   ],
   rules: {
     "max-params": ["error", { max: 3 }],

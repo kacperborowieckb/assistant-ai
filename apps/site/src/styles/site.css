@@ -1,50 +1,54 @@
 @import "@repo/tokens/tokens.css";
 @import "@repo/mascot/web.css";
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-html {
-  scroll-behavior: smooth;
-  -webkit-text-size-adjust: 100%;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
+/* Element defaults sit in the base layer so Tailwind utilities on shadcn
+   components win over them. */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
   }
-}
 
-body {
-  margin: 0;
-  background: var(--color-surface);
-  color: var(--color-ink);
-  font: var(--text-body-lg);
-  -webkit-font-smoothing: antialiased;
-}
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
 
-img {
-  display: block;
-  max-inline-size: 100%;
-}
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
 
-h1,
-h2,
-h3,
-p {
-  margin: 0;
-}
+  body {
+    margin: 0;
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font: var(--text-body-lg);
+    -webkit-font-smoothing: antialiased;
+  }
 
-a {
-  color: var(--color-forest);
-}
+  img {
+    display: block;
+    max-inline-size: 100%;
+  }
 
-:focus-visible {
-  outline: 2px solid var(--color-focus-ring);
-  outline-offset: 2px;
+  h1,
+  h2,
+  h3,
+  p {
+    margin: 0;
+  }
+
+  a {
+    color: var(--color-forest);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
 }
 
 /* Pixel art keeps hard edges at every scale. */
@@ -117,46 +121,6 @@ a {
   gap: var(--space-2);
   font: var(--text-body-strong);
   color: var(--color-bark);
-}
-
-/* Button contract: primary, secondary, plain. radius-pill on the marketing site. */
-.button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  min-block-size: var(--size-touch);
-  padding: var(--space-3) var(--space-5);
-  border: 1px solid transparent;
-  border-radius: var(--radius-pill);
-  font: var(--text-label-lg);
-  text-decoration: none;
-  transition: transform var(--duration-quick) var(--easing-standard);
-}
-
-.button:active {
-  transform: scale(0.97);
-}
-
-.button--primary {
-  background: var(--color-forest);
-  color: var(--color-on-forest);
-}
-
-.button--secondary {
-  background: var(--color-surface);
-  border-color: var(--color-control-line);
-  color: var(--color-ink);
-}
-
-.button--plain {
-  padding-inline: var(--space-2);
-  color: var(--color-forest);
-}
-
-.button--lg {
-  min-block-size: var(--size-button-lg);
-  padding-inline: var(--space-6);
 }
 
 .visually-hidden {
@@ -378,23 +342,6 @@ a {
     translate: 0 0;
     scale: 1;
   }
-
-  /* Questions open smoothly. */
-  :root {
-    interpolate-size: allow-keywords;
-  }
-
-  details::details-content {
-    block-size: 0;
-    overflow: clip;
-    transition:
-      block-size var(--duration-standard) var(--easing-standard),
-      content-visibility var(--duration-standard) allow-discrete;
-  }
-
-  details[open]::details-content {
-    block-size: auto;
-  }
 }
 
 /* Lift on hover, only where there is a real pointer. */
@@ -405,5 +352,29 @@ a {
 
   .lift:hover {
     translate: 0 -4px;
+  }
+}
+
+/* Billy is alive: he breathes from his feet, and in the hero he leans a
+   little toward the pointer (src/scripts/site.ts). The greeting replaces the
+   breath while it plays. */
+@keyframes breathe {
+  0%,
+  100% {
+    scale: 1 1;
+  }
+
+  50% {
+    scale: 1.012 1.03;
+  }
+}
+
+.mascot.alive {
+  rotate: var(--lean, 0deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .mascot.alive {
+    animation: breathe var(--duration-breathe) var(--easing-float) infinite;
   }
 }

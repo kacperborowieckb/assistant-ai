@@ -9,14 +9,16 @@ interface Props {
   size?: number;
   outfit?: Outfit;
   greet?: boolean;
+  /** Idle breathing, and in the hero, a lean toward the pointer. */
+  alive?: boolean;
   class?: string;
 }
 
-const { size, outfit, greet = false, class: className } = Astro.props;
+const { size, outfit, greet = false, alive = false, class: className } = Astro.props;
 ---
 
 <span
-  class:list={["mascot", className]}
+  class:list={["mascot", { alive }, className]}
   style={size ? `--mascot-size: ${size}px` : undefined}
   data-greet={greet ? "" : undefined}
 >

@@ -97,6 +97,10 @@ test("every custom property the CSS reads without a fallback is defined", () => 
     )
   );
   for (const name of used) {
+    if (name.startsWith("--tw")) {
+      // Tailwind's own internals, registered with @property.
+      continue;
+    }
     assert.ok(defined.has(name), `undefined custom property ${name}`);
   }
 });

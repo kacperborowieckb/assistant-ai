@@ -4,7 +4,7 @@
 - Toolchain changes: [repository foundation decision](docs/decisions/0001-repository-foundation.md) and `.agents/skills/turborepo/SKILL.md`.
 - External actions or approval questions: [agent authority decision](docs/decisions/0002-agent-authority.md).
 - JavaScript, TypeScript, lint, and format changes: `.agents/skills/ultracite/SKILL.md`.
-- Future shadcn UI work: `.agents/skills/shadcn/SKILL.md`.
+- shadcn UI (used only in `apps/site`): `.agents/skills/shadcn/SKILL.md`.
 - Motion in the Expo app (animations, gestures, sheets, haptics): `.agents/skills/animate-expo/SKILL.md`. Take curves and durations from [@repo/tokens](packages/tokens/README.md): where the skill's tables and a token disagree, the token wins (press feedback is `duration-quick`, not the recipe's 120ms). Spring configs come from the skill.
 - Widgets and Live Activities: `expo-widgets` with Expo UI first ([decision 0025](docs/decisions/0025-mobile-app-stack.md)). Hand-written Swift targets and native modules follow `.agents/skills/write-swift/SKILL.md`. Its note that Swift 6.4 has not shipped is out of date (6.4.3 is released): its ⚠ rows are usable when the project's toolchain is Swift 6.4 or later.
 - Interaction polish and design review of components we draw: `.agents/skills/emil-design-eng/SKILL.md`, `.agents/skills/apple-design/SKILL.md`. Review motion code with `.agents/skills/review-animations/SKILL.md`.

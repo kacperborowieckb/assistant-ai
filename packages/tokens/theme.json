@@ -321,6 +321,9 @@
         0.64,
         1
       ]
+    },
+    "duration-breathe": {
+      "milliseconds": 3400
     }
   }
 }

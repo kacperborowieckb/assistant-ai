@@ -24,7 +24,7 @@ Open [mascot.ora](mascot.ora) in an editor that supports OpenRaster, or import t
 
 ## Draw Billy's world
 
-`world` in the manifest lists Billy's pixel world: `scenery` (hills, water, a log, the sun and the moon, clouds, a sparkle, a night star, and a frame) and 12-pixel `icons` (note, reminder, brief, calendar, email, web, connector, search). Each is a static SVG on a grid of `world.pixel` (8) screen pixels per art pixel, so draw it at its own size or a whole multiple, with `image-rendering: pixelated`. The hills and water tile sideways. The world's colors are part of the artwork, like Billy's: do not recolor it. The marketing site uses it for its scenes; the app can use it for empty states.
+`world` in the manifest lists Billy's pixel world: `scenery` (hills, water, a log, the sun and the moon, clouds, a sparkle, a night star, and a frame) and 16-pixel `icons` (note, reminder, brief, calendar, email, web, connector, search). Each is a static SVG on a grid of `world.pixel` (8) screen pixels per art pixel, so draw it at its own size or a whole multiple, with `image-rendering: pixelated`. The hills and water tile sideways. The world's colors are part of the artwork, like Billy's: do not recolor it. The marketing site uses it for its scenes; the app can use it for empty states.
 
 ## Export app icons
 

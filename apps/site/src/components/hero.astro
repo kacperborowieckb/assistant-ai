@@ -1,4 +1,5 @@
 ---
+import { buttonVariants } from "@/components/ui/button";
 // The hero: Billy on his dam in the pixel valley, with the chat around him.
 // The sun (or moon) switches day and night; Billy answers a tap.
 import { world } from "../art";
@@ -43,8 +44,8 @@ const stars = [
     <h1 id="hero-title" class="display-hero">Tell Billy.<br />He'll do it all.</h1>
     <p class="lede">Notes, Reminders, follow-ups, research, replies, bookings. Whatever you would hand to a great assistant, text it to Billy, and he takes it from there.</p>
     <div class="actions">
-      <a class="button button--primary button--lg" href="#get">Get Billy</a>
-      <a class="button button--plain" href="#how">See how it works</a>
+      <a class={buttonVariants({ size: "lg" })} href="#get">Get Billy</a>
+      <a class={buttonVariants({ variant: "link", size: "lg", className: "px-3" })} href="#how">See how it works</a>
     </div>
   </section>
 
@@ -56,7 +57,7 @@ const stars = [
     <img class="px log log--top" src={world.log} alt="" width="320" height="88" />
 
     <button class="billy-button" type="button" data-billy aria-label="Say hi to Billy">
-      <Billy class="billy" outfit="forest" greet />
+      <Billy class="billy" outfit="forest" greet alive />
       <span class="burst" aria-hidden="true">
         <img class="px" src={world.sparkle} alt="" width="24" height="24" />
         <img class="px" src={world.sparkle} alt="" width="16" height="16" />
@@ -91,7 +92,7 @@ const stars = [
 
 <style>
   .sky {
-    --masthead: calc(var(--size-touch) + 2 * var(--space-5));
+    --masthead: 64px;
     position: relative;
     overflow: hidden;
     background: var(--color-sky);

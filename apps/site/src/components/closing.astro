@@ -1,4 +1,5 @@
 ---
+import { buttonVariants } from "@/components/ui/button";
 import { world } from "../art";
 import Billy from "./billy.astro";
 import Cloud from "./cloud.astro";
@@ -22,14 +23,14 @@ import Stars from "./stars.astro";
     <h2 id="get-title" class="display-hero">Start a chat with Billy.</h2>
     <p class="lede">Say hello, tell him one thing to remember, and see it come back.</p>
     <div class="actions">
-      <a class="button button--primary button--lg" href="#self-host">Set up Billy</a>
-      <a class="button button--secondary button--lg" href="https://github.com/kacperborowieckb/assistant-ai">Read the source</a>
+      <a class={buttonVariants({ size: "lg" })} href="#self-host">Set up Billy</a>
+      <a class={buttonVariants({ variant: "outline", size: "lg" })} href="https://github.com/kacperborowieckb/assistant-ai">Read the source</a>
     </div>
   </div>
   <div class="ground">
     <MiniWorld />
     <img class="px log" src={world.log} alt="" width="320" height="88" />
-    <Billy class="billy" size={256} outfit="sports" />
+    <Billy class="billy" size={256} outfit="sports" alive />
   </div>
 </section>
 
