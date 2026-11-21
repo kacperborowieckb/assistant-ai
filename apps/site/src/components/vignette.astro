@@ -35,4 +35,10 @@ const { place, tilt, keep = false } = Astro.props;
   .bob :global(.bubble) {
     max-inline-size: none;
   }
+
+  /* No avatar here, so Billy's replies share the edge of the conversation
+     instead of indenting for one. */
+  .bob :global(.row--indent) {
+    padding-inline-start: 0;
+  }
 </style>

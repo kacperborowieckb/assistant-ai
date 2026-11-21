@@ -80,9 +80,10 @@ const words = [
     </div>
   </section>
 
-  <!-- Everyday conversations around the headline, alternating sides. -->
+  <!-- Four everyday conversations in two mirrored pairs: one pair beside the
+       headline, one beside Billy. -->
   <div class="vignettes">
-    <Vignette place="tl" tilt={-2} keep>
+    <Vignette place="tl" tilt={-1} keep>
       <VignetteAsk>What's the Wi-Fi password at mum's?</VignetteAsk>
       <VignetteAnswer status="Searching your Notes">
         It's blue-otter-42. You told me in August.
@@ -90,7 +91,7 @@ const words = [
       </VignetteAnswer>
     </Vignette>
 
-    <Vignette place="tr" tilt={1.5}>
+    <Vignette place="tr" tilt={1}>
       <VignetteAnswer status="Preparing your Brief">
         Good morning. Three things today:
         <span class="rows">
@@ -101,23 +102,7 @@ const words = [
       </VignetteAnswer>
     </Vignette>
 
-    <Vignette place="ml" tilt={1}>
-      <VignetteAnswer status="Checking your follow-ups">
-        Tom still hasn't sent the flat contract. Should I nudge him?
-        <span class="chips"><span class="chip">Nudge Tom</span><span class="chip">Wait a day</span></span>
-      </VignetteAnswer>
-      <VignetteAsk>Yes, tomorrow morning</VignetteAsk>
-    </Vignette>
-
-    <Vignette place="mr" tilt={-1.5} keep>
-      <VignetteAsk>I parked on level 3, spot C14</VignetteAsk>
-      <VignetteAnswer status="Saving a Note">
-        Saved. Ask me when you're back at the car.
-        <Confirmation icon="note" compact>Parking · Level 3, C14</Confirmation>
-      </VignetteAnswer>
-    </Vignette>
-
-    <Vignette place="bl" tilt={1.5}>
+    <Vignette place="bl" tilt={1} keep>
       <VignetteAsk>Remind me to renew my passport before Lisbon</VignetteAsk>
       <VignetteAnswer status="Looking at your trip">
         It runs out five weeks before you fly. I'll remind you Monday at 9:00.
@@ -126,11 +111,11 @@ const words = [
     </Vignette>
 
     <Vignette place="br" tilt={-1}>
-      <VignetteAsk>oat milk, eggs, coffee beans</VignetteAsk>
-      <VignetteAnswer status="Adding to your list">
-        Added. Your shopping list has 7 things now.
-        <Confirmation icon="note" compact>Shopping list · 7 items</Confirmation>
+      <VignetteAnswer status="Checking your follow-ups">
+        Tom still hasn't sent the flat contract. Should I nudge him?
+        <span class="chips"><span class="chip">Nudge Tom</span><span class="chip">Wait a day</span></span>
       </VignetteAnswer>
+      <VignetteAsk>Yes, tomorrow morning</VignetteAsk>
     </Vignette>
   </div>
 
@@ -189,42 +174,35 @@ const words = [
     margin-block-start: var(--space-2);
   }
 
-  /* Conversations around the headline. Left ones hang from the center line
-     by their right edge, right ones by their left edge. */
+  /* Two mirrored pairs. Each pair sits at one height, the same distance from
+     the center line: left ones hang by their right edge, right ones by their
+     left edge. */
   .vignettes :global(.vignette) {
+    --gap-from-center: 330px;
     position: absolute;
     z-index: 1;
-    inline-size: 300px;
+    inline-size: 280px;
   }
 
-  .vignettes :global(.vignette--tl) {
-    inset-block-start: 120px;
-    inset-inline-end: calc(50% + 330px);
-  }
-
-  .vignettes :global(.vignette--tr) {
-    inset-block-start: 250px;
-    inset-inline-start: calc(50% + 340px);
-  }
-
-  .vignettes :global(.vignette--ml) {
-    inset-block-start: 410px;
-    inset-inline-end: calc(50% + 350px);
-  }
-
-  .vignettes :global(.vignette--mr) {
-    inset-block-start: 510px;
-    inset-inline-start: calc(50% + 330px);
-  }
-
+  .vignettes :global(.vignette--tl),
   .vignettes :global(.vignette--bl) {
-    inset-block-start: 690px;
-    inset-inline-end: calc(50% + 270px);
+    inset-inline-end: calc(50% + var(--gap-from-center));
   }
 
+  .vignettes :global(.vignette--tr),
   .vignettes :global(.vignette--br) {
-    inset-block-start: 740px;
-    inset-inline-start: calc(50% + 210px);
+    inset-inline-start: calc(50% + var(--gap-from-center));
+  }
+
+  /* The upper pair starts below the sun; the lower pair beside Billy. */
+  .vignettes :global(.vignette--tl),
+  .vignettes :global(.vignette--tr) {
+    inset-block-start: 236px;
+  }
+
+  .vignettes :global(.vignette--bl),
+  .vignettes :global(.vignette--br) {
+    inset-block-start: 596px;
   }
 
   .rows {
@@ -393,17 +371,11 @@ const words = [
       animation-delay: var(--d);
     }
 
+    /* They float together, so the pairs stay level. */
     .vignettes :global(.bob) {
       animation: float var(--duration-bob) var(--easing-float) infinite alternate;
     }
 
-    .vignettes :global(.vignette:nth-child(2n) .bob) {
-      animation-delay: -3s;
-    }
-
-    .vignettes :global(.vignette:nth-child(3n) .bob) {
-      animation-delay: -6s;
-    }
 
     .sparkle {
       animation: twinkle var(--duration-twinkle) var(--easing-float) infinite;
@@ -418,48 +390,16 @@ const words = [
     }
   }
 
-  /* Smaller laptops: narrower conversations, a narrower lede between them. */
+  /* Smaller laptops: narrower conversations, closer in, and a narrower lede
+     between them. */
   @media (max-width: 1279px) {
     .intro .lede {
       max-inline-size: 520px;
     }
 
     .vignettes :global(.vignette) {
-      inline-size: 232px;
-    }
-
-    .vignettes :global(.vignette--tl),
-    .vignettes :global(.vignette--ml) {
-      inset-inline-end: calc(50% + 280px);
-    }
-
-    .vignettes :global(.vignette--tr),
-    .vignettes :global(.vignette--mr) {
-      inset-inline-start: calc(50% + 280px);
-    }
-
-    .vignettes :global(.vignette--ml) {
-      inset-block-start: 440px;
-    }
-
-    .vignettes :global(.vignette--mr) {
-      inset-block-start: 520px;
-    }
-
-    .vignettes :global(.vignette--bl) {
-      inset-block-start: 720px;
-    }
-
-    .vignettes :global(.vignette--br) {
-      inset-block-start: 790px;
-    }
-
-    .vignettes :global(.vignette--bl) {
-      inset-inline-end: calc(50% + 250px);
-    }
-
-    .vignettes :global(.vignette--br) {
-      inset-inline-start: calc(50% + 180px);
+      --gap-from-center: 280px;
+      inline-size: 236px;
     }
   }
 
