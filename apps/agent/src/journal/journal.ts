@@ -16,13 +16,16 @@ import {
 } from "../personal-agent/storage-values.ts";
 
 export const JournalRecordSchema = Schema.TaggedUnion({
-  EventReceived: { eventId: Schema.String },
-  AnsweredByTurn: { eventId: Schema.String, turnEventId: Schema.String },
-  TurnSuperseded: {
+  EventReceived: {
     eventId: Schema.String,
-    coveredEventIds: Schema.Array(Schema.String),
-    newEventIds: Schema.Array(Schema.String),
+    restart: Schema.optionalKey(
+      Schema.Struct({
+        coveredEventIds: Schema.Array(Schema.String),
+        newEventIds: Schema.Array(Schema.String),
+      })
+    ),
   },
+  AnsweredByTurn: { eventId: Schema.String, turnEventId: Schema.String },
   TurnFailed: { eventId: Schema.String, reason: Schema.String },
   ReplyPlanned: { eventId: Schema.String, text: Schema.String },
   ReactionPlanned: {
@@ -153,7 +156,11 @@ export const answeringTurnEventIdOf = (entries: readonly JournalEntry[]) => {
 };
 
 export const restartCountOf = (entries: readonly JournalEntry[]) =>
-  entries.filter((entry) => entry.record._tag === "TurnSuperseded").length;
+  entries.filter(
+    (entry) =>
+      entry.record._tag === "EventReceived" &&
+      entry.record.restart !== undefined
+  ).length;
 
 const RecordJsonSchema = Schema.fromJsonString(JournalRecordSchema);
 

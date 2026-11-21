@@ -115,7 +115,11 @@ const journalRecords = (ownerId: string) =>
 
 const journalTags = (ownerId: string) =>
   journalRecords(ownerId).then((records) =>
-    records.map((record) => record._tag)
+    records.map((record) =>
+      record._tag === "EventReceived" && record.restart !== undefined
+        ? "TurnSuperseded"
+        : record._tag
+    )
   );
 
 const countOf = (tags: readonly string[], tag: string) =>
@@ -200,10 +204,9 @@ describe(
       const ids = await eventIds(ownerId);
       const [turnEventId = ""] = ids;
       expect(await journalRecords(ownerId)).toContainEqual({
-        _tag: "TurnSuperseded",
+        _tag: "EventReceived",
         eventId: turnEventId,
-        coveredEventIds: ids,
-        newEventIds: [ids[1]],
+        restart: { coveredEventIds: ids, newEventIds: [ids[1]] },
       });
 
       await waitForSent(1);

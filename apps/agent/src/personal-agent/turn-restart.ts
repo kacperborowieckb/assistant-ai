@@ -97,10 +97,12 @@ export const recordSuperseded = Effect.fnUntraced(function* recordSuperseded(
   yield* database.transaction(() =>
     journal
       .append({
-        _tag: "TurnSuperseded",
+        _tag: "EventReceived",
         eventId,
-        coveredEventIds: restart.coveredEventIds,
-        newEventIds: restart.newEventIds,
+        restart: {
+          coveredEventIds: restart.coveredEventIds,
+          newEventIds: restart.newEventIds,
+        },
       })
       .pipe(Effect.andThen(traces.record(trace)))
   );
