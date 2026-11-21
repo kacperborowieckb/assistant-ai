@@ -15,8 +15,16 @@ import {
   profileEntryKinds,
 } from "../personal-agent/storage-values.ts";
 
+export const RestartRecordSchema = Schema.Struct({
+  coveredEventIds: Schema.Array(Schema.String),
+  newEventIds: Schema.Array(Schema.String),
+});
+
 export const JournalRecordSchema = Schema.TaggedUnion({
-  EventReceived: { eventId: Schema.String },
+  EventReceived: {
+    eventId: Schema.String,
+    restart: Schema.optionalKey(RestartRecordSchema),
+  },
   AnsweredByTurn: { eventId: Schema.String, turnEventId: Schema.String },
   TurnFailed: { eventId: Schema.String, reason: Schema.String },
   ReplyPlanned: {
@@ -150,6 +158,12 @@ export const answeringTurnEventIdOf = (entries: readonly JournalEntry[]) => {
     ? link.record.turnEventId
     : undefined;
 };
+
+export const isRestartRecord = (record: JournalRecord) =>
+  record._tag === "EventReceived" && record.restart !== undefined;
+
+export const restartCountOf = (entries: readonly JournalEntry[]) =>
+  entries.filter((entry) => isRestartRecord(entry.record)).length;
 
 const RecordJsonSchema = Schema.fromJsonString(JournalRecordSchema);
 

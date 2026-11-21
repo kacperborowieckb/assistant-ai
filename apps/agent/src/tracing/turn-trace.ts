@@ -1,6 +1,7 @@
 import { asc, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
+import { RestartRecordSchema } from "../journal/journal.ts";
 import { ModelMessageSchema } from "../model-gateway/model-message-schema.ts";
 import { ReasoningEffortSchema } from "../model-gateway/model-provider.ts";
 import { OwnerIdSchema } from "../owner-id.ts";
@@ -60,6 +61,7 @@ const modelTraceFields = {
   refusedOutcomeTools: Schema.Array(Schema.String).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed([]))
   ),
+  restart: Schema.optionalKey(RestartRecordSchema),
 };
 
 const ReplyTraceBodySchema = Schema.Struct({

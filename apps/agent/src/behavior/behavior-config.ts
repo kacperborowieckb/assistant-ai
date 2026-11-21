@@ -14,6 +14,7 @@ export interface BehaviorConfig {
   readonly defaultReaction: string;
   readonly burstQuietMillis: number;
   readonly burstMaxWaitMillis: number;
+  readonly burstMaxRestarts: number;
   readonly quietHours: { readonly start: string; readonly end: string };
   readonly defaultTimeZone?: string | undefined;
 }
@@ -35,5 +36,6 @@ export const defaultBehaviorConfig: BehaviorConfig = {
   defaultReaction: "👍",
   burstQuietMillis: 2500,
   burstMaxWaitMillis: 10_000,
+  burstMaxRestarts: 2,
   quietHours: { start: "22:00", end: "08:00" },
 };

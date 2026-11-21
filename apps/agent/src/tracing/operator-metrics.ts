@@ -11,7 +11,10 @@ export const turnMetricResults = [
   "silent",
   "model_failed",
   "send_failed",
+  "superseded",
 ] as const;
+
+export type TurnMetricResult = (typeof turnMetricResults)[number];
 
 export const reminderMetricResults = ["delivered", "delivery_failed"] as const;
 
@@ -32,13 +35,14 @@ export type OperatorMetric =
       readonly kind: "turn";
       readonly ownerId: OwnerId;
       readonly eventId: string;
-      readonly result: (typeof turnMetricResults)[number];
+      readonly result: TurnMetricResult;
       readonly outcome: OutcomeKind | undefined;
       readonly latencyMillis: number;
       readonly modelId: string;
       readonly usage: Usage | undefined;
       readonly stepCount: number;
       readonly toolCallCount: number;
+      readonly restartCount: number;
     }
   | {
       readonly kind: "reminder";
@@ -104,6 +108,7 @@ const dataPointOf = (metric: OperatorMetric): AnalyticsEngineDataPoint => {
       usage?.cachedInputTokens ?? 0,
       metric.kind === "turn" ? metric.stepCount : 0,
       metric.kind === "turn" ? metric.toolCallCount : 0,
+      metric.kind === "turn" ? metric.restartCount : 0,
     ],
   };
 };

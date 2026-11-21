@@ -1,11 +1,12 @@
 import type { ModelMessage } from "ai";
-import { Clock, Effect } from "effect";
+import { Clock, Effect, Option } from "effect";
 
 import type { BehaviorConfig } from "../behavior/behavior-config.ts";
 import type { AgentTools } from "../model-gateway/agent-tool.ts";
 import type { OwnerId } from "../owner-id.ts";
 import { Profile } from "../profile/profile.ts";
 import { ownerCurrentTimeText } from "../time/owner-current-time.ts";
+import type { TurnMetricResult } from "../tracing/operator-metrics.ts";
 import { Redactor } from "../tracing/redactor.ts";
 import { TurnTraces } from "../tracing/turn-trace.ts";
 import type { TurnTrace } from "../tracing/turn-trace.ts";
@@ -17,6 +18,7 @@ import { Inbox } from "./inbox.ts";
 import type { InboxEvent } from "./inbox.ts";
 import { generateWithOutcomeTools } from "./outcome-tools.ts";
 import { rememberCompletedSteps } from "./remember-completed-steps.ts";
+import type { OutcomeKind } from "./storage-values.ts";
 import { systemPrompt } from "./system-prompt.ts";
 import { TurnProgress } from "./turn-progress.ts";
 import {
@@ -26,6 +28,8 @@ import {
   stepLimitReason,
 } from "./turn-record.ts";
 import type { ModelTraceInput } from "./turn-record.ts";
+import { recordSuperseded, restartCountForTurn } from "./turn-restart.ts";
+import type { Restart } from "./turn-restart.ts";
 
 export type BeforeFirstStep = "Proceed" | "Stopped";
 
@@ -46,6 +50,10 @@ export interface ModelTurnKind<Failure, Requirements> {
   readonly inputs: readonly ModelMessage[];
   readonly tools: AgentTools;
   readonly traceOf: (model: ModelTraceInput) => TurnTrace;
+  readonly restartSection?: string;
+  readonly restartBeforeDelivery?: (
+    restartsDone: number
+  ) => Effect.Effect<Option.Option<Restart>, Failure, Requirements>;
   readonly checkBeforeFirstStep?: (
     startedAt: number
   ) => Effect.Effect<BeforeFirstStep, Failure, Requirements>;
@@ -81,6 +89,7 @@ export const runModelTurn = <Failure, Requirements>({
     const progress = yield* TurnProgress;
 
     const startedAt = yield* Clock.currentTimeMillis;
+    const restartsDone = yield* restartCountForTurn(event.eventId);
     const stepsUsed = yield* progress.usedStepCount(event.eventId);
     if (stepsUsed === 0 && kind.checkBeforeFirstStep !== undefined) {
       const check = yield* kind.checkBeforeFirstStep(startedAt);
@@ -95,7 +104,12 @@ export const runModelTurn = <Failure, Requirements>({
       behavior,
       profile: yield* profile.read,
       currentTime: yield* ownerCurrentTimeText(behavior),
-      situation: preparation.situation,
+      situation: [
+        ...(restartsDone > 0 && kind.restartSection !== undefined
+          ? [kind.restartSection]
+          : []),
+        ...preparation.situation,
+      ],
     });
     const savedInputs = kind.inputs.map((input) =>
       redactor.redactMessage(input)
@@ -123,20 +137,50 @@ export const runModelTurn = <Failure, Requirements>({
     });
     const { outcome } = decided;
     const modelLatencyMillis = (yield* Clock.currentTimeMillis) - startedAt;
+    const traceInput = {
+      system,
+      messages,
+      outcome,
+      modelLatencyMillis,
+      redactor,
+      outcomeKind: decided.kind,
+      reaction: decided.reaction,
+      refusedOutcomeTools: decided.refusedOutcomeTools,
+    };
     const recordTrace = (delivered: boolean) =>
-      traces.record(
+      traces.record(kind.traceOf({ ...traceInput, delivered }));
+    const recordMetric = (
+      result: TurnMetricResult,
+      outcomeKind?: OutcomeKind,
+      restartCount = restartsDone
+    ) =>
+      recordTurnMetric({
+        ownerId,
+        eventId: event.eventId,
+        outcome,
+        result,
+        outcomeKind,
+        startedAt,
+        restartCount,
+      });
+    const restart =
+      kind.restartBeforeDelivery === undefined
+        ? Option.none<Restart>()
+        : yield* kind.restartBeforeDelivery(restartsDone);
+    if (Option.isSome(restart)) {
+      const { coveredEventIds, newEventIds } = restart.value;
+      yield* recordSuperseded(
+        restart.value,
         kind.traceOf({
-          system,
-          messages,
-          outcome,
-          modelLatencyMillis,
-          redactor,
-          delivered,
-          outcomeKind: decided.kind,
-          reaction: decided.reaction,
-          refusedOutcomeTools: decided.refusedOutcomeTools,
-        })
+          ...traceInput,
+          delivered: false,
+          restart: { coveredEventIds, newEventIds },
+        }),
+        event.eventId
       );
+      yield* recordMetric("superseded", undefined, restart.value.restartCount);
+      return "Superseded" as const;
+    }
     yield* recordTrace(true);
 
     const remember = rememberCompletedSteps({
@@ -148,13 +192,7 @@ export const runModelTurn = <Failure, Requirements>({
     if (outcome._tag === "ModelFailed") {
       yield* remember;
       yield* kind.whenFailed(modelFailureReason(outcome.error, redactor));
-      yield* recordTurnMetric({
-        ownerId,
-        eventId: event.eventId,
-        outcome,
-        result: "model_failed",
-        startedAt,
-      });
+      yield* recordMetric("model_failed");
       return;
     }
     if (decided.kind === "silent") {
@@ -173,14 +211,7 @@ export const runModelTurn = <Failure, Requirements>({
             Effect.andThen(kind.whenSilent ?? Effect.void)
           )
       );
-      yield* recordTurnMetric({
-        ownerId,
-        eventId: event.eventId,
-        outcome,
-        result: "silent",
-        outcomeKind: "silent",
-        startedAt,
-      });
+      yield* recordMetric("silent", "silent");
       return;
     }
     const outcomeKind = decided.reaction === undefined ? "reply" : "reaction";
@@ -201,14 +232,7 @@ export const runModelTurn = <Failure, Requirements>({
         yield* kind.whenSendFailed;
       }
       yield* fail(event, delivery.reason);
-      yield* recordTurnMetric({
-        ownerId,
-        eventId: event.eventId,
-        outcome,
-        result: "send_failed",
-        outcomeKind,
-        startedAt,
-      });
+      yield* recordMetric("send_failed", outcomeKind);
       return;
     }
     if (kind.whenSent !== undefined) {
@@ -222,12 +246,8 @@ export const runModelTurn = <Failure, Requirements>({
       ),
     ]);
     yield* inbox.markDone([event]);
-    yield* recordTurnMetric({
-      ownerId,
-      eventId: event.eventId,
-      outcome,
-      result: outcomeKind === "reply" ? "replied" : "reacted",
-      outcomeKind,
-      startedAt,
-    });
+    yield* recordMetric(
+      outcomeKind === "reply" ? "replied" : "reacted",
+      outcomeKind
+    );
   });

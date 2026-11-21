@@ -75,5 +75,8 @@ export class PersonalAgent extends LivePersonalAgent {
     get burstMaxWaitMillis() {
       return fakeBurstWait.maxWaitMillis;
     },
+    get burstMaxRestarts() {
+      return fakeBurstWait.maxRestarts;
+    },
   };
 }

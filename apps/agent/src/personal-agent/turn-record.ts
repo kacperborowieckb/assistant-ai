@@ -98,6 +98,7 @@ export interface ModelTraceInput {
   readonly outcomeKind?: OutcomeKind | undefined;
   readonly reaction?: ReactionOutcome | undefined;
   readonly refusedOutcomeTools?: readonly string[];
+  readonly restart?: ReplyTurnTrace["restart"];
 }
 
 const traceOutcomeOf = (
@@ -129,6 +130,7 @@ const modelTraceOf = ({
   outcomeKind,
   reaction,
   refusedOutcomeTools = [],
+  restart,
 }: ModelTraceInput) => {
   const reasoningEffort =
     outcome._tag === "Replied"
@@ -146,6 +148,7 @@ const modelTraceOf = ({
     modelLatencyMillis,
     outcome: traceOutcomeOf(outcomeKind, reaction, redactor),
     refusedOutcomeTools: [...refusedOutcomeTools],
+    ...(restart === undefined ? {} : { restart }),
   } as const;
   if (outcome._tag === "Replied") {
     return {
@@ -228,6 +231,7 @@ interface TurnMetricInput {
   readonly result: Extract<OperatorMetric, { kind: "turn" }>["result"];
   readonly outcomeKind?: OutcomeKind | undefined;
   readonly startedAt: number;
+  readonly restartCount?: number;
 }
 
 export const recordTurnMetric = ({
@@ -237,6 +241,7 @@ export const recordTurnMetric = ({
   result,
   outcomeKind,
   startedAt,
+  restartCount = 0,
 }: TurnMetricInput) =>
   Effect.gen(function* recordTurnMetricEffect() {
     const metrics = yield* OperatorMetrics;
@@ -255,6 +260,7 @@ export const recordTurnMetric = ({
       usage: usageOfOutcome(outcome),
       stepCount: stepsOf(outcome).length,
       toolCallCount: stepsOf(outcome).flatMap((step) => step.toolCalls).length,
+      restartCount,
     });
   });
 

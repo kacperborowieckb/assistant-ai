@@ -194,7 +194,7 @@ describe(
       expect(fakeTelegram.chatActionsAtModelCalls[0]).toBeGreaterThanOrEqual(3);
     });
 
-    it("answers a message that arrived during a Turn once its Quiet Gap has passed, not a minute later", async () => {
+    it("answers a message that arrived during a Turn together with the first one once its Quiet Gap has passed, not a minute later", async () => {
       const ownerId = await addOwner(13_107);
       waitBurst(300);
       const releaseModel = holdModel();
@@ -209,7 +209,7 @@ describe(
       const releasedAt = Date.now();
       releaseModel();
 
-      await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(2), {
+      await vi.waitFor(() => expect(fakeTelegram.sent).toHaveLength(1), {
         timeout: 10_000,
       });
       expect(Date.now() - releasedAt).toBeLessThan(5000);
@@ -217,7 +217,7 @@ describe(
         fakeTelegram.sent.map(
           (message) => message.body.reply_parameters?.message_id
         )
-      ).toEqual([97, 98]);
+      ).toEqual([98]);
       expect(await eventStates(ownerId)).toEqual(["done", "done"]);
     });
 
