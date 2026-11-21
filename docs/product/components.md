@@ -43,8 +43,9 @@ A choice in a short set, such as an option in a picker row.
 One message in the chat.
 
 - Variants: `billy` has a `bubble-billy` fill, no border, `ink` text, and sits on the left. `you` has a `bubble-you` fill, `on-bubble-you` text, and sits on the right. Both use `text-body`.
-- Shape: `radius-lg` corners. On Billy's latest message, the corner nearest his avatar is `radius-tail`.
-- Avatar: only Billy's latest message has his avatar, to its left and aligned to its bottom (see Avatar). Earlier replies keep the same left indent with no avatar. The person never has an avatar.
+- Groups: consecutive messages from the same sender form a group, as in Messenger. A message from the other side or a timestamp separator starts a new group. Bubbles in a group sit `space-1` apart, and groups sit `space-3` apart.
+- Shape: `radius-lg` corners, except where two bubbles of a group meet on the sender's side: those corners are `radius-tail`. So the first bubble of a group has a small bottom corner, a middle one has two, and the last one has a small top corner. A bubble on its own keeps all four `radius-lg` corners.
+- Avatar: the last bubble of each of Billy's groups has his avatar, to its left and aligned to its bottom (see Avatar). The other bubbles of the group keep the same left indent with no avatar. The person never has an avatar.
 - Content: text, and Cards inside a `billy` bubble. A bubble does not hold another bubble.
 - Actions: Billy's latest message shows Copy, Read aloud, and Share as icon buttons below it, each with its name as the accessible label. A long press opens the native context menu: Copy, Save as Note, Edit Reminder (when the message has one), Share, and Forget.
 - Accessibility: each bubble reads its sender, then its text ("Billy: Done. The Reminder is now on Friday."). The timestamp separator reads as text, not as decoration.
@@ -70,7 +71,7 @@ Where the person writes to Billy. It floats above the chat at the bottom of the 
 
 ## Avatar
 
-Billy's face beside his latest message. The markup and artwork come from [@repo/mascot](../../packages/mascot/README.md).
+Billy's face beside the last message of each of his groups (see Bubble). The markup and artwork come from [@repo/mascot](../../packages/mascot/README.md).
 
 - The portrait at `size-avatar` (44 points) in a `radius-round` mask on `avatar-ground`, with the alt text "Billy the Beaver". The portrait crop and disc come from the design system, the size from the iOS chat mock.
 - States: idle, listening, typing, and greeting. Each plays only when the agent is in that state, and none plays under reduced motion. Only the greeting exists today (`mascot--greet`, `duration-greet`).
