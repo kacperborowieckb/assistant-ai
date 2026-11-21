@@ -139,6 +139,6 @@ export const startHero = () => {
   const conversations = source ? (JSON.parse(source) as Conversation[]) : [];
   if (conversations.length > 0) {
     // Let the headline and the buttons land first.
-    later(2500, () => playChat(conversations, 0));
+    later(2100, () => playChat(conversations, 0));
   }
 };

@@ -40,7 +40,7 @@ const conversations = [
     status: "Searching your Notes",
     reply: "It's blue-otter-42. You told me in August.",
     icon: icons.note,
-    card: "Mum's house · Note, 14 Aug",
+    card: "Mum's house · 14 Aug",
     action: "Open",
   },
   {
@@ -85,14 +85,14 @@ const conversations = [
   },
 ];
 
-// "Tell Billy." arrives, holds for half a second, then the second line.
+// "Tell Billy." arrives, holds a beat, then the second line.
 const words = [
   { text: "Tell", delay: 100 },
   { text: "Billy.", delay: 170, breakAfter: true },
-  { text: "He'll", delay: 1350 },
-  { text: "do", delay: 1420 },
-  { text: "it", delay: 1490 },
-  { text: "all.", delay: 1560 },
+  { text: "He'll", delay: 950 },
+  { text: "do", delay: 1010 },
+  { text: "it", delay: 1070 },
+  { text: "all.", delay: 1130 },
 ];
 ---
 
@@ -122,8 +122,8 @@ const words = [
         ))
       }
     </h1>
-    <p class="lede rise" style="--d: 2050ms">Notes, Reminders, follow-ups, research, replies, bookings. Whatever you would hand to a great assistant, text it to Billy, and he takes it from there.</p>
-    <div class="actions rise" style="--d: 2170ms">
+    <p class="lede rise" style="--d: 1600ms">Notes, Reminders, follow-ups, research, replies, bookings. Whatever you would hand to a great assistant, text it to Billy, and he takes it from there.</p>
+    <div class="actions rise" style="--d: 1720ms">
       <a class={buttonVariants({ size: "lg", className: "cta" })} href="#get">
         Get Billy<ArrowRight data-icon="inline-end" className="cta-arrow" />
       </a>
@@ -146,15 +146,14 @@ const words = [
     <img class="px sparkle sparkle--b" src={world.sparkle} alt="" width="32" height="32" />
     <img class="px sparkle sparkle--c" src={world.sparkle} alt="" width="16" height="16" />
 
-    <div class="float float--ask" style="--i: 0" aria-hidden="true">
-      <div class="bob">
+    <!-- One floating thread beside Billy: your message, then his answer right
+         under it, in the same spot where he was typing. -->
+    <div class="float float--thread" style="--i: 0" aria-hidden="true">
+      <div class="bob thread">
         <div class="step step--you" data-step="ask">
           <Bubble from="you" floating><span data-hook="ask">{conversations[0]?.ask}</span></Bubble>
         </div>
-      </div>
-    </div>
-    <div class="float float--reply" style="--i: 1" aria-hidden="true">
-      <div class="bob">
+        <div class="answer">
         <div class="step step--billy typing" data-step="typing">
           <Bubble from="billy" floating>
             <span class="working"><span class="dots"><span></span><span></span><span></span></span><span data-hook="status">{conversations[0]?.status}</span></span>
@@ -166,13 +165,14 @@ const words = [
             <Confirmation icon="note" action="Open" hooks>{conversations[0]?.card}</Confirmation>
           </Bubble>
         </div>
+        </div>
       </div>
     </div>
     <script type="application/json" data-conversations set:html={JSON.stringify(conversations)} />
-    <div class="float float--note" style="--i: 2" aria-hidden="true">
+    <div class="float float--note" style="--i: 1" aria-hidden="true">
       <div class="bob"><Tile icon="note" title="Note saved" detail="Packing list" /></div>
     </div>
-    <div class="float float--brief" style="--i: 3" aria-hidden="true">
+    <div class="float float--brief" style="--i: 2" aria-hidden="true">
       <div class="bob"><Tile icon="brief" title="Morning Brief" detail="Tomorrow at 8:00" /></div>
     </div>
   </div>
@@ -199,11 +199,12 @@ const words = [
     flex-direction: column;
     align-items: center;
     gap: var(--space-5);
-    padding-block-start: calc(var(--masthead) + var(--space-8));
+    padding-block-start: calc(var(--masthead) + var(--space-7));
     text-align: center;
   }
 
   .intro .lede {
+    max-inline-size: 640px;
     color: var(--color-forest-ink);
   }
 
@@ -289,29 +290,47 @@ const words = [
     inset-inline-start: calc(50% + 250px);
   }
 
-  .float--ask {
-    inset-block-start: 70px;
-    inset-inline-end: calc(50% + 300px);
+  /* The thread floats to Billy's right, so his answer sits beside his head. */
+  .float--thread {
+    inset-block-start: 24px;
+    inset-inline-start: calc(50% + 200px);
+    inline-size: 380px;
   }
 
-  .float--reply {
-    inset-block-start: 40px;
-    inset-inline-start: calc(50% + 280px);
-    inline-size: 372px;
+  .thread {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
   }
 
-  .float--reply :global(.bubble) {
+  .thread :global(.bubble) {
     max-inline-size: none;
   }
 
+  .thread .step--you {
+    align-self: flex-end;
+    max-inline-size: 320px;
+  }
+
+  /* Typing and the reply share one cell: the answer lands where he typed. */
+  .answer {
+    display: grid;
+    align-items: start;
+  }
+
+  .answer > .step {
+    grid-area: 1 / 1;
+  }
+
+  /* Things Billy already did, to his left. */
   .float--note {
-    inset-block-start: 200px;
-    inset-inline-end: calc(50% + 360px);
+    inset-block-start: 96px;
+    inset-inline-end: calc(50% + 250px);
   }
 
   .float--brief {
-    inset-block-start: 250px;
-    inset-inline-start: calc(50% + 380px);
+    inset-block-start: 196px;
+    inset-inline-end: calc(50% + 320px);
   }
 
   @keyframes float-in {
@@ -324,7 +343,7 @@ const words = [
   @media (prefers-reduced-motion: no-preference) {
     .float {
       animation: float-in var(--duration-enter) var(--easing-standard) both;
-      animation-delay: calc(2300ms + var(--i) * 80ms);
+      animation-delay: calc(1850ms + var(--i) * 80ms);
     }
 
     .bob {
@@ -352,13 +371,9 @@ const words = [
       display: none;
     }
 
-    .float--ask {
-      inset-inline-end: calc(50% + 200px);
-    }
-
-    .float--reply {
-      inset-inline-start: calc(50% + 190px);
-      inline-size: 280px;
+    .float--thread {
+      inset-inline-start: calc(50% + 170px);
+      inline-size: 300px;
     }
   }
 
@@ -369,7 +384,7 @@ const words = [
     }
 
     .intro {
-      padding-block-start: calc(var(--masthead) + 104px);
+      padding-block-start: calc(var(--masthead) + 96px);
     }
 
     .valley {
@@ -384,18 +399,13 @@ const words = [
     }
 
 
-    .float--ask,
-    .float--reply {
+    .float--thread {
       position: relative;
       inset: auto;
       inline-size: auto;
-      max-inline-size: 360px;
+      max-inline-size: 380px;
       margin-inline: auto;
       padding-inline: var(--space-4);
-    }
-
-    .float--reply {
-      margin-block-start: var(--space-2);
     }
 
     .sparkle {
@@ -424,12 +434,6 @@ const words = [
 
   .step--billy {
     transform-origin: left top;
-  }
-
-  .typing {
-    position: absolute;
-    inset-block-start: 0;
-    inset-inline-start: 0;
   }
 
   /* While Billy works, he says what he is doing. */
