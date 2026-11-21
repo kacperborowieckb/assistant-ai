@@ -1,6 +1,7 @@
 ---
 // One small, tilted conversation in the hero. It fades in once with its
-// mirrored partner, then stays still.
+// mirrored partner, then waits for a tap: its buttons add messages to the
+// thread (src/scripts/vignettes.ts).
 interface Props {
   /** Where it floats around the headline. */
   place: "tl" | "tr" | "ml" | "mr" | "bl" | "br";
@@ -9,17 +10,21 @@ interface Props {
   keep?: boolean;
   /** Which pair it belongs to: 0 beside the headline, 1 beside Billy. */
   pair: 0 | 1;
+  /** What the example shows, for screen readers. */
+  label: string;
 }
 
-const { place, tilt, keep = false, pair } = Astro.props;
+const { place, tilt, keep = false, pair, label } = Astro.props;
 ---
 
 <div
   class:list={["vignette", `vignette--${place}`, { "vignette--keep": keep }]}
   style={`--tilt: ${tilt}deg; --pair: ${pair}`}
-  aria-hidden="true"
+  role="group"
+  aria-label={label}
+  data-vignette
 >
-  <div class="bob"><slot /></div>
+  <div class="bob" data-thread aria-live="polite"><slot /></div>
 </div>
 
 <style>

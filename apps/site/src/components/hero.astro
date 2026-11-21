@@ -12,7 +12,6 @@ import Billy from "./billy.astro";
 import Cloud from "./cloud.astro";
 import Confirmation from "./confirmation.astro";
 import Header from "./header.astro";
-import ReminderRow from "./reminder-row.astro";
 import SkyToggle from "./sky-toggle.astro";
 import Stars from "./stars.astro";
 import VignetteAnswer from "./vignette-answer.astro";
@@ -31,6 +30,12 @@ const stars = [
   { top: "50%", left: "28%", size: 2, delay: 0.9 },
   { top: "52%", left: "76%", size: 1, delay: 0.35 },
 ] as const;
+
+const brief = [
+  { title: "Invoice to Marta", time: "14:00" },
+  { title: "Dentist", time: "17:30" },
+  { title: "Call mum", time: "18:00" },
+];
 
 // "Tell Billy." arrives, holds a beat, then the second line.
 const words = [
@@ -71,53 +76,101 @@ const words = [
     </h1>
     <p class="lede rise" style="--d: 1600ms">Notes, Reminders, follow-ups, research, replies, bookings. Whatever you would hand to a great assistant, text it to Billy, and he takes it from there.</p>
     <div class="actions rise" style="--d: 1720ms">
-      <a class={buttonVariants({ size: "lg", className: "cta" })} href="#get">
-        Get Billy<ArrowRight data-icon="inline-end" className="cta-arrow" />
+      <a class={buttonVariants({ size: "lg" })} href="#get">
+        Get Billy<ArrowRight data-icon="inline-end" />
       </a>
-      <a class={buttonVariants({ variant: "link", size: "lg", className: "more px-3" })} href="#how">
-        See how it works<ArrowDown data-icon="inline-end" className="more-arrow" />
+      <a class={buttonVariants({ variant: "link", size: "lg", className: "px-3" })} href="#how">
+        See how it works<ArrowDown data-icon="inline-end" />
       </a>
     </div>
   </section>
 
   <!-- Four everyday conversations in two mirrored pairs: one pair beside the
-       headline, one beside Billy. -->
+       headline, one beside Billy. Each has something to try. -->
   <div class="vignettes">
-    <Vignette place="tl" tilt={-1} pair={0} keep>
+    <Vignette place="tl" tilt={-1} pair={0} keep label="Example: finding a password in your Notes">
       <VignetteAsk>What's the Wi-Fi password at mum's?</VignetteAsk>
       <VignetteAnswer>
         It's blue-otter-42. You told me in August.
         <Confirmation icon="note" compact>Mum's house · 14 Aug</Confirmation>
-      </VignetteAnswer>
-    </Vignette>
-
-    <Vignette place="tr" tilt={1} pair={0}>
-      <VignetteAnswer>
-        Good morning. Three things today:
-        <span class="rows">
-          <ReminderRow title="Invoice to Marta" time="14:00" />
-          <ReminderRow title="Dentist" time="17:30" />
-          <ReminderRow title="Call mum" time="18:00" />
+        <span class="chips">
+          <button type="button" class="chip morph" data-copy="blue-otter-42">
+            <span class="morph-from">Copy password</span>
+            <span class="morph-to" aria-hidden="true"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Copied</span>
+          </button>
         </span>
       </VignetteAnswer>
     </Vignette>
 
-    <Vignette place="bl" tilt={1} pair={1} keep>
+    <Vignette place="tr" tilt={1} pair={0} label="Example: your morning Brief">
+      <VignetteAnswer>
+        Good morning. Three things today:
+        <span class="tasks">
+          {
+            brief.map((task) => (
+              <button type="button" class="task" aria-pressed="false" data-task>
+                <span class="tick" aria-hidden="true"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg></span>
+                <span class="task-title">{task.title}</span>
+                <span class="task-time">{task.time}</span>
+              </button>
+            ))
+          }
+        </span>
+      </VignetteAnswer>
+      <template data-reply="done">
+        <VignetteAnswer>That's all three. Enjoy your evening.</VignetteAnswer>
+      </template>
+    </Vignette>
+
+    <Vignette place="bl" tilt={1} pair={1} keep label="Example: a Reminder for a trip">
       <VignetteAsk>Remind me to renew my passport before Lisbon</VignetteAsk>
       <VignetteAnswer>
         It runs out five weeks before you fly. I'll remind you Monday at 9:00.
-        <Confirmation icon="reminder" compact>Renew passport · Mon 9:00</Confirmation>
+        <Confirmation icon="reminder" compact><span class="swap" data-swap>Renew passport · Mon 9:00</span></Confirmation>
+        <span class="chips" data-choices>
+          <button type="button" class="chip" aria-pressed="false" data-say="sunday" data-swap-to="Renew passport · Sun 10:00"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Make it Sunday</button>
+          <button type="button" class="chip" aria-pressed="false" data-say="undo"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Undo</button>
+        </span>
       </VignetteAnswer>
+      <template data-reply="sunday">
+        <VignetteAsk>Make it Sunday</VignetteAsk>
+        <VignetteAnswer>Moved to Sunday at 10:00.</VignetteAnswer>
+      </template>
+      <template data-reply="undo">
+        <VignetteAsk>Undo that</VignetteAsk>
+        <VignetteAnswer>Removed. I won't remind you about the passport.</VignetteAnswer>
+      </template>
     </Vignette>
 
-    <Vignette place="br" tilt={-1} pair={1}>
+    <Vignette place="br" tilt={-1} pair={1} label="Example: a follow-up Billy starts">
       <VignetteAnswer>
         Tom still hasn't sent the flat contract. Should I nudge him?
-        <span class="chips"><span class="chip">Nudge Tom</span><span class="chip">Wait a day</span></span>
+        <span class="chips" data-choices>
+          <button type="button" class="chip" aria-pressed="false" data-say="nudge"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Nudge Tom</button>
+          <button type="button" class="chip" aria-pressed="false" data-say="wait"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Wait a day</button>
+        </span>
       </VignetteAnswer>
-      <VignetteAsk>Yes, tomorrow morning</VignetteAsk>
+      <template data-reply="nudge">
+        <VignetteAsk>Nudge Tom</VignetteAsk>
+        <VignetteAnswer>
+          Done. I'll message Tom at 9:00 tomorrow.
+          <Confirmation icon="reminder" compact>Nudge Tom · Thu 9:00</Confirmation>
+        </VignetteAnswer>
+      </template>
+      <template data-reply="wait">
+        <VignetteAsk>Wait a day</VignetteAsk>
+        <VignetteAnswer>
+          Okay. I'll check again on Friday.
+          <Confirmation icon="reminder" compact>Check on Tom · Fri 10:00</Confirmation>
+        </VignetteAnswer>
+      </template>
     </Vignette>
   </div>
+
+  <!-- Billy typing, cloned in before each answer. -->
+  <template id="typing-template">
+    <VignetteAnswer><span class="dots" aria-label="Billy is typing"><span></span><span></span><span></span></span></VignetteAnswer>
+  </template>
 
   <div class="valley">
     <div class="hills hills-light" aria-hidden="true"></div>
@@ -205,23 +258,265 @@ const words = [
     inset-block-start: 596px;
   }
 
-  .rows {
-    display: block;
-    margin-block-start: calc(-1 * var(--space-1));
-  }
-
   .chips {
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-2);
   }
 
+  /* Chip contract: unselected has a control-line edge; selected is honey
+     with a check, so the state does not rest on color. */
   .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-block-size: 32px;
     padding: var(--space-1) var(--space-3);
     border: 1px solid var(--color-control-line);
     border-radius: var(--radius-pill);
+    background: var(--color-surface-raised);
     color: var(--color-forest);
     font: var(--text-body-strong);
+    cursor: pointer;
+    transition:
+      background-color var(--duration-quick) ease,
+      transform var(--duration-quick) var(--easing-standard);
+  }
+
+  /* Press feedback the moment it is pressed (emil-design-eng). */
+  .chip:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  .chip:disabled {
+    cursor: default;
+  }
+
+  .chip:disabled:not([aria-pressed="true"]) {
+    color: var(--color-ink-muted);
+  }
+
+  .chip[aria-pressed="true"] {
+    border-color: var(--color-honey-line);
+    background: var(--color-honey);
+    color: var(--color-on-honey);
+  }
+
+  .chip :global(.check) {
+    display: none;
+  }
+
+  .chip[aria-pressed="true"] :global(.check),
+  .morph :global(.check) {
+    display: block;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .chip:hover:not(:disabled) {
+      background: var(--color-forest-soft);
+    }
+  }
+
+  .check {
+    inline-size: 14px;
+    block-size: 14px;
+    fill: none;
+    stroke: currentcolor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* Copy morphs into Copied: both labels share one cell and crossfade with a
+     little blur, so it reads as one button changing (emil-design-eng). */
+  .morph {
+    display: inline-grid;
+  }
+
+  .morph > span {
+    display: inline-flex;
+    grid-area: 1 / 1;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    transition:
+      opacity var(--duration-standard) var(--easing-standard),
+      filter var(--duration-standard) var(--easing-standard),
+      transform var(--duration-standard) var(--easing-standard);
+  }
+
+  .morph-to,
+  .morph:global(.is-done) .morph-from {
+    opacity: 0;
+    filter: blur(4px);
+    transform: scale(0.9);
+  }
+
+  .morph:global(.is-done) .morph-to {
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+
+  /* The Brief's tasks check off. */
+  .tasks {
+    display: flex;
+    flex-direction: column;
+    margin-block-start: calc(-1 * var(--space-1));
+  }
+
+  .task {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-block-size: var(--size-touch);
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-ink);
+    font: var(--text-body);
+    text-align: start;
+    cursor: pointer;
+  }
+
+  .task + .task {
+    border-block-start: 1px solid var(--color-line);
+  }
+
+  .tick {
+    display: grid;
+    place-items: center;
+    inline-size: 20px;
+    block-size: 20px;
+    flex: none;
+    border: 1.5px solid var(--color-control-line);
+    border-radius: var(--radius-round);
+    color: var(--color-on-forest);
+    transition:
+      background-color var(--duration-quick) ease,
+      border-color var(--duration-quick) ease,
+      transform var(--duration-quick) var(--easing-standard);
+  }
+
+  .tick :global(.check) {
+    inline-size: 12px;
+    block-size: 12px;
+    opacity: 0;
+    transform: scale(0.5);
+    transition:
+      opacity var(--duration-quick) var(--easing-standard),
+      transform var(--duration-standard) var(--easing-standard);
+  }
+
+  .task:active .tick {
+    transform: scale(0.9);
+  }
+
+  .task[aria-pressed="true"] .tick {
+    border-color: var(--color-forest);
+    background: var(--color-forest);
+  }
+
+  .task[aria-pressed="true"] .tick :global(.check) {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Sized to its words, so the strike covers the name and not the gap. */
+  .task-title {
+    position: relative;
+    transition: color var(--duration-standard) ease;
+  }
+
+  /* The strike draws from the left. */
+  .task-title::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    inset-block-start: 50%;
+    block-size: 1.5px;
+    background: currentcolor;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform var(--duration-standard) var(--easing-standard);
+  }
+
+  .task[aria-pressed="true"] .task-title {
+    color: var(--color-ink-muted);
+  }
+
+  .task[aria-pressed="true"] .task-title::after {
+    transform: scaleX(1);
+  }
+
+  .task-time {
+    margin-inline-start: auto;
+    color: var(--color-ink-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* A card's text that changes in place blurs out and back in. */
+  .swap {
+    display: inline-block;
+    transition:
+      opacity var(--duration-quick) var(--easing-standard),
+      filter var(--duration-quick) var(--easing-standard);
+  }
+
+  .swap:global(.is-swapping) {
+    opacity: 0;
+    filter: blur(3px);
+  }
+
+  .swap:global(.is-struck) {
+    color: var(--color-ink-muted);
+    text-decoration: line-through;
+  }
+
+  /* Billy typing. */
+  .dots {
+    display: inline-flex;
+    gap: 4px;
+    padding-block: 7px;
+  }
+
+  .dots span {
+    inline-size: 6px;
+    block-size: 6px;
+    border-radius: var(--radius-round);
+    background: var(--color-ink-muted);
+  }
+
+  /* New messages grow in from their sender's corner, never from nothing
+     (emil-design-eng: @starting-style, scale 0.96 + opacity). Typing leaves
+     quicker than replies arrive. */
+  .vignettes :global(.is-new) {
+    transition:
+      opacity var(--duration-standard) var(--easing-standard),
+      transform var(--duration-standard) var(--easing-standard),
+      filter var(--duration-standard) var(--easing-standard);
+  }
+
+  .vignettes :global(.is-new.ask) {
+    transform-origin: right bottom;
+  }
+
+  .vignettes :global(.is-new.row) {
+    transform-origin: left bottom;
+  }
+
+  @starting-style {
+    .vignettes :global(.is-new) {
+      opacity: 0;
+      filter: blur(2px);
+      transform: translateY(8px) scale(0.96);
+    }
+  }
+
+  .vignettes :global(.is-leaving) {
+    opacity: 0;
+    transform: scale(0.98);
+    transition-duration: var(--duration-quick);
   }
 
   .valley {
@@ -301,54 +596,25 @@ const words = [
     display: inline-block;
   }
 
-  /* Buttons. */
-  .actions :global(.cta) {
-    position: relative;
-    overflow: hidden;
-    isolation: isolate;
-  }
-
-  .actions :global(.cta)::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    background: linear-gradient(
-      110deg,
-      transparent 35%,
-      color-mix(in srgb, var(--color-on-forest) 28%, transparent) 50%,
-      transparent 65%
-    );
-    translate: -110% 0;
-    pointer-events: none;
-  }
-
-  .actions :global(.cta-arrow),
-  .actions :global(.more-arrow) {
-    transition: translate var(--duration-standard) var(--easing-standard);
-  }
-
-  @media (hover: hover) and (pointer: fine) {
-    /* The light sweeps across once on hover and snaps back unseen. */
-    .actions :global(.cta:hover)::after {
-      translate: 110% 0;
-      transition: translate 700ms var(--easing-standard);
-    }
-
-    .actions :global(.cta:hover .cta-arrow) {
-      translate: 4px 0;
-    }
-
-    .actions :global(.more:hover .more-arrow) {
-      translate: 0 3px;
-    }
-  }
-
   @keyframes word-in {
     from {
       opacity: 0;
       filter: blur(10px);
       transform: translateY(0.18em);
+    }
+  }
+
+  @keyframes dot-bounce {
+    0%,
+    60%,
+    100% {
+      translate: 0 0;
+      opacity: 0.45;
+    }
+
+    30% {
+      translate: 0 -4px;
+      opacity: 1;
     }
   }
 
@@ -381,6 +647,18 @@ const words = [
 
     .sparkle {
       animation: twinkle var(--duration-twinkle) var(--easing-float) infinite;
+    }
+
+    .dots span {
+      animation: dot-bounce 1100ms var(--easing-float) infinite;
+    }
+
+    .dots span:nth-child(2) {
+      animation-delay: 150ms;
+    }
+
+    .dots span:nth-child(3) {
+      animation-delay: 300ms;
     }
 
     .sparkle--b {

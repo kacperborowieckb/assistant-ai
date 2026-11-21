@@ -1,5 +1,7 @@
-// The only script on the site: the day and night switch, the header material,
-// and sections arriving on scroll. Everything works and
+import { startVignettes } from "./vignettes";
+
+// The site's script: the day and night switch, the header material, sections
+// arriving on scroll, and the hero conversations (./vignettes.ts). Everything works and
 // reads the same without it.
 
 const root = document.documentElement;
@@ -99,3 +101,5 @@ for (const element of document.querySelectorAll<HTMLElement>("[data-reveal]")) {
   );
   reveal.observe(element);
 }
+
+startVignettes();
