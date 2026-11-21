@@ -5,7 +5,7 @@ import { billy } from "../art";
 <div class="masthead" data-masthead>
   <header class="wrap header">
     <a class="brand" href="/">
-      <span class="mascot mascot--portrait logo"><img class="px" src={billy.portrait} alt="" width="40" height="40" /></span>
+      <span class="mascot logo"><img class="px" src={billy.base} alt="" width="56" height="56" /></span>
       <span>Billy</span>
     </a>
     <nav aria-label="Main">
@@ -72,15 +72,20 @@ import { billy } from "../art";
     text-decoration: none;
   }
 
+  /* The full figure, standing on the brand name's baseline. */
   .logo {
-    --mascot-size: 40px;
-    background: var(--color-avatar-ground);
-    transition: rotate var(--duration-standard) var(--easing-pop);
+    --mascot-size: 56px;
+    margin-block: calc(-1 * var(--space-2));
+    transform-origin: 50% 95%;
+    transition:
+      rotate var(--duration-standard) var(--easing-pop),
+      translate var(--duration-standard) var(--easing-pop);
   }
 
   @media (hover: hover) and (pointer: fine) {
     .brand:hover .logo {
-      rotate: -10deg;
+      rotate: -8deg;
+      translate: 0 -2px;
     }
   }
 
