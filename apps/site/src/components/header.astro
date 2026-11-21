@@ -1,0 +1,119 @@
+---
+// A slim, Linear-style bar: brand on the left, links in the middle, actions on
+// the right. Transparent over the sky; a material once the page scrolls.
+import { billy } from "../art";
+import { MobileNav } from "./mobile-nav";
+import { navLinks, sourceUrl } from "./nav-links";
+import { buttonVariants } from "./ui/button";
+---
+
+<div class="masthead" data-masthead>
+  <header class="wrap bar">
+    <a class="brand" href="/">
+      <span class="mascot logo"><img class="px" src={billy.base} alt="" width="48" height="48" /></span>
+      <span>Billy</span>
+    </a>
+    <nav aria-label="Main" class="links">
+      {
+        navLinks.map((link) => (
+          <a
+            class={buttonVariants({ variant: "ghost", size: "sm", className: "text-muted-foreground hover:text-foreground" })}
+            href={link.href}
+          >
+            {link.label}
+          </a>
+        ))
+      }
+    </nav>
+    <div class="actions">
+      <a class={buttonVariants({ variant: "ghost", size: "sm", className: "source" })} href={sourceUrl}>Source</a>
+      <a class={buttonVariants({ size: "sm" })} href="/#self-host">Get Billy</a>
+      <div class="menu">
+        <MobileNav client:media="(max-width: 860px)" />
+      </div>
+    </div>
+  </header>
+</div>
+
+<style>
+  .masthead {
+    position: fixed;
+    inset-block-start: 0;
+    inset-inline: 0;
+    z-index: 20;
+    border-block-end: 1px solid transparent;
+    transition:
+      background-color var(--duration-standard) var(--easing-standard),
+      border-color var(--duration-standard) var(--easing-standard),
+      backdrop-filter var(--duration-standard) var(--easing-standard);
+  }
+
+  .masthead:global(.is-scrolled) {
+    background: color-mix(in srgb, var(--color-surface) 75%, transparent);
+    border-block-end-color: var(--color-line);
+    backdrop-filter: blur(16px) saturate(1.6);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .masthead:global(.is-scrolled) {
+      background: var(--color-surface);
+      backdrop-filter: none;
+    }
+  }
+
+  .bar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: var(--space-4);
+    block-size: 64px;
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    justify-self: start;
+    min-block-size: var(--size-touch);
+    color: var(--color-ink);
+    font: var(--text-heading);
+    letter-spacing: var(--text-heading-tracking);
+    text-decoration: none;
+  }
+
+  .logo {
+    --mascot-size: 48px;
+  }
+
+  .links {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-2);
+  }
+
+  .menu {
+    display: none;
+  }
+
+  @media (max-width: 860px) {
+    .bar {
+      grid-template-columns: 1fr auto;
+    }
+
+    .links,
+    .actions :global(.source) {
+      display: none;
+    }
+
+    .menu {
+      display: block;
+    }
+  }
+</style>

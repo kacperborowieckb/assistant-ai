@@ -1,0 +1,85 @@
+---
+import { buttonVariants } from "@/components/ui/button";
+import { world } from "../art";
+import Billy from "./billy.astro";
+import Cloud from "./cloud.astro";
+import MiniWorld from "./mini-world.astro";
+import Stars from "./stars.astro";
+---
+
+<section id="get" class="closing scene" aria-labelledby="get-title">
+  <Stars
+    stars={[
+      { top: "12%", left: "10%", size: 2, delay: 0.2 },
+      { top: "26%", left: "86%", size: 2, delay: 0.6 },
+      { top: "40%", left: "18%", size: 1, delay: 0.4 },
+      { top: "8%", left: "64%", size: 1, delay: 0.8 },
+      { top: "48%", left: "78%", size: 1, delay: 0.1 },
+    ]}
+  />
+  <Cloud top="150px" x="6cqw" phase={0.3} />
+  <Cloud size="small" top="70px" x="78cqw" phase={0.8} speed={1.4} />
+  <div class="wrap inner">
+    <h2 id="get-title" class="display-hero">Start a chat with Billy.</h2>
+    <p class="lede">Say hello, tell him one thing to remember, and see it come back.</p>
+    <div class="actions">
+      <a class={buttonVariants({ size: "lg" })} href="#self-host">Set up Billy</a>
+      <a class={buttonVariants({ variant: "outline", size: "lg" })} href="https://github.com/kacperborowieckb/assistant-ai">Read the source</a>
+    </div>
+  </div>
+  <div class="ground">
+    <MiniWorld />
+    <img class="px log" src={world.log} alt="" width="320" height="88" />
+    <Billy class="billy" size={256} outfit="sports" />
+  </div>
+</section>
+
+<style>
+  .closing {
+    position: relative;
+    overflow: hidden;
+    background: var(--color-sky);
+  }
+
+  .inner {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-5);
+    padding-block-start: var(--space-9);
+    text-align: center;
+  }
+
+  .inner .lede {
+    color: var(--color-forest-ink);
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-4);
+  }
+
+  .ground {
+    position: relative;
+    block-size: 400px;
+  }
+
+  .log,
+  .ground :global(.billy) {
+    position: absolute;
+  }
+
+  .log {
+    filter: var(--scenery-light);
+    inset-block-end: 28px;
+    inset-inline-start: calc(50% - 160px);
+  }
+
+  .ground :global(.billy) {
+    inset-block-end: 103px;
+    inset-inline-start: calc(50% - 120px);
+  }
+</style>

@@ -1,0 +1,15 @@
+---
+import { billy } from "../art";
+---
+
+<span class="mascot mascot--portrait avatar">
+  <img class="px" src={billy.portrait} alt="Billy" width="44" height="44" />
+</span>
+
+<style>
+  .avatar {
+    --mascot-size: var(--size-avatar);
+    flex: none;
+    background: var(--color-avatar-ground);
+  }
+</style>

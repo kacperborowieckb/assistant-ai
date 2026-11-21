@@ -29,5 +29,31 @@
       "background": "icon-background-dark.png",
       "flat": "icon-dark.png"
     }
+  },
+  "world": {
+    "pixel": 8,
+    "scenery": {
+      "hills": "world/hills.svg",
+      "water": "world/water.svg",
+      "log": "world/log.svg",
+      "cloud": "world/cloud.svg",
+      "sun": "world/sun.svg",
+      "sparkle": "world/sparkle.svg",
+      "frame": "world/frame.svg",
+      "cloud-large": "world/cloud-large.svg",
+      "cloud-small": "world/cloud-small.svg",
+      "moon": "world/moon.svg",
+      "star": "world/star.svg"
+    },
+    "icons": {
+      "note": "icons/note.svg",
+      "reminder": "icons/reminder.svg",
+      "brief": "icons/brief.svg",
+      "calendar": "icons/calendar.svg",
+      "email": "icons/email.svg",
+      "web": "icons/web.svg",
+      "connector": "icons/connector.svg",
+      "search": "icons/search.svg"
+    }
   }
 }

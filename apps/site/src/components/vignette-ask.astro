@@ -1,0 +1,15 @@
+---
+// Your message in a hero conversation, on the right as in a chat.
+import Bubble from "./bubble.astro";
+---
+
+<div class="ask">
+  <Bubble from="you" floating><slot /></Bubble>
+</div>
+
+<style>
+  .ask {
+    align-self: flex-end;
+    max-inline-size: 90%;
+  }
+</style>

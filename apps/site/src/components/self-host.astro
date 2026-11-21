@@ -1,0 +1,89 @@
+---
+import { buttonVariants } from "@/components/ui/button";
+import PixelIcon from "./pixel-icon.astro";
+---
+
+<section id="self-host" class="wrap section selfhost" aria-labelledby="self-host-title">
+  <div class="copy" data-reveal>
+    <p class="eyebrow">Self-host</p>
+    <h2 id="self-host-title" class="display-section">Run Billy on your own account.</h2>
+    <p>Billy is open source. Deploy him to your own Cloudflare account, bring your own model key, and keep every byte where you can see it.</p>
+    <a class={buttonVariants({ variant: "outline" })} href="https://github.com/kacperborowieckb/assistant-ai">Read the source</a>
+  </div>
+  <figure class="terminal" data-reveal>
+    <figcaption>
+      <PixelIcon name="connector" scale={1} />
+      <span>Clone, install, and check your setup</span>
+    </figcaption>
+    <pre><code><span class="prompt" aria-hidden="true">$ </span>git clone https://github.com/kacperborowieckb/assistant-ai
+<span class="prompt" aria-hidden="true">$ </span>cd assistant-ai
+<span class="prompt" aria-hidden="true">$ </span>pnpm install
+<span class="prompt" aria-hidden="true">$ </span>pnpm --filter @repo/agent control doctor
+<span class="ok">Result: healthy</span></code></pre>
+  </figure>
+</section>
+
+<style>
+  .selfhost {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    align-items: center;
+    gap: var(--space-8);
+  }
+
+  .copy {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-5);
+  }
+
+  .copy p:not(.eyebrow) {
+    max-inline-size: var(--size-measure);
+    color: var(--color-ink-muted);
+  }
+
+  .terminal {
+    margin: 0;
+    overflow: hidden;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface-raised);
+    box-shadow: var(--shadow-composer);
+  }
+
+  figcaption {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-5);
+    border-block-end: 1px solid var(--color-line);
+    background: var(--color-bubble-billy);
+    font: var(--text-body-strong);
+    color: var(--color-ink-muted);
+  }
+
+  pre {
+    margin: 0;
+    padding: var(--space-5);
+    overflow-x: auto;
+    font: var(--text-code);
+    color: var(--color-ink);
+  }
+
+  .prompt {
+    color: var(--color-ink-muted);
+    user-select: none;
+  }
+
+  .ok {
+    color: var(--color-forest);
+  }
+
+  @media (max-width: 960px) {
+    .selfhost {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--space-6);
+    }
+  }
+</style>

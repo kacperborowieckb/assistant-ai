@@ -1,0 +1,55 @@
+---
+// Card contract, confirmation variant: forest-soft ground, forest-ink text, an
+// icon and a plain action.
+import type { IconName } from "../art";
+import PixelIcon from "./pixel-icon.astro";
+
+interface Props {
+  icon: IconName;
+  action?: string;
+  /** Lets the hero chat script swap the icon, text, and action. */
+  hooks?: boolean;
+  /** Icon and label only, for small floating conversations. */
+  compact?: boolean;
+}
+
+const { icon, action, hooks = false, compact = false } = Astro.props;
+---
+
+<div class:list={["confirmation", { "confirmation--compact": compact }]}>
+  <PixelIcon name={icon} scale={2} hook={hooks ? "card-icon" : undefined} />
+  <span class="text" data-hook={hooks ? "card-text" : undefined}><slot /></span>
+  {action && !compact && <button type="button" class="action" tabindex={hooks ? -1 : undefined} data-hook={hooks ? "card-action" : undefined}>{action}</button>}
+</div>
+
+<style>
+  .confirmation {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--color-forest-soft);
+    color: var(--color-forest-ink);
+  }
+
+  .text {
+    flex: 1;
+    font: var(--text-body-strong);
+  }
+
+  .action {
+    min-block-size: var(--size-touch);
+    padding-inline: var(--space-3);
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-forest);
+    font: var(--text-body-strong);
+    cursor: pointer;
+  }
+
+  .confirmation--compact {
+    padding: var(--space-2) var(--space-3) var(--space-2) var(--space-2);
+  }
+</style>

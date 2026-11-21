@@ -5,6 +5,8 @@
   "exports": {
     ".": "./mascot.json",
     "./assets/*.png": "./assets/*.png",
+    "./assets/world/*.svg": "./assets/world/*.svg",
+    "./assets/icons/*.svg": "./assets/icons/*.svg",
     "./web.css": "./web.css"
   },
   "scripts": {

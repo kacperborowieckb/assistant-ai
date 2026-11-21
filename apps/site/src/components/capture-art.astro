@@ -1,0 +1,51 @@
+---
+import Bubble from "./bubble.astro";
+import Cloud from "./cloud.astro";
+import Confirmation from "./confirmation.astro";
+import MiniWorld from "./mini-world.astro";
+---
+
+<div class="art scene">
+  <Cloud size="small" top="32px" x="6cqw" phase={0.2} speed={0.6} />
+  <Cloud size="small" top="150px" x="64cqw" phase={0.7} speed={0.75} />
+  <MiniWorld />
+  <div class="chat" data-chat role="group" aria-label="Example chat with Billy">
+    <Bubble from="you" place="first" floating>Packing list for Lisbon: charger, passport, sandals</Bubble>
+    <Bubble from="you" place="last" floating>and the blue jacket</Bubble>
+    <Bubble from="billy" avatar floating>
+      Saved as a Note.
+      <Confirmation icon="note">Packing list · Lisbon</Confirmation>
+    </Bubble>
+    <p class="stamp">Friday 07:12</p>
+    <Bubble from="you" floating>What did I need for Lisbon?</Bubble>
+    <Bubble from="billy" avatar floating>From your Packing list: charger, passport, sandals, and the blue jacket.</Bubble>
+  </div>
+</div>
+
+<style>
+  .art {
+    position: relative;
+    block-size: 100%;
+  }
+
+  .chat {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    max-inline-size: 420px;
+    margin-inline: auto;
+    padding: var(--space-7) var(--space-5) 120px;
+  }
+
+  .chat > :global(.row--billy),
+  .stamp {
+    margin-block-start: var(--space-3);
+  }
+
+  .stamp {
+    align-self: center;
+    font: var(--text-caption);
+    color: var(--color-forest-ink);
+  }
+</style>

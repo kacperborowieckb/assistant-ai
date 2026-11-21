@@ -1,0 +1,58 @@
+---
+import "../styles/ui.css";
+import "../styles/site.css";
+import { billy } from "../art";
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/png" href={billy.portrait} />
+    <script is:inline>
+      // Before first paint: the saved day or night choice, and a flag that
+      // lets CSS hide sections until they scroll in.
+      try {
+        const theme = localStorage.getItem("billy-theme");
+        if (theme === "light" || theme === "dark") {
+          document.documentElement.dataset.theme = theme;
+        }
+      } catch {
+        // Storage can be blocked: follow the system theme.
+      }
+      document.documentElement.classList.add("js");
+    </script>
+  </head>
+  <body>
+    <a class="skip visually-hidden" href="#main">Skip to content</a>
+    <slot />
+    <script>
+      import "../scripts/site.ts";
+    </script>
+  </body>
+</html>
+
+<style>
+  .skip:focus {
+    position: fixed;
+    inset-block-start: var(--space-2);
+    inset-inline-start: var(--space-2);
+    z-index: 30;
+    inline-size: auto;
+    block-size: auto;
+    clip-path: none;
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+  }
+</style>

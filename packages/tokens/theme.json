@@ -11,6 +11,7 @@
       "bubble-you": "#31594b",
       "on-bubble-you": "#ffffff",
       "plate": "#f2d8ae",
+      "sky": "#e8f0eb",
       "ink": "#1c1917",
       "ink-muted": "#625c57",
       "line": "#ebe7e1",
@@ -36,6 +37,7 @@
       "bubble-you": "#8fc2aa",
       "on-bubble-you": "#142d22",
       "plate": "#343c3d",
+      "sky": "#17211d",
       "ink": "#f2efea",
       "ink-muted": "#a8a39c",
       "line": "#353331",
@@ -56,7 +58,8 @@
   },
   "fonts": {
     "sans": "system-ui, -apple-system, \"Segoe UI\", sans-serif",
-    "display": "Georgia, \"Times New Roman\", serif"
+    "display": "Georgia, \"Times New Roman\", serif",
+    "mono": "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
   },
   "text": {
     "display": {
@@ -65,6 +68,22 @@
       "lineHeight": 43.12,
       "weight": 500,
       "tracking": -2.64,
+      "iosTextStyle": "largeTitle"
+    },
+    "display-hero": {
+      "family": "display",
+      "size": 96,
+      "lineHeight": 90.24,
+      "weight": 500,
+      "tracking": -5.76,
+      "iosTextStyle": "largeTitle"
+    },
+    "display-section": {
+      "family": "display",
+      "size": 56,
+      "lineHeight": 56,
+      "weight": 500,
+      "tracking": -2.8,
       "iosTextStyle": "largeTitle"
     },
     "title": {
@@ -83,6 +102,22 @@
       "tracking": -0.54,
       "iosTextStyle": "headline"
     },
+    "lede": {
+      "family": "sans",
+      "size": 20,
+      "lineHeight": 30,
+      "weight": 400,
+      "tracking": 0,
+      "iosTextStyle": "body"
+    },
+    "body-lg": {
+      "family": "sans",
+      "size": 17,
+      "lineHeight": 26,
+      "weight": 400,
+      "tracking": 0,
+      "iosTextStyle": "body"
+    },
     "body": {
       "family": "sans",
       "size": 15,
@@ -99,6 +134,14 @@
       "tracking": 0,
       "iosTextStyle": "footnote"
     },
+    "label-lg": {
+      "family": "sans",
+      "size": 16,
+      "lineHeight": 20,
+      "weight": 650,
+      "tracking": 0,
+      "iosTextStyle": "callout"
+    },
     "label": {
       "family": "sans",
       "size": 12,
@@ -114,6 +157,14 @@
       "weight": 650,
       "tracking": 0,
       "iosTextStyle": "caption2"
+    },
+    "code": {
+      "family": "mono",
+      "size": 14,
+      "lineHeight": 24,
+      "weight": 400,
+      "tracking": 0,
+      "iosTextStyle": "footnote"
     }
   },
   "space": {
@@ -123,7 +174,9 @@
     "space-4": 16,
     "space-5": 24,
     "space-6": 32,
-    "space-7": 48
+    "space-7": 48,
+    "space-8": 64,
+    "space-9": 120
   },
   "radius": {
     "radius-tail": 6,
@@ -140,7 +193,10 @@
   },
   "size": {
     "size-touch": 44,
-    "size-avatar": 44
+    "size-button-lg": 56,
+    "size-avatar": 44,
+    "size-page": 1280,
+    "size-measure": 600
   },
   "shadow": {
     "shadow-icon": [
@@ -223,6 +279,48 @@
     "easing-greet": {
       "steps": 1,
       "position": "end"
+    },
+    "duration-enter": {
+      "milliseconds": 600
+    },
+    "duration-theme": {
+      "milliseconds": 900
+    },
+    "duration-twinkle": {
+      "milliseconds": 2600
+    },
+    "duration-bob": {
+      "milliseconds": 9000
+    },
+    "duration-flow": {
+      "milliseconds": 16000
+    },
+    "duration-drift": {
+      "milliseconds": 110000
+    },
+    "easing-drift": {
+      "cubicBezier": [
+        0,
+        0,
+        1,
+        1
+      ]
+    },
+    "easing-float": {
+      "cubicBezier": [
+        0.37,
+        0,
+        0.63,
+        1
+      ]
+    },
+    "easing-drawer": {
+      "cubicBezier": [
+        0.32,
+        0.72,
+        0,
+        1
+      ]
     }
   }
 }

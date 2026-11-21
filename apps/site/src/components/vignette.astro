@@ -1,0 +1,50 @@
+---
+// One small, tilted conversation in the hero. It fades in once with its
+// mirrored partner, then waits for a tap: its buttons add messages to the
+// thread (src/scripts/vignettes.ts).
+interface Props {
+  /** Where it floats around the headline. */
+  place: "tl" | "tr" | "ml" | "mr" | "bl" | "br";
+  tilt: number;
+  /** Shown on narrow screens too, stacked above Billy. */
+  keep?: boolean;
+  /** Which pair it belongs to: 0 beside the headline, 1 beside Billy. */
+  pair: 0 | 1;
+  /** What the example shows, for screen readers. */
+  label: string;
+}
+
+const { place, tilt, keep = false, pair, label } = Astro.props;
+---
+
+<div
+  class:list={["vignette", `vignette--${place}`, { "vignette--keep": keep }]}
+  style={`--tilt: ${tilt}deg; --pair: ${pair}`}
+  role="group"
+  aria-label={label}
+  data-vignette
+>
+  <div class="bob" data-thread aria-live="polite"><slot /></div>
+</div>
+
+<style>
+  .vignette {
+    rotate: var(--tilt);
+  }
+
+  .bob {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .bob :global(.bubble) {
+    max-inline-size: none;
+  }
+
+  /* No avatar here, so Billy's replies share the edge of the conversation
+     instead of indenting for one. */
+  .bob :global(.row--indent) {
+    padding-inline-start: 0;
+  }
+</style>

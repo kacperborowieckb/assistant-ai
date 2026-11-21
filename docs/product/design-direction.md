@@ -62,4 +62,4 @@ The interface reports only what the agent can confirm. There are no exclamation 
 - Hand-drawn imitations of iOS glass, menus, or sheets.
 - Colors, sizes, or fonts hard-coded outside the tokens.
 - Full app-style component libraries on the marketing site.
-- Decorative motion, and motion that ignores the reduced-motion setting.
+- Decorative motion, and motion that ignores the reduced-motion setting. The one exception is the marketing site's scenery: clouds drift, water flows, and stars twinkle slowly, and all of it stops under reduced motion ([apps/site](../../apps/site/README.md)).

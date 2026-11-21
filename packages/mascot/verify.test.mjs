@@ -56,3 +56,35 @@ test("the web stylesheet resolves through the package interface", async () => {
   );
   assert.ok(css.includes("prefers-reduced-motion: no-preference"));
 });
+
+test("Billy's world and pixel icons are static pixel-grid SVGs", async () => {
+  const { pixel, scenery, icons } = mascot.world;
+  const files = [...Object.values(scenery), ...Object.values(icons)];
+  assert.equal(new Set(files).size, files.length);
+  await Promise.all(
+    files.map(async (file) => {
+      const svg = await readFile(
+        new URL(import.meta.resolve(`@repo/mascot/assets/${file}`)),
+        "utf-8"
+      );
+      assert.match(
+        svg,
+        /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/u,
+        file
+      );
+      assert.ok(svg.includes('shape-rendering="crispEdges"'), file);
+      assert.doesNotMatch(
+        svg,
+        /<(?:script|style|image|foreignObject|a)\b/iu,
+        file
+      );
+      const { viewWidth, viewHeight } = svg.match(
+        /viewBox="0 0 (?<viewWidth>\d+) (?<viewHeight>\d+)"/u
+      ).groups;
+      const { width } = svg.match(/ width="(?<width>\d+)"/u).groups;
+      const { height } = svg.match(/ height="(?<height>\d+)"/u).groups;
+      assert.equal(Number(width), Number(viewWidth) * pixel, file);
+      assert.equal(Number(height), Number(viewHeight) * pixel, file);
+    })
+  );
+});

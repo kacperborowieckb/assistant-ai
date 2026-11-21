@@ -1,0 +1,708 @@
+---
+// The hero: the headline in the middle of Billy's sky, small conversations
+// around it in two mirrored pairs, and Billy on his dam below. "Tell Billy."
+// lands, a beat, then "He'll do it all."; each pair then fades in once. The
+// sun (or moon) switches day and night.
+import { buttonVariants } from "@/components/ui/button";
+
+import { world } from "../art";
+import Billy from "./billy.astro";
+import Cloud from "./cloud.astro";
+import Confirmation from "./confirmation.astro";
+import Header from "./header.astro";
+import SkyToggle from "./sky-toggle.astro";
+import Stars from "./stars.astro";
+import VignetteAnswer from "./vignette-answer.astro";
+import VignetteAsk from "./vignette-ask.astro";
+import Vignette from "./vignette.astro";
+
+const stars = [
+  { top: "14%", left: "8%", size: 2, delay: 0.1 },
+  { top: "22%", left: "21%", size: 1, delay: 0.6 },
+  { top: "9%", left: "34%", size: 1, delay: 0.3 },
+  { top: "30%", left: "45%", size: 1, delay: 0.8 },
+  { top: "12%", left: "58%", size: 2, delay: 0.45 },
+  { top: "26%", left: "70%", size: 1, delay: 0.2 },
+  { top: "38%", left: "90%", size: 2, delay: 0.7 },
+  { top: "44%", left: "4%", size: 1, delay: 0.5 },
+  { top: "50%", left: "28%", size: 2, delay: 0.9 },
+  { top: "52%", left: "76%", size: 1, delay: 0.35 },
+] as const;
+
+const brief = [
+  { title: "Invoice to Marta", time: "14:00" },
+  { title: "Dentist", time: "17:30" },
+  { title: "Call mum", time: "18:00" },
+];
+
+// "Tell Billy." arrives, holds a beat, then the second line.
+const words = [
+  { text: "Tell", delay: 100 },
+  { text: "Billy.", delay: 170, breakAfter: true },
+  { text: "He'll", delay: 950 },
+  { text: "do", delay: 1010 },
+  { text: "it", delay: 1070 },
+  { text: "all.", delay: 1130 },
+];
+---
+
+<Header />
+
+<div class="sky scene" data-hero>
+  <Stars stars={[...stars]} />
+  <Cloud top="190px" x="4cqw" phase={0.12} />
+  <Cloud size="small" top="120px" x="26cqw" phase={0.45} speed={1.5} />
+  <Cloud top="340px" x="72cqw" phase={0.7} speed={1.2} />
+  <Cloud size="small" top="470px" x="44cqw" phase={0.9} speed={1.7} />
+
+  <div class="celestial">
+    <SkyToggle />
+  </div>
+
+  <section class="wrap intro" aria-labelledby="hero-title">
+    <h1 id="hero-title" class="display-hero headline">
+      {
+        words.map((word, index) => (
+          <>
+            <span class="word" style={`--delay: ${word.delay}ms`}>
+              {word.text}
+            </span>
+            {word.breakAfter ? <br /> : index < words.length - 1 ? " " : ""}
+          </>
+        ))
+      }
+    </h1>
+    <p class="lede rise" style="--d: 1600ms">Notes, Reminders, follow-ups, research, replies, bookings. Whatever you would hand to a great assistant, text it to Billy, and he takes it from there.</p>
+    <div class="actions rise" style="--d: 1720ms">
+      <a class={buttonVariants({ size: "lg" })} href="#self-host">Get Billy</a>
+      <a class={buttonVariants({ variant: "link", size: "lg", className: "px-3" })} href="#how">See how it works</a>
+    </div>
+  </section>
+
+  <!-- Four everyday conversations in two mirrored pairs: one pair beside the
+       headline, one beside Billy. Each has something to try. -->
+  <div class="vignettes">
+    <div class="column column--left">
+      <Vignette place="tl" tilt={-1} pair={0} keep label="Example: finding gift ideas in your Notes">
+        <VignetteAsk>What did Anna want for her birthday?</VignetteAsk>
+        <VignetteAnswer>
+          The green notebook and a ceramics class. You told me in May.
+          <Confirmation icon="note" compact>Anna · Gift ideas</Confirmation>
+          <span class="chips" data-choices>
+            <button type="button" class="chip" aria-pressed="false" data-say="anna"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Remind me a week before</button>
+          </span>
+        </VignetteAnswer>
+        <template data-reply="anna">
+          <VignetteAnswer>
+            Done. I'll remind you on 7 June.
+            <Confirmation icon="reminder" compact>Anna's gift · 7 Jun</Confirmation>
+          </VignetteAnswer>
+        </template>
+      </Vignette>
+
+      <Vignette place="bl" tilt={1} pair={1} label="Example: a follow-up Billy starts">
+        <VignetteAnswer>
+          Tom still hasn't sent the flat contract. Should I nudge him?
+          <span class="chips" data-choices>
+            <button type="button" class="chip" aria-pressed="false" data-say="nudge"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Nudge Tom</button>
+            <button type="button" class="chip" aria-pressed="false" data-say="wait"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Wait a day</button>
+          </span>
+        </VignetteAnswer>
+        <template data-reply="nudge">
+          <VignetteAnswer>
+            Done. I'll message Tom at 9:00 tomorrow.
+            <Confirmation icon="reminder" compact>Nudge Tom · Thu 9:00</Confirmation>
+          </VignetteAnswer>
+        </template>
+        <template data-reply="wait">
+          <VignetteAnswer>
+            Okay. I'll check again on Friday.
+            <Confirmation icon="reminder" compact>Check on Tom · Fri 10:00</Confirmation>
+          </VignetteAnswer>
+        </template>
+      </Vignette>
+    </div>
+
+    <div class="column column--right">
+      <Vignette place="tr" tilt={1} pair={0} label="Example: your morning Brief">
+        <VignetteAnswer>
+          Good morning. Three things today:
+          <span class="tasks">
+            {
+              brief.map((task) => (
+                <button type="button" class="task" aria-pressed="false" data-task>
+                  <span class="tick" aria-hidden="true"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg></span>
+                  <span class="task-title">{task.title}</span>
+                  <span class="task-time">{task.time}</span>
+                </button>
+              ))
+            }
+          </span>
+        </VignetteAnswer>
+        <template data-reply="done">
+          <VignetteAnswer>That's all three. Enjoy your evening.</VignetteAnswer>
+        </template>
+      </Vignette>
+
+      <Vignette place="br" tilt={-1} pair={1} keep label="Example: a Reminder for a trip">
+        <VignetteAsk>Remind me to renew my passport before Lisbon</VignetteAsk>
+        <VignetteAnswer>
+          It runs out five weeks before you fly. I'll remind you Monday at 9:00.
+          <Confirmation icon="reminder" compact><span class="swap" data-swap>Renew passport · Mon 9:00</span></Confirmation>
+          <span class="chips" data-choices>
+            <button type="button" class="chip" aria-pressed="false" data-say="sunday" data-swap-to="Renew passport · Sun 10:00"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Make it Sunday</button>
+            <button type="button" class="chip" aria-pressed="false" data-say="undo"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"></path></svg>Undo</button>
+          </span>
+        </VignetteAnswer>
+        <template data-reply="sunday">
+          <VignetteAnswer>Moved to Sunday at 10:00.</VignetteAnswer>
+        </template>
+        <template data-reply="undo">
+          <VignetteAnswer>Removed. I won't remind you about the passport.</VignetteAnswer>
+        </template>
+      </Vignette>
+    </div>
+  </div>
+
+  <!-- Billy typing, cloned in before each answer. -->
+  <template id="typing-template">
+    <VignetteAnswer><span class="dots" aria-label="Billy is typing"><span></span><span></span><span></span></span></VignetteAnswer>
+  </template>
+
+  <div class="valley">
+    <div class="hills hills-light" aria-hidden="true"></div>
+    <div class="water water-flow" aria-hidden="true"></div>
+    <img class="px log log--left" src={world.log} alt="" width="320" height="88" />
+    <img class="px log log--right" src={world.log} alt="" width="320" height="88" />
+    <img class="px log log--top" src={world.log} alt="" width="320" height="88" />
+
+    <Billy class="billy" outfit="forest" />
+
+    <img class="px sparkle sparkle--a" src={world.sparkle} alt="" width="24" height="24" />
+    <img class="px sparkle sparkle--b" src={world.sparkle} alt="" width="32" height="32" />
+    <img class="px sparkle sparkle--c" src={world.sparkle} alt="" width="16" height="16" />
+  </div>
+</div>
+
+<style>
+  .sky {
+    --masthead: 64px;
+    position: relative;
+    overflow: hidden;
+    background: var(--color-sky);
+  }
+
+  /* The sun sits between the headline and the right-hand conversations,
+     high in the sky, never above a card. */
+  .celestial {
+    position: absolute;
+    inset-block-start: calc(var(--masthead) - var(--space-1));
+    inset-inline-start: calc(50% + 252px);
+    z-index: 2;
+  }
+
+  .intro {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-5);
+    padding-block-start: calc(var(--masthead) + var(--space-7));
+    text-align: center;
+  }
+
+  .intro .lede {
+    max-inline-size: 640px;
+    color: var(--color-forest-ink);
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-4);
+    margin-block-start: var(--space-2);
+  }
+
+  /* Two mirrored pairs in two columns, the same distance from the center
+     line: the left column hangs by its right edge, the right one by its left
+     edge. The upper chat of each column keeps a fixed slot, so the lower pair
+     stays level and a chat that grows after a tap never runs into the next. */
+  .column {
+    --gap-from-center: 380px;
+    position: absolute;
+    z-index: 1;
+    inset-block-start: 236px;
+    display: flex;
+    flex-direction: column;
+    inline-size: 280px;
+  }
+
+  .column--left {
+    inset-inline-end: calc(50% + var(--gap-from-center));
+  }
+
+  .column--right {
+    inset-inline-start: calc(50% + var(--gap-from-center));
+  }
+
+  .vignettes :global(.vignette--tl),
+  .vignettes :global(.vignette--tr) {
+    min-block-size: var(--upper-slot, 412px);
+  }
+
+  /* The Brief is short, so the passport chat below it sits a little higher. */
+  .vignettes :global(.vignette--tr) {
+    min-block-size: calc(var(--upper-slot, 412px) - 72px);
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-3);
+  }
+
+  /* Chip contract: unselected has a control-line edge; selected is honey
+     with a check, so the state does not rest on color. */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-block-size: 32px;
+    padding: var(--space-1) var(--space-3);
+    border: 1px solid var(--color-control-line);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-raised);
+    color: var(--color-forest);
+    font: var(--text-body-strong);
+    cursor: pointer;
+    transition:
+      background-color var(--duration-quick) ease,
+      transform var(--duration-quick) var(--easing-standard);
+  }
+
+  /* Press feedback the moment it is pressed (emil-design-eng). */
+  .chip:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  .chip:disabled {
+    cursor: default;
+  }
+
+  .chip:disabled:not([aria-pressed="true"]) {
+    color: var(--color-ink-muted);
+  }
+
+  .chip[aria-pressed="true"] {
+    border-color: var(--color-honey-line);
+    background: var(--color-honey);
+    color: var(--color-on-honey);
+  }
+
+  .chip :global(.check) {
+    display: none;
+  }
+
+  .chip[aria-pressed="true"] :global(.check) {
+    display: block;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .chip:hover:not(:disabled) {
+      background: var(--color-forest-soft);
+    }
+  }
+
+  .check {
+    inline-size: 14px;
+    block-size: 14px;
+    fill: none;
+    stroke: currentcolor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* The Brief's tasks check off. */
+  .tasks {
+    display: flex;
+    flex-direction: column;
+    margin-block-start: calc(-1 * var(--space-1));
+  }
+
+  .task {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-block-size: var(--size-touch);
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-ink);
+    font: var(--text-body);
+    text-align: start;
+    cursor: pointer;
+  }
+
+  .task + .task {
+    border-block-start: 1px solid var(--color-line);
+  }
+
+  .tick {
+    display: grid;
+    place-items: center;
+    inline-size: 20px;
+    block-size: 20px;
+    flex: none;
+    border: 1.5px solid var(--color-control-line);
+    border-radius: var(--radius-round);
+    color: var(--color-on-forest);
+    transition:
+      background-color var(--duration-quick) ease,
+      border-color var(--duration-quick) ease,
+      transform var(--duration-quick) var(--easing-standard);
+  }
+
+  .tick :global(.check) {
+    inline-size: 12px;
+    block-size: 12px;
+    opacity: 0;
+    transform: scale(0.5);
+    transition:
+      opacity var(--duration-quick) var(--easing-standard),
+      transform var(--duration-standard) var(--easing-standard);
+  }
+
+  .task:active .tick {
+    transform: scale(0.9);
+  }
+
+  .task[aria-pressed="true"] .tick {
+    border-color: var(--color-forest);
+    background: var(--color-forest);
+  }
+
+  .task[aria-pressed="true"] .tick :global(.check) {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Sized to its words, so the strike covers the name and not the gap. */
+  .task-title {
+    position: relative;
+    transition: color var(--duration-standard) ease;
+  }
+
+  /* The strike draws from the left. */
+  .task-title::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    inset-block-start: 50%;
+    block-size: 1.5px;
+    background: currentcolor;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform var(--duration-standard) var(--easing-standard);
+  }
+
+  .task[aria-pressed="true"] .task-title {
+    color: var(--color-ink-muted);
+  }
+
+  .task[aria-pressed="true"] .task-title::after {
+    transform: scaleX(1);
+  }
+
+  .task-time {
+    margin-inline-start: auto;
+    color: var(--color-ink-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* A card's text that changes in place blurs out and back in. */
+  .swap {
+    display: inline-block;
+    transition:
+      opacity var(--duration-quick) var(--easing-standard),
+      filter var(--duration-quick) var(--easing-standard);
+  }
+
+  .swap:global(.is-swapping) {
+    opacity: 0;
+    filter: blur(3px);
+  }
+
+  .swap:global(.is-struck) {
+    color: var(--color-ink-muted);
+    text-decoration: line-through;
+  }
+
+  /* Billy typing. */
+  .dots {
+    display: inline-flex;
+    gap: 4px;
+    padding-block: 7px;
+  }
+
+  .dots span {
+    inline-size: 6px;
+    block-size: 6px;
+    border-radius: var(--radius-round);
+    background: var(--color-ink-muted);
+  }
+
+  /* New messages grow in from their sender's corner, never from nothing
+     (emil-design-eng: @starting-style, scale 0.96 + opacity). The answer
+     replaces the typing bubble in place, so nothing jumps. */
+  .vignettes :global(.is-new) {
+    transition:
+      opacity var(--duration-standard) var(--easing-standard),
+      transform var(--duration-standard) var(--easing-standard),
+      filter var(--duration-standard) var(--easing-standard);
+  }
+
+  .vignettes :global(.is-new.ask) {
+    transform-origin: right bottom;
+  }
+
+  .vignettes :global(.is-new.row) {
+    transform-origin: left bottom;
+  }
+
+  @starting-style {
+    .vignettes :global(.is-new) {
+      opacity: 0;
+      filter: blur(2px);
+      transform: translateY(8px) scale(0.96);
+    }
+  }
+
+
+  .valley {
+    position: relative;
+    block-size: 600px;
+    margin-block-start: calc(-1 * var(--space-5));
+  }
+
+  .hills,
+  .water {
+    position: absolute;
+    inset-inline: 0;
+  }
+
+  .hills {
+    inset-block-end: 56px;
+    block-size: 240px;
+    background: url("@repo/mascot/assets/world/hills.svg") repeat-x center bottom / auto 100%;
+    image-rendering: pixelated;
+  }
+
+  .water {
+    inset-block-end: 0;
+    block-size: 64px;
+    background: url("@repo/mascot/assets/world/water.svg") repeat-x left top / auto 100%;
+    image-rendering: pixelated;
+  }
+
+  .log,
+  .sparkle,
+  .valley :global(.billy) {
+    position: absolute;
+  }
+
+  .log {
+    filter: var(--scenery-light);
+  }
+
+  .log--left {
+    inset-block-end: 24px;
+    inset-inline-start: calc(50% - 300px);
+  }
+
+  .log--right {
+    inset-block-end: 24px;
+    inset-inline-start: calc(50% - 20px);
+  }
+
+  .log--top {
+    inset-block-end: 104px;
+    inset-inline-start: calc(50% - 170px);
+  }
+
+  .valley :global(.billy) {
+    --mascot-size: 384px;
+    inset-block-end: 172px;
+    /* Shifted so his head, not the whole sprite with its tail, is centered. */
+    inset-inline-start: calc(50% - 230px);
+  }
+
+  .sparkle--a {
+    inset-block-start: 150px;
+    inset-inline-start: calc(50% - 280px);
+  }
+
+  .sparkle--b {
+    inset-block-start: 90px;
+    inset-inline-start: calc(50% + 200px);
+  }
+
+  .sparkle--c {
+    inset-block-start: 210px;
+    inset-inline-start: calc(50% + 250px);
+  }
+
+  .word {
+    display: inline-block;
+  }
+
+  @keyframes word-in {
+    from {
+      opacity: 0;
+      filter: blur(10px);
+      transform: translateY(0.18em);
+    }
+  }
+
+  @keyframes dot-bounce {
+    0%,
+    60%,
+    100% {
+      translate: 0 0;
+      opacity: 0.45;
+    }
+
+    30% {
+      translate: 0 -4px;
+      opacity: 1;
+    }
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      filter: blur(4px);
+      transform: translateY(12px);
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .word {
+      animation: word-in 700ms var(--easing-standard) both;
+      animation-delay: var(--delay);
+    }
+
+    .rise {
+      animation: rise var(--duration-enter) var(--easing-standard) both;
+      animation-delay: var(--d);
+    }
+
+    /* Each pair fades in once, together, after the buttons; then they stay
+       still. */
+    .vignettes :global(.vignette) {
+      animation: rise var(--duration-enter) var(--easing-standard) both;
+      animation-delay: calc(1800ms + var(--pair) * 160ms);
+    }
+
+
+    .sparkle {
+      animation: twinkle var(--duration-twinkle) var(--easing-float) infinite;
+    }
+
+    .dots span {
+      animation: dot-bounce 1100ms var(--easing-float) infinite;
+    }
+
+    .dots span:nth-child(2) {
+      animation-delay: 150ms;
+    }
+
+    .dots span:nth-child(3) {
+      animation-delay: 300ms;
+    }
+
+    .sparkle--b {
+      animation-delay: -900ms;
+    }
+
+    .sparkle--c {
+      animation-delay: -1700ms;
+    }
+  }
+
+  /* Smaller laptops: narrower conversations, closer in, and a narrower lede
+     between them. */
+  @media (max-width: 1279px) {
+    .intro .lede {
+      max-inline-size: 520px;
+    }
+
+    .celestial {
+      inset-inline-start: calc(50% + 236px);
+    }
+
+    .celestial :global(.sky-toggle) {
+      --size: 96px;
+    }
+
+    .column {
+      --gap-from-center: 300px;
+      --upper-slot: 452px;
+      inline-size: 224px;
+    }
+  }
+
+  /* Narrow screens: two conversations stack above Billy. */
+  @media (max-width: 1023px) {
+    .vignettes {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-5);
+      inline-size: min(380px, 100%);
+      margin-inline: auto;
+      padding: var(--space-7) var(--space-4) 0;
+    }
+
+    .column {
+      display: contents;
+    }
+
+    .vignettes :global(.vignette--tl),
+    .vignettes :global(.vignette--tr) {
+      min-block-size: 0;
+    }
+
+    .vignettes :global(.vignette:not(.vignette--keep)) {
+      display: none;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .celestial {
+      inset-block-start: calc(var(--masthead) - var(--space-2));
+      inset-inline-start: auto;
+      inset-inline-end: var(--space-4);
+    }
+
+    .intro {
+      padding-block-start: calc(var(--masthead) + 96px);
+    }
+
+    .valley {
+      block-size: 450px;
+    }
+
+    .valley :global(.billy) {
+      --mascot-size: 256px;
+      inset-block-end: 179px;
+      inset-inline-start: calc(50% - 147px);
+    }
+
+    .sparkle {
+      display: none;
+    }
+  }
+</style>

@@ -1,0 +1,25 @@
+---
+// Night stars. They fade in with the night theme and twinkle out of step.
+import { world } from "../art";
+
+interface Props {
+  stars: { top: string; left: string; size: 1 | 2 | 3; delay: number }[];
+}
+
+const { stars } = Astro.props;
+---
+
+<div class="stars" aria-hidden="true">
+  {
+    stars.map((item) => (
+      <img
+        class="px star"
+        src={world.star}
+        alt=""
+        width={8 * item.size}
+        height={8 * item.size}
+        style={`top: ${item.top}; left: ${item.left}; --twinkle-delay: ${item.delay}`}
+      />
+    ))
+  }
+</div>

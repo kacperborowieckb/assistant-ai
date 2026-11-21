@@ -1,0 +1,63 @@
+---
+import { world } from "../art";
+import Bubble from "./bubble.astro";
+import ReminderRow from "./reminder-row.astro";
+---
+
+<div class="art scene">
+  <img class="px sun" src={world.sun} alt="" width="144" height="144" />
+  <img class="px sparkle" src={world.sparkle} alt="" width="24" height="24" />
+  <div class="chat" data-chat role="group" aria-label="Example morning Brief from Billy">
+    <p class="stamp">Today 08:00</p>
+    <Bubble from="billy" place="first" floating>Good morning. Here is your Brief.</Bubble>
+    <Bubble from="billy" place="middle" floating>
+      You have 2 Reminders today:
+      <div>
+        <ReminderRow title="Call the dentist" time="9:00" />
+        <ReminderRow title="Send the invoice to Marta" time="14:00" />
+      </div>
+    </Bubble>
+    <Bubble from="billy" place="last" avatar floating>You asked me to follow up with Tom about the flat. Should I draft it?</Bubble>
+    <Bubble from="you" floating>Yes please</Bubble>
+  </div>
+</div>
+
+<style>
+  .art {
+    position: relative;
+    block-size: 100%;
+  }
+
+  .sun {
+    position: absolute;
+    inset-block-start: calc(-1 * var(--space-6));
+    inset-inline-end: calc(-1 * var(--space-6));
+  }
+
+  .sparkle {
+    position: absolute;
+    inset-block-start: 140px;
+    inset-inline-end: 140px;
+  }
+
+  .chat {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    max-inline-size: 420px;
+    margin-inline: auto;
+    padding: var(--space-8) var(--space-5);
+  }
+
+  .chat > :global(.row--you) {
+    margin-block-start: var(--space-3);
+  }
+
+  .stamp {
+    align-self: center;
+    margin-block-end: var(--space-3);
+    font: var(--text-caption);
+    color: var(--color-on-honey);
+  }
+</style>

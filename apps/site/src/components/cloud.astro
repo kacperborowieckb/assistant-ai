@@ -1,0 +1,29 @@
+---
+// A cloud that drifts left to right across its container and floats as it
+// goes. Under reduced motion it rests at `x`.
+import { world } from "../art";
+
+interface Props {
+  size?: "large" | "small";
+  /** Distance from the top of the scene. */
+  top: string;
+  /** Resting position under reduced motion, as a share of the scene width. */
+  x: string;
+  /** Where along its path the cloud starts, from 0 to 1. */
+  phase?: number;
+  /** Crossing time as a multiple of duration-drift. Larger is slower and farther. */
+  speed?: number;
+}
+
+const { size = "large", top, x, phase = 0, speed = 1 } = Astro.props;
+const [src, width, height] =
+  size === "large" ? [world.cloudLarge, 288, 120] : [world.cloudSmall, 176, 88];
+---
+
+<div
+  class:list={["cloud", `cloud--${size}`]}
+  style={`--top: ${top}; --x: ${x}; --phase: ${phase}; --speed: ${speed}`}
+  aria-hidden="true"
+>
+  <img class="px" src={src} alt="" width={width} height={height} />
+</div>
