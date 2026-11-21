@@ -5,7 +5,7 @@ import type { NoteSource, TrustLevel } from "../notes/note.ts";
 import { noteSourceOfEvent } from "../notes/note.ts";
 import { AgentStorage } from "./agent-storage.ts";
 import { deliveryStateOf } from "./delivery.ts";
-import { eventMessage } from "./event-message.ts";
+import { eventMessage, numberedEventMessage } from "./event-message.ts";
 import { trustLevelOfEvent } from "./event-trust.ts";
 import { Inbox } from "./inbox.ts";
 import type { OwnerMessageEvent } from "./inbox.ts";
@@ -21,22 +21,50 @@ export const turnEventOf = (burst: Burst) => burst[0];
 
 export const newestEventOf = (burst: Burst) => burst.at(-1) ?? burst[0];
 
-export const burstInputs = (burst: Burst) => burst.map(eventMessage);
+export const burstInputs = (burst: Burst) =>
+  burst.length === 1
+    ? burst.map(eventMessage)
+    : burst.map((event, index) =>
+        numberedEventMessage(event, index + 1, burst.length)
+      );
 
 export const trustLevelOfBurst = (burst: Burst): TrustLevel =>
   burst.some((event) => trustLevelOfEvent(event) === "untrusted")
     ? "untrusted"
     : "owner";
 
-export const captureIsAmbiguous = (burst: Burst) =>
-  burst.length > 1 && trustLevelOfBurst(burst) === "untrusted";
+export type BurstNoteSource =
+  | { readonly _tag: "Named"; readonly source: NoteSource }
+  | { readonly _tag: "NotNamed" }
+  | { readonly _tag: "OutsideBurst"; readonly count: number };
 
-export const noteSourceOfBurst = (burst: Burst): NoteSource => {
-  const turnEvent = turnEventOf(burst);
+const namedEventOf = (burst: Burst, message: number | undefined) => {
+  if (message !== undefined) {
+    return burst[message - 1];
+  }
+  return burst.length > 1 && trustLevelOfBurst(burst) === "untrusted"
+    ? undefined
+    : turnEventOf(burst);
+};
+
+export const noteSourceOfBurst = (
+  burst: Burst,
+  message: number | undefined
+): BurstNoteSource => {
+  if (message !== undefined && (message < 1 || message > burst.length)) {
+    return { _tag: "OutsideBurst", count: burst.length };
+  }
+  const named = namedEventOf(burst, message);
+  if (named === undefined) {
+    return { _tag: "NotNamed" };
+  }
   return {
-    ...noteSourceOfEvent(turnEvent),
-    eventId: turnEvent.eventId,
-    trustLevel: trustLevelOfBurst(burst),
+    _tag: "Named",
+    source: {
+      ...noteSourceOfEvent(named),
+      eventId: turnEventOf(burst).eventId,
+      trustLevel: trustLevelOfBurst(burst),
+    },
   };
 };
 

@@ -1,15 +1,6 @@
-import {
-  captureIsAmbiguous,
-  noteSourceOfBurst,
-  trustLevelOfBurst,
-  turnEventOf,
-} from "../personal-agent/burst.ts";
+import { trustLevelOfBurst, turnEventOf } from "../personal-agent/burst.ts";
 import type { Burst } from "../personal-agent/burst.ts";
-import {
-  captureNoteTool,
-  captureNoteToolName,
-  forwardedInBurstMessage,
-} from "./capture-note-tool.ts";
+import { captureNoteTool, captureNoteToolName } from "./capture-note-tool.ts";
 import {
   closeOpenLoopTool,
   closeOpenLoopToolName,
@@ -29,11 +20,7 @@ import { updateNoteTool, updateNoteToolName } from "./update-note-tool.ts";
 export const noteToolsFor = (services: NoteToolServices, burst: Burst) => {
   const { eventId } = turnEventOf(burst);
   return {
-    [captureNoteToolName]: captureNoteTool(
-      services,
-      noteSourceOfBurst(burst),
-      captureIsAmbiguous(burst) ? forwardedInBurstMessage : undefined
-    ),
+    [captureNoteToolName]: captureNoteTool(services, burst),
     ...(trustLevelOfBurst(burst) === "owner"
       ? {
           [updateNoteToolName]: updateNoteTool(services, eventId),

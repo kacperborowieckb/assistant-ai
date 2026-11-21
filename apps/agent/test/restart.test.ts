@@ -23,6 +23,7 @@ import {
   holdModel,
   resetFakes,
   scriptModel,
+  burstInputTexts,
 } from "./fakes.ts";
 import { addOwner, telegramWebhook, textUpdate } from "./telegram-requests.ts";
 
@@ -209,10 +210,9 @@ describe(
       await allDone(ownerId, 2);
       expect(replyTargets()).toEqual([2]);
       expect(fakeModel.doGenerateCalls).toHaveLength(2);
-      expect(ownerTextsOf(fakeModel.doGenerateCalls[1]?.prompt ?? [])).toEqual([
-        "first",
-        "second",
-      ]);
+      expect(ownerTextsOf(fakeModel.doGenerateCalls[1]?.prompt ?? [])).toEqual(
+        burstInputTexts("first", "second")
+      );
       expect(
         systemTextOf(fakeModel.doGenerateCalls[1]?.prompt ?? [])
       ).toContain(restartSection);
@@ -281,10 +281,9 @@ describe(
       expect(await noteTexts(ownerId)).toEqual(["dentist on Thursday"]);
       expect(fakeModel.doGenerateCalls).toHaveLength(3);
       const restarted = fakeModel.doGenerateCalls[2]?.prompt ?? [];
-      expect(ownerTextsOf(restarted)).toEqual([
-        "keep: dentist on Thursday",
-        "and it is at 9",
-      ]);
+      expect(ownerTextsOf(restarted)).toEqual(
+        burstInputTexts("keep: dentist on Thursday", "and it is at 9")
+      );
       expect(toolMessageCountOf(restarted)).toBe(1);
       expect(replyTargets()).toEqual([2]);
       const tags = await journalTags(ownerId);
@@ -331,13 +330,11 @@ describe(
       await allDone(ownerId, 3);
       expect(await supersededCount(ownerId)).toBe(1);
       expect(replyTargets()).toEqual([2, 3]);
-      expect(ownerTextsOf(fakeModel.doGenerateCalls[1]?.prompt ?? [])).toEqual([
-        "first",
-        "second",
-      ]);
+      expect(ownerTextsOf(fakeModel.doGenerateCalls[1]?.prompt ?? [])).toEqual(
+        burstInputTexts("first", "second")
+      );
       expect(ownerTextsOf(fakeModel.doGenerateCalls[2]?.prompt ?? [])).toEqual([
-        "first",
-        "second",
+        ...burstInputTexts("first", "second"),
         "third",
       ]);
     });
@@ -432,7 +429,7 @@ describe(
       expect(replyTargets()).toEqual([2]);
       expect(
         ownerTextsOf(fakeModel.doGenerateCalls.at(-1)?.prompt ?? [])
-      ).toEqual(["first", "second"]);
+      ).toEqual(burstInputTexts("first", "second"));
     });
 
     it("gives one outcome and no second Note when the reset comes after a write tool finished", async () => {

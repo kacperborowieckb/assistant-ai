@@ -8,6 +8,7 @@ import { OwnerIdSchema } from "../src/owner-id.ts";
 import { Inbox } from "../src/personal-agent/inbox.ts";
 import { personalAgentFor } from "../src/personal-agent/personal-agent.ts";
 import {
+  burstInputTexts,
   fakeModel,
   fakeReplyPrefix,
   fakeTelegram,
@@ -222,7 +223,9 @@ describe("Pending Events", () => {
         message.body.reply_parameters?.message_id,
         message.body.text,
       ])
-    ).toEqual([[42, `${fakeReplyPrefix}second`]]);
+    ).toEqual([
+      [42, `${fakeReplyPrefix}${burstInputTexts("first", "second").at(-1)}`],
+    ]);
     const journal = await journalOf(ownerId);
     expect(
       journal.filter((entry) => entry.record._tag === "ReplySent")
