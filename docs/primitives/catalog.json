@@ -227,7 +227,7 @@
     },
     {
       "id": "marketing-site",
-      "purpose": "The static marketing site: an Astro project whose home page shows Billy in his pixel valley, the chat (Bubble and Card contracts), the Brief, actions, privacy, self-hosting, and questions, plus a 404 page. It builds plain HTML and CSS from @repo/tokens and @repo/mascot, with shadcn/ui controls (Button, Accordion, Sheet) mapped to the tokens and hydrated as React islands only where needed. One script switches day and night from the sun or moon with a View Transition, reveals sections on scroll, and lets Billy answer a tap; the scenery drifts and flows in CSS, and all motion stops under reduced motion.",
+      "purpose": "The static marketing site: an Astro project whose home page shows Billy in his pixel valley, the chat (Bubble and Card contracts), the Brief, actions, privacy, self-hosting, and questions, plus a 404 page. It builds plain HTML and CSS from @repo/tokens and @repo/mascot, with shadcn/ui controls (Button, Accordion, Sheet) mapped to the tokens and hydrated as React islands only where needed. One script switches day and night from the sun or moon with a View Transition, and reveals sections on scroll; the scenery drifts and flows in CSS, and all motion stops under reduced motion.",
       "roots": ["apps/site"],
       "adrs": [
         "docs/decisions/0001-repository-foundation.md",

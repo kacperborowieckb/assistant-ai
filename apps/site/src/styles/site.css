@@ -21,14 +21,6 @@
     }
   }
 
-  body {
-    margin: 0;
-    background: var(--color-surface);
-    color: var(--color-ink);
-    font: var(--text-body-lg);
-    -webkit-font-smoothing: antialiased;
-  }
-
   img {
     display: block;
     max-inline-size: 100%;
@@ -49,6 +41,17 @@
     outline: 2px solid var(--color-focus-ring);
     outline-offset: 2px;
   }
+}
+
+/* The page's own ground and ink stay outside any layer, so a host page's
+   reset (an artifact preview, a browser extension) cannot turn the dark theme
+   white. */
+body {
+  margin: 0;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: var(--text-body-lg);
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Pixel art keeps hard edges at every scale. */
@@ -229,7 +232,7 @@
 
 @keyframes water-flow {
   to {
-    background-position-x: var(--tile);
+    transform: translateX(var(--tile));
   }
 }
 
@@ -266,9 +269,21 @@
   opacity: 0.85;
 }
 
+/* The water flows by moving a wider copy of itself with a transform, which
+   the compositor handles, instead of repainting background-position. */
 .water-flow {
   --tile: 480px;
+  overflow: hidden;
   filter: var(--scenery-light);
+}
+
+.water-flow::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline: calc(-1 * var(--tile)) 0;
+  background: inherit;
+  image-rendering: pixelated;
 }
 
 .hills-light {
@@ -299,7 +314,7 @@
     animation-delay: calc(var(--duration-bob) * var(--phase) * -2);
   }
 
-  .water-flow {
+  .water-flow::before {
     animation: water-flow var(--duration-flow) var(--easing-drift) infinite;
   }
 
@@ -352,29 +367,5 @@
 
   .lift:hover {
     translate: 0 -4px;
-  }
-}
-
-/* Billy is alive: he breathes from his feet, and in the hero he leans a
-   little toward the pointer (src/scripts/site.ts). The greeting replaces the
-   breath while it plays. */
-@keyframes breathe {
-  0%,
-  100% {
-    scale: 1 1;
-  }
-
-  50% {
-    scale: 1.012 1.03;
-  }
-}
-
-.mascot.alive {
-  rotate: var(--lean, 0deg);
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .mascot.alive {
-    animation: breathe var(--duration-breathe) var(--easing-float) infinite;
   }
 }

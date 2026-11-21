@@ -8,19 +8,15 @@ interface Props {
   /** Drawn size in px. Leave it out to size Billy from CSS with --mascot-size. */
   size?: number;
   outfit?: Outfit;
-  greet?: boolean;
-  /** Idle breathing, and in the hero, a lean toward the pointer. */
-  alive?: boolean;
   class?: string;
 }
 
-const { size, outfit, greet = false, alive = false, class: className } = Astro.props;
+const { size, outfit, class: className } = Astro.props;
 ---
 
 <span
-  class:list={["mascot", { alive }, className]}
+  class:list={["mascot", className]}
   style={size ? `--mascot-size: ${size}px` : undefined}
-  data-greet={greet ? "" : undefined}
 >
   <img class="px" src={billy.base} alt="Billy the Beaver" width={size ?? 256} height={size ?? 256} />
   {outfit && <img class="px" src={outfits[outfit]} alt="" width={size ?? 256} height={size ?? 256} />}

@@ -1,5 +1,5 @@
 // The only script on the site: the day and night switch, the header material,
-// sections arriving on scroll, and Billy answering a tap. Everything works and
+// and sections arriving on scroll. Everything works and
 // reads the same without it.
 
 const root = document.documentElement;
@@ -98,90 +98,4 @@ for (const element of document.querySelectorAll<HTMLElement>("[data-reveal]")) {
     String(siblings.indexOf(element))
   );
   reveal.observe(element);
-}
-
-// Billy leans a little toward the pointer, eased so it feels physical
-// rather than glued to the mouse (emil-design-eng: spring-like smoothing).
-const leaner = document.querySelector<HTMLElement>(
-  "[data-billy] .mascot.alive"
-);
-const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
-if (leaner && finePointer.matches && !reducedMotion.matches) {
-  let target = 0;
-  let lean = 0;
-  let frame = 0;
-  const step = () => {
-    lean += (target - lean) * 0.08;
-    leaner.style.setProperty("--lean", `${lean.toFixed(2)}deg`);
-    frame = Math.abs(target - lean) > 0.01 ? requestAnimationFrame(step) : 0;
-  };
-  const aim = (value: number) => {
-    target = value;
-    if (!frame) {
-      frame = requestAnimationFrame(step);
-    }
-  };
-  window.addEventListener(
-    "pointermove",
-    (event) => {
-      const box = leaner.getBoundingClientRect();
-      const offset =
-        (event.clientX - (box.left + box.width / 2)) / window.innerWidth;
-      aim(Math.max(-1, Math.min(1, offset * 2)) * 4);
-    },
-    { passive: true }
-  );
-  document.addEventListener("pointerleave", () => aim(0));
-}
-
-// Billy greets once when the page opens, and answers a tap.
-const greet = (mascot: Element) => {
-  mascot.classList.remove("mascot--greet");
-  // Restart the animation on a repeat tap.
-  void (mascot as HTMLElement).offsetWidth;
-  mascot.classList.add("mascot--greet");
-  mascot.addEventListener(
-    "animationend",
-    () => mascot.classList.remove("mascot--greet"),
-    {
-      once: true,
-    }
-  );
-};
-
-for (const element of document.querySelectorAll("[data-greet]")) {
-  greet(element);
-}
-
-const replies = [
-  "Hi. What should I remember?",
-  "I'm listening.",
-  "Tell me one thing for tomorrow.",
-  "Your Notes are safe with me.",
-  "Still here. Still remembering.",
-];
-
-for (const button of document.querySelectorAll<HTMLButtonElement>(
-  "[data-billy]"
-)) {
-  const says =
-    button.parentElement?.querySelector<HTMLElement>("[data-billy-says]");
-  const mascot = button.querySelector(".mascot");
-  let count = 0;
-  let hide: number | undefined;
-  button.addEventListener("click", () => {
-    if (mascot) {
-      greet(mascot);
-    }
-    button.classList.remove("is-bursting");
-    void button.offsetWidth;
-    button.classList.add("is-bursting");
-    if (says) {
-      says.textContent = replies[count % replies.length] ?? "";
-      count += 1;
-      says.classList.add("is-shown");
-      window.clearTimeout(hide);
-      hide = window.setTimeout(() => says.classList.remove("is-shown"), 2800);
-    }
-  });
 }

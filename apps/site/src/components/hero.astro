@@ -56,15 +56,7 @@ const stars = [
     <img class="px log log--right" src={world.log} alt="" width="320" height="88" />
     <img class="px log log--top" src={world.log} alt="" width="320" height="88" />
 
-    <button class="billy-button" type="button" data-billy aria-label="Say hi to Billy">
-      <Billy class="billy" outfit="forest" greet alive />
-      <span class="burst" aria-hidden="true">
-        <img class="px" src={world.sparkle} alt="" width="24" height="24" />
-        <img class="px" src={world.sparkle} alt="" width="16" height="16" />
-        <img class="px" src={world.sparkle} alt="" width="32" height="32" />
-      </span>
-    </button>
-    <p class="billy-says" data-billy-says aria-live="polite"></p>
+    <Billy class="billy" outfit="forest" />
 
     <img class="px sparkle sparkle--a" src={world.sparkle} alt="" width="24" height="24" />
     <img class="px sparkle sparkle--b" src={world.sparkle} alt="" width="32" height="32" />
@@ -157,8 +149,7 @@ const stars = [
   .log,
   .sparkle,
   .float,
-  .billy-button,
-  .billy-says {
+  .valley :global(.billy) {
     position: absolute;
   }
 
@@ -181,68 +172,10 @@ const stars = [
     inset-inline-start: calc(50% - 170px);
   }
 
-  /* Billy is a button: he answers a tap (src/scripts/site.ts). */
-  .billy-button {
+  .valley :global(.billy) {
     --mascot-size: 384px;
     inset-block-end: 172px;
     inset-inline-start: calc(50% - 190px);
-    padding: 0;
-    border: 0;
-    border-radius: var(--radius-lg);
-    background: none;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    transition: scale var(--duration-quick) var(--easing-standard);
-    transform-origin: 50% 95%;
-  }
-
-  .billy-button:active {
-    scale: 0.97;
-  }
-
-  .billy-button :global(.billy) {
-    display: grid;
-  }
-
-  .burst {
-    position: absolute;
-    inset-block-start: 18%;
-    inset-inline-start: 48%;
-    pointer-events: none;
-  }
-
-  .burst img {
-    position: absolute;
-    opacity: 0;
-  }
-
-  .billy-says {
-    inset-block-end: calc(172px + 330px);
-    inset-inline-start: calc(50% + 60px);
-    max-inline-size: 240px;
-    margin: 0;
-    padding: var(--space-2) var(--space-4);
-    border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-tail);
-    background: var(--color-surface-raised);
-    box-shadow: var(--shadow-soft);
-    color: var(--color-ink);
-    font: var(--text-body);
-    opacity: 0;
-    scale: 0.9;
-    transform-origin: left bottom;
-    pointer-events: none;
-    transition:
-      opacity var(--duration-standard) var(--easing-standard),
-      scale var(--duration-standard) var(--easing-pop);
-  }
-
-  .billy-says:global(.is-shown) {
-    opacity: 1;
-    scale: 1;
-  }
-
-  .billy-says:empty {
-    display: none;
   }
 
   .sparkle--a {
@@ -288,26 +221,10 @@ const stars = [
     }
   }
 
-  @keyframes burst {
-    0% {
-      opacity: 0;
-      transform: translate(0, 0) scale(0.6);
-    }
-
-    20% {
-      opacity: 1;
-    }
-
-    100% {
-      opacity: 0;
-      transform: translate(var(--dx), -90px) scale(1.1);
-    }
-  }
-
   @media (prefers-reduced-motion: no-preference) {
     .float {
       animation: float-in var(--duration-enter) var(--easing-standard) both;
-      animation-delay: calc(400ms + var(--i) * 220ms);
+      animation-delay: calc(300ms + var(--i) * 80ms);
     }
 
     .bob {
@@ -327,23 +244,6 @@ const stars = [
       animation-delay: -1700ms;
     }
 
-    .billy-button:global(.is-bursting) .burst img {
-      animation: burst 900ms var(--easing-standard) both;
-    }
-
-    .burst img:nth-child(1) {
-      --dx: -70px;
-    }
-
-    .burst img:nth-child(2) {
-      --dx: 10px;
-      animation-delay: 80ms;
-    }
-
-    .burst img:nth-child(3) {
-      --dx: 80px;
-      animation-delay: 160ms;
-    }
   }
 
   @media (max-width: 1180px) {
@@ -377,17 +277,12 @@ const stars = [
       padding-block: var(--space-6) 450px;
     }
 
-    .billy-button {
+    .valley :global(.billy) {
       --mascot-size: 256px;
       inset-block-end: 179px;
       inset-inline-start: calc(50% - 120px);
     }
 
-    .billy-says {
-      inset-block-end: calc(179px + 210px);
-      inset-inline-start: calc(50% + 20px);
-      max-inline-size: 180px;
-    }
 
     .float--ask,
     .float--reply {

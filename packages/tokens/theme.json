@@ -314,16 +314,13 @@
         1
       ]
     },
-    "easing-pop": {
+    "easing-drawer": {
       "cubicBezier": [
-        0.34,
-        1.56,
-        0.64,
+        0.32,
+        0.72,
+        0,
         1
       ]
-    },
-    "duration-breathe": {
-      "milliseconds": 3400
     }
   }
 }
