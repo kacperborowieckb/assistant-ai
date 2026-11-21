@@ -1,6 +1,6 @@
 # Vision
 
-Working name: assistant-ai. Choose a brand name before a public or paid launch.
+The product name is Billy, and Billy the Beaver is its mascot.
 
 Terms follow [CONTEXT.md](../../CONTEXT.md). The research source is [the Cloudflare feasibility study](../research/2026-11-12-cloudflare-feasibility.md).
 

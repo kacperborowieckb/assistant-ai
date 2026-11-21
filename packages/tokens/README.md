@@ -1,6 +1,6 @@
 # Design tokens
 
-[tokens.json](tokens.json) is the single source for the colors, type, spacing, radii, sizes, shadows, and motion of the marketing site and the iOS app. No hex value, size, or font is written by hand outside it ([design direction](../../docs/product/design-direction.md), principle 2). The file uses the format of the Assistant Billy design system, so the two can be synced in both directions.
+[tokens.json](tokens.json) is the single source for the colors, type, spacing, radii, sizes, shadows, and motion of the marketing site and the iOS app. No hex value, size, or font is written by hand outside it ([design direction](../../docs/product/design-direction.md), principle 2). The file uses the format of the Billy design system, so the two can be synced in both directions.
 
 ## Outputs
 
@@ -33,6 +33,6 @@ CSS names: colors are `--color-<name>`, families are `--font-<name>`, each text 
 
 1. Edit `tokens.json`. Every token needs a `usage` note that says where it goes.
 2. Run `pnpm --filter @repo/tokens build`, then `pnpm --filter @repo/tokens verify`.
-3. Sync the Assistant Billy design system from the new file, so designers and the code see the same values.
+3. Sync the Billy design system from the new file, so designers and the code see the same values.
 
 The [component contracts](../../docs/product/components.md) name the tokens each shared component uses. Billy's artwork lives in [@repo/mascot](../mascot/README.md).

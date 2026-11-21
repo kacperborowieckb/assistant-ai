@@ -8,15 +8,15 @@ import PixelIcon from "./pixel-icon.astro";
     <p class="eyebrow">Self-host</p>
     <h2 id="self-host-title" class="display-section">Run Billy on your own account.</h2>
     <p>Billy is open source. Deploy him to your own Cloudflare account, bring your own model key, and keep every byte where you can see it.</p>
-    <a class={buttonVariants({ variant: "outline" })} href="https://github.com/kacperborowieckb/assistant-ai">Read the source</a>
+    <a class={buttonVariants({ variant: "outline" })} href="https://github.com/kacperborowieckb/billy">Read the source</a>
   </div>
   <figure class="terminal" data-reveal>
     <figcaption>
       <PixelIcon name="connector" scale={1} />
       <span>Clone, install, and check your setup</span>
     </figcaption>
-    <pre><code><span class="prompt" aria-hidden="true">$ </span>git clone https://github.com/kacperborowieckb/assistant-ai
-<span class="prompt" aria-hidden="true">$ </span>cd assistant-ai
+    <pre><code><span class="prompt" aria-hidden="true">$ </span>git clone https://github.com/kacperborowieckb/billy
+<span class="prompt" aria-hidden="true">$ </span>cd billy
 <span class="prompt" aria-hidden="true">$ </span>pnpm install
 <span class="prompt" aria-hidden="true">$ </span>pnpm --filter @repo/agent control doctor
 <span class="ok">Result: healthy</span></code></pre>

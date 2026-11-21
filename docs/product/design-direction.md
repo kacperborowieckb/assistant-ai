@@ -1,6 +1,6 @@
 # Design direction
 
-This document sets the direction for how the marketing site and the iOS app look, feel, and are built. It states principles, not a plan. Terms follow [CONTEXT.md](../../CONTEXT.md). The visual language itself (colors, type, Billy, copy rules) lives in the Assistant Billy design system. Its values live in code in [@repo/tokens](../../packages/tokens/README.md), and the shared components are written down in [the component contracts](components.md).
+This document sets the direction for how the marketing site and the iOS app look, feel, and are built. It states principles, not a plan. Terms follow [CONTEXT.md](../../CONTEXT.md). The visual language itself (colors, type, Billy, copy rules) lives in the Billy design system. Its values live in code in [@repo/tokens](../../packages/tokens/README.md), and the shared components are written down in [the component contracts](components.md).
 
 ## The feel
 

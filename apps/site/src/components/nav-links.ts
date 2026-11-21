@@ -6,4 +6,4 @@ export const navLinks = [
   { href: "/#faq", label: "Questions" },
 ] as const;
 
-export const sourceUrl = "https://github.com/kacperborowieckb/assistant-ai";
+export const sourceUrl = "https://github.com/kacperborowieckb/billy";

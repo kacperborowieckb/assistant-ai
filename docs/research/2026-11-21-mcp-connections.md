@@ -2,7 +2,7 @@
 
 Date: 2026-11-21
 
-Status: research source for the MCP Connection spec. It builds on spec 1, [Actions and Approval (#139)](https://github.com/kacperborowieckb/assistant-ai/issues/139). Use it as the input for a grilling session or for `to-spec`. Where a later decision differs from this research, the decision is correct.
+Status: research source for the MCP Connection spec. It builds on spec 1, [Actions and Approval (#139)](https://github.com/kacperborowieckb/billy/issues/139). Use it as the input for a grilling session or for `to-spec`. Where a later decision differs from this research, the decision is correct.
 
 ## Goal
 
@@ -166,7 +166,7 @@ Target: Kody's connection layer with gsv's Approval rule, on our own Turn, Appro
 
 Read on 2026-11-21.
 
-- [Spec 1: Actions and Approval (#139)](https://github.com/kacperborowieckb/assistant-ai/issues/139)
+- [Spec 1: Actions and Approval (#139)](https://github.com/kacperborowieckb/billy/issues/139)
 - Decisions [0003](../decisions/0003-runtime-and-model-stack.md) and [0009](../decisions/0009-agent-loop-and-client-boundaries.md)
 - Agents SDK 0.33.0: `docs/mcp-client.md`, `docs/lifecycle.md`, and `restoreConnectionsFromStorage()` in `dist/client-*.js`
 - Kody: `docs/use/mcp-client-servers.md`, `docs/contributing/architecture/mcp-client-servers.md`, `packages/worker/src/mcp-client/hub.ts`

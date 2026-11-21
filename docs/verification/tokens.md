@@ -9,4 +9,4 @@ Run `pnpm --filter @repo/tokens verify`. It first runs `node build.mjs --check`,
 
 The tests use only the checked-in files and need no credentials or network access.
 
-After a change to `tokens.json`, run `pnpm --filter @repo/tokens build` and commit the outputs with it. Then sync the Assistant Billy design system from `tokens.json`.
+After a change to `tokens.json`, run `pnpm --filter @repo/tokens build` and commit the outputs with it. Then sync the Billy design system from `tokens.json`.

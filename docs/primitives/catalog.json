@@ -11,7 +11,7 @@
     },
     {
       "id": "design-tokens",
-      "purpose": "The design tokens of the marketing site and the iOS app: one tokens.json (colors in light and dark, type, spacing, radii, sizes, shadows, and motion) in the Assistant Billy design system format. A build writes tokens.css (custom properties with a dark theme and reduced motion) and theme.json (resolved colors and point values for the native app), and refuses any color pair in contrast.pairs that is below its WCAG AA minimum in any theme.",
+      "purpose": "The design tokens of the marketing site and the iOS app: one tokens.json (colors in light and dark, type, spacing, radii, sizes, shadows, and motion) in the Billy design system format. A build writes tokens.css (custom properties with a dark theme and reduced motion) and theme.json (resolved colors and point values for the native app), and refuses any color pair in contrast.pairs that is below its WCAG AA minimum in any theme.",
       "roots": ["packages/tokens"],
       "adrs": [
         "docs/decisions/0001-repository-foundation.md",

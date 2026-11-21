@@ -36,7 +36,7 @@ The MVP limits scope, not quality (vision principle 9). Each part in scope is bu
 - Model Gateway: the providers behind one interface, through Cloudflare AI Gateway, with Unified Billing by default and BYOK as an option ([0005](../decisions/0005-model-transport-and-billing.md)).
 - Usage metering for each Owner.
 - Reliability base: a Trace for every Turn and a starter Eval set measured as pass^k.
-- Setup: `packages/create-assistant`, one command that creates resources, writes config, and asks for secrets, plus a "Deploy to Cloudflare" button.
+- Setup: `packages/create-billy`, one command that creates resources, writes config, and asks for secrets, plus a "Deploy to Cloudflare" button.
 
 ## Starter Eval set
 
