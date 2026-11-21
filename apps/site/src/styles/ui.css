@@ -88,7 +88,16 @@
     animation: none !important;
   }
 
-  [data-slot="button"] {
+  /* Every buttonVariants() output, links included, carries group/button.
+     Tailwind v4's scale-[…] sets the scale property, so reset it too. */
+  [data-slot="button"],
+  .group\/button {
     transform: none !important;
+  }
+
+  /* A rule of its own: the minifier folds scale into transform when both sit
+     in one rule, which leaves the scale property untouched. */
+  :is([data-slot="button"], .group\/button):active {
+    scale: 1 !important;
   }
 }
